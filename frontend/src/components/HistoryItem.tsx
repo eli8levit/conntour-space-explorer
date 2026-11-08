@@ -19,8 +19,9 @@ export function HistoryItem({ search, onDelete }: HistoryItemProps) {
         to={`/search/${search.id}`}
         className="group flex min-w-0 flex-1 items-center gap-4 rounded-sm"
       >
-        <span className="flex w-[7.5rem] shrink-0 gap-1">
-          {search.preview_thumbs.slice(0, 3).map((thumb) => (
+        {/* Fixed width keeps queries aligned even when a search has fewer than 3 results. Phones show 1 thumb. */}
+        <span className="flex w-10 shrink-0 gap-1 sm:w-32">
+          {search.preview_thumbs.slice(0, 3).map((thumb, index) => (
             <img
               key={thumb}
               src={thumb}
@@ -28,7 +29,7 @@ export function HistoryItem({ search, onDelete }: HistoryItemProps) {
               loading="lazy"
               width={40}
               height={30}
-              className="h-[30px] w-10 rounded-sm border border-line bg-raised object-cover"
+              className={`h-[30px] w-10 rounded-sm border border-line bg-raised object-cover ${index > 0 ? "hidden sm:block" : ""}`}
             />
           ))}
         </span>

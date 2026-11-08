@@ -95,7 +95,7 @@ export interface PlaceRow {
 }
 
 export interface Health {
-  status: string;
-  db: string;
+  status: "ok" | "degraded" | "down";
+  db: boolean;
   embedder: "bge-small" | "keyword-only";
 }
