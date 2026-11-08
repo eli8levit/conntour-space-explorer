@@ -64,6 +64,12 @@ class SearchIndexRepository:
         self, query: str, query_vector: list[float] | None, pool: int
     ) -> list[Candidate]:
         qvec = vector_literal(query_vector) if query_vector is not None else None
+        if qvec is not None:
+            # An HNSW index scan returns at most hnsw.ef_search rows (default 40), so the
+            # vector branch's LIMIT :pool would be cut to 40 at scale. SET LOCAL raises it
+            # for this transaction only. At 100 rows Postgres scans instead, so it changes
+            # nothing today. (int(): SET takes no bind parameters; 1000 is pgvector's max.)
+            await self._session.execute(text(f"SET LOCAL hnsw.ef_search = {min(int(pool), 1000)}"))
         result = await self._session.execute(
             HYBRID_CANDIDATES_SQL, {"query": query, "qvec": qvec, "pool": pool}
         )
