@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { OPENED_IN_APP, useImageParam } from "../hooks/useImageParam";
 import type { PlaceRow } from "../api/types";
 import { bodyLabel, provenanceLabel } from "../lib/format";
+import { isStrong } from "../lib/match";
 import { tierColor } from "./MarkerLayer";
 import { mainLabel, tierOf } from "./markers";
 import { cssColor, type Palette } from "./tokens";
@@ -53,7 +54,7 @@ interface PinCardProps {
 }
 
 export function PinCard({ row, confidence, onClose, onBack }: PinCardProps) {
-  const strong = confidence !== undefined && confidence >= 0.5;
+  const strong = confidence !== undefined && isStrong(confidence);
   // The current scene URL (?focus=, ?search=) plus ?image=: the details modal opens over the scene.
   const { imageLink } = useImageParam();
   return (

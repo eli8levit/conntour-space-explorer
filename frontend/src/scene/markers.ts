@@ -3,6 +3,7 @@
 // tested in markers.test.ts.
 import { Vector3 } from "three";
 import type { Body, PlaceRow } from "../api/types";
+import { isStrong } from "../lib/match";
 import { clusterNearby, fanOut, type LatLon } from "./cluster";
 import { latLonToVector } from "./geo";
 import { deepSpaceAnchor, EARTH, MARS, MOON, orbitPosition, RINGS, ringOf, type RingName, type Sphere } from "./layout";
@@ -70,7 +71,7 @@ export function tierOf(sourceId: number, confidences: Map<number, number> | null
   if (!confidences) return "normal";
   const confidence = confidences.get(sourceId);
   if (confidence === undefined) return "dim";
-  return confidence >= 0.5 ? "strong" : "faint";
+  return isStrong(confidence) ? "strong" : "faint";
 }
 
 const TIER_RANK: Record<Tier, number> = { dim: 0, normal: 1, faint: 2, strong: 3 };
