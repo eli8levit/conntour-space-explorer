@@ -1,14 +1,23 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
-import type { Source } from "../api/types";
-import { useSimilar, useSource } from "../hooks/sources";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useLocation, useMatch, useNavigate } from "react-router-dom";
+import type { SearchHit, Source } from "../api/types";
+import { useSource } from "../hooks/sources";
 import { useImageParam } from "../hooks/useImageParam";
-import { bodyLabel, formatCoordinates, formatDate, formatPercent, provenanceLabel } from "../lib/format";
+import { useResultView } from "../hooks/useResultView";
+import { displayTitle } from "../lib/displayTitle";
+import { sizeLabel } from "../lib/details";
+import { formatPercent } from "../lib/format";
+import { parseId } from "../lib/ids";
+import { formatRank, isStrong } from "../lib/match";
 import { ErrorState } from "./ErrorState";
+import { FadeImage } from "./FadeImage";
+import { ChevronIcon } from "./Icons";
+import { ImageDetails } from "./ImageDetails";
+import { RankBadge } from "./MatchMarks";
 
 /**
- * Image detail, opened by ?image=<id> in the URL on any page. Mounted once
- * in the Layout, so Browse and Search results share it.
+ * A3, image details, opened by ?image=<id> on any page. Mounted once in the
+ * Layout, so the archive (A1) and the results (A2) share it.
  */
 export function ImageModal() {
   const { imageId, closeImage } = useImageParam();
@@ -16,19 +25,47 @@ export function ImageModal() {
   return <ImageDialog id={imageId} onClose={closeImage} />;
 }
 
+/** Where this image sits in what the user is browsing: the result list on A2, date order on A1. */
+function useBrowseContext(id: number) {
+  const searchId = parseId(useMatch("/search/:id")?.params.id);
+  const view = useResultView(searchId);
+  const hit: SearchHit | null = view.results.find((result) => result.source.id === id) ?? null;
+  const inResults = view.visible.some((result) => result.source.id === id);
+  // Prev/next walk the current results in rank order; a set-aside image walks the archive by date.
+  const order = inResults
+    ? view.visible.map((result) => result.source.id)
+    : (view.archive.data?.items ?? []).map((source) => source.id);
+  const index = order.indexOf(id);
+  return {
+    hit,
+    query: view.search.data?.query ?? null,
+    semanticOn: view.search.data?.engine !== "keyword",
+    position: inResults ? { index: index + 1, of: order.length } : null,
+    prevId: index > 0 ? order[index - 1]! : null,
+    nextId: index >= 0 && index < order.length - 1 ? order[index + 1]! : null,
+    archive: view.archive.data?.items ?? [],
+    extent: view.extent,
+  };
+}
+
 function ImageDialog({ id, onClose }: { id: number; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const heading = useRef<HTMLHeadingElement>(null);
   const source = useSource(id);
+  const context = useBrowseContext(id);
+  const { imageLink } = useImageParam();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // The native <dialog> with showModal() gives us, for free: a focus trap,
   // an inert page behind it, and the Esc key (the "cancel" event below).
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;
-    // Remember what had focus (the card link), so closing returns focus to it.
+    // Remember what had focus (the frame link), so closing returns focus to it.
     const opener = document.activeElement as HTMLElement | null;
     element.showModal();
+    // showModal() would focus the first button (×). Start on the title instead.
+    element.querySelector<HTMLElement>("[data-initial-focus]")?.focus();
     document.body.style.overflow = "hidden"; // stop the page scrolling behind
     return () => {
       element.close();
@@ -37,168 +74,129 @@ function ImageDialog({ id, onClose }: { id: number; onClose: () => void }) {
     };
   }, []);
 
-  // "More like this" swaps the image inside the open dialog: go back to the
-  // top and move focus to the new title (the clicked link may no longer exist).
-  const firstId = useRef(id);
-  useEffect(() => {
-    if (id === firstId.current) return;
-    dialog.current?.scrollTo({ top: 0 });
-    heading.current?.focus();
-  }, [id]);
+  /** Prev/next swap the image in place: `replace`, so stepping does not fill the Back button. */
+  const go = (nextId: number | null) => {
+    if (nextId !== null) navigate(imageLink(nextId), { replace: true, state: location.state });
+  };
+
+  function onKeyDown(event: KeyboardEvent) {
+    if ((event.target as HTMLElement).closest("input, textarea")) return;
+    if (event.key === "ArrowLeft") go(context.prevId);
+    if (event.key === "ArrowRight") go(context.nextId);
+  }
+
+  const data = source.data;
+  const title = data ? displayTitle(data) : "Image";
 
   return (
     <dialog
       ref={dialog}
-      aria-labelledby="image-dialog-title"
+      aria-label={`${title}, details`}
       onCancel={(event) => {
         // Esc: let the URL close the dialog (same path as Back), not the browser.
         event.preventDefault();
         onClose();
       }}
       onClick={(event) => {
-        // A click on the dialog element itself (not its content) is a click on the backdrop.
+        // A click on the dialog element itself (not its content) is a click on the scrim.
         if (event.target === event.currentTarget) onClose();
       }}
-      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-5xl overflow-y-auto rounded border border-line bg-surface text-fg backdrop:bg-black/75"
+      onKeyDown={onKeyDown}
+      className="m-auto h-[calc(100dvh-32px)] max-h-none w-[calc(100vw-32px)] max-w-none overflow-hidden border border-line-strong bg-[#0D0D0F] p-0 text-fg shadow-modal backdrop:bg-[var(--scrim)] min-[900px]:h-[min(788px,calc(100dvh-64px))] min-[900px]:w-[min(1280px,calc(100vw-64px))]"
     >
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-line bg-surface px-4 py-3">
-        <h2
-          id="image-dialog-title"
-          ref={heading}
-          tabIndex={-1}
-          className="truncate text-sm font-medium focus-visible:outline-none"
-        >
-          {source.data?.title ?? "Loading…"}
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="shrink-0 rounded-sm px-2 py-1 text-sm text-muted hover:text-fg"
-        >
-          Close<span className="sr-only"> image details</span>
-        </button>
-      </div>
-
-      <div className="p-4">
-        {source.isPending && <div className="aspect-[4/3] animate-pulse rounded-sm bg-raised" />}
-        {source.isError && (
-          <ErrorState title="Could not load this image" error={source.error} onRetry={() => void source.refetch()} />
-        )}
-        {source.data && <SourceDetails source={source.data} />}
-        <MoreLikeThis id={id} />
+      <div className="grid h-full grid-rows-[55vh_minmax(0,1fr)] min-[900px]:grid-cols-[minmax(0,720px)_minmax(0,1fr)] min-[900px]:grid-rows-1">
+        <ImagePane
+          source={data}
+          hit={context.hit}
+          position={context.position}
+          onPrev={context.prevId !== null ? () => go(context.prevId) : undefined}
+          onNext={context.nextId !== null ? () => go(context.nextId) : undefined}
+        />
+        {/* Keyed by image: prev/next start the column scrolled to the top, with "Show more" closed again. */}
+        <div key={id} className="min-h-0 overflow-y-auto">
+          {source.isError && (
+            <div className="p-8">
+              <ErrorState title="Could not load this image." error={source.error} onRetry={() => void source.refetch()} />
+            </div>
+          )}
+          {data && (
+            <ImageDetails
+              source={data}
+              hit={context.hit}
+              query={context.hit ? context.query : null}
+              semanticOn={context.semanticOn}
+              archive={context.archive}
+              extent={context.extent}
+              onClose={onClose}
+            />
+          )}
+        </div>
       </div>
     </dialog>
   );
 }
 
-function SourceDetails({ source }: { source: Source }) {
-  const place = source.place;
-  const coordinates = place ? formatCoordinates(place) : null;
-  return (
-    <div className="grid gap-6 md:grid-cols-[3fr_2fr]">
-      <a href={source.image_url} target="_blank" rel="noreferrer" className="block rounded-sm">
-        <img
-          src={source.image_url}
-          alt={source.title}
-          // min-h keeps the frame visible while the large image downloads.
-          className="max-h-[70vh] min-h-60 w-full rounded-sm border border-line bg-bg object-contain"
-        />
-        <span className="sr-only">Open the full image in a new tab</span>
-      </a>
+interface ImagePaneProps {
+  source: Source | undefined;
+  hit: SearchHit | null;
+  position: { index: number; of: number } | null;
+  onPrev?: () => void;
+  onNext?: () => void;
+}
 
-      <div className="min-w-0 text-sm">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-          <Field label="NASA ID">
-            <span className="font-mono">{source.nasa_id}</span>
-          </Field>
-          <Field label="Date">
-            <span className="font-mono">{formatDate(source.date_created)}</span>
-          </Field>
-          <Field label="Center">{source.center}</Field>
-          {source.photographer && <Field label="Photographer">{source.photographer}</Field>}
-          {source.location && <Field label="Location">{source.location}</Field>}
-          {place && (
-            <Field label="Place">
-              {place.label}
-              <span className="block text-xs text-muted">
-                {bodyLabel(place.body)}
-                {coordinates && <span className="font-mono"> · {coordinates}</span>}
-                {" · "}
-                {provenanceLabel(place.provenance)}
-              </span>
-            </Field>
+/** The left half: the full image, never cropped, with the match chip and the prev/next buttons. */
+function ImagePane({ source, hit, position, onPrev, onNext }: ImagePaneProps) {
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const size = source ? sizeLabel(source) : null;
+  const arrow =
+    "absolute top-1/2 flex h-14 w-11 -translate-y-1/2 items-center justify-center border border-line-strong bg-bg/75 text-fg transition-colors hover:border-faint disabled:invisible";
+  return (
+    <div className="relative flex min-h-0 items-center justify-center overflow-hidden bg-[#050506]">
+      {source && (
+        <>
+          {/* The small thumbnail, blurred, holds the space until the medium image has loaded. */}
+          {loadedSrc !== source.image_url && (
+            <img src={source.thumb_url} alt="" aria-hidden="true" className="absolute h-full w-full object-contain opacity-60 blur-md" />
           )}
-        </dl>
+          <FadeImage
+            src={source.image_url}
+            alt={displayTitle(source)}
+            onLoad={() => setLoadedSrc(source.image_url)}
+            className="relative h-full w-full object-contain"
+          />
+        </>
+      )}
 
-        {source.keywords.length > 0 && (
-          <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Keywords">
-            {source.keywords.map((keyword) => (
-              <li key={keyword} className="rounded-sm border border-line px-1.5 py-0.5 text-xs text-muted">
-                {keyword}
-              </li>
-            ))}
-          </ul>
-        )}
+      {hit && (
+        <div className="absolute left-5 top-[18px] flex items-center gap-2">
+          <RankBadge rank={formatRank(hit.rank)} strong={isStrong(hit.confidence)} size="modal" />
+          <span className="bg-bg/80 px-2.5 py-[5px] text-[13px] leading-none">
+            {formatPercent(hit.confidence)} match{position && ` · ${position.index} of ${position.of}`}
+          </span>
+        </div>
+      )}
 
-        {/* NASA captions use line breaks as paragraphs, so we keep them. */}
-        <p className="mt-4 whitespace-pre-line break-words leading-relaxed text-muted">{source.description}</p>
+      <button type="button" onClick={onPrev} disabled={!onPrev} aria-label="Previous image" className={`${arrow} left-4`}>
+        <ChevronIcon direction="left" size={20} />
+      </button>
+      <button type="button" onClick={onNext} disabled={!onNext} aria-label="Next image" className={`${arrow} right-4`}>
+        <ChevronIcon size={20} />
+      </button>
 
-        <a
-          href={`https://images.nasa.gov/details/${encodeURIComponent(source.nasa_id)}`}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 inline-block rounded-sm text-sm underline underline-offset-4 hover:text-fg"
-        >
-          View the original on images.nasa.gov
-        </a>
-      </div>
+      {source && (
+        <div className="absolute inset-x-5 bottom-[18px] flex items-center justify-between gap-3">
+          {size ? <span className="bg-bg/80 px-[9px] py-[5px] text-xs text-[#C9C7C1]">{size}</span> : <span />}
+          {/* The API has only the medium rendition, so the link says what it opens. */}
+          <a
+            href={source.image_url}
+            target="_blank"
+            rel="noreferrer"
+            className="border border-[#3A3A40] bg-bg/80 px-3 py-[7px] text-[13px] transition-colors hover:border-faint"
+          >
+            Open image ↗
+          </a>
+        </div>
+      )}
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <>
-      <dt className="text-muted">{label}</dt>
-      <dd className="min-w-0 break-words">{children}</dd>
-    </>
-  );
-}
-
-function MoreLikeThis({ id }: { id: number }) {
-  const similar = useSimilar(id);
-  const { imageLink } = useImageParam();
-  // Keep the router state (opened in app or not), so Close still behaves the same.
-  const location = useLocation();
-
-  if (similar.isPending) return null;
-  if (similar.isError || similar.data.length === 0) {
-    return <p className="mt-8 text-xs text-faint">No similar images available.</p>;
-  }
-  return (
-    <section className="mt-8 border-t border-line pt-4" aria-labelledby="similar-title">
-      <h3 id="similar-title" className="text-xs uppercase tracking-wider text-muted">
-        More like this
-      </h3>
-      <ul className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
-        {similar.data.map((hit) => (
-          <li key={hit.source.id}>
-            {/* replace: swapping images should not add Back steps. */}
-            <Link to={imageLink(hit.source.id)} replace state={location.state} className="group block rounded-sm">
-              <img
-                src={hit.source.thumb_url}
-                alt=""
-                loading="lazy"
-                width={160}
-                height={120}
-                className="aspect-[4/3] w-full rounded-sm border border-line bg-raised object-cover group-hover:opacity-90"
-              />
-              <span className="mt-1 block truncate text-xs">{hit.source.title}</span>
-              <span className="block font-mono text-[11px] text-faint">{formatPercent(hit.confidence)} similar</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }

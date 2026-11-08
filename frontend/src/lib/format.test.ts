@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  confidenceLevel,
   formatCoordinates,
   formatDate,
+  formatTime,
+  yearOf,
   formatPercent,
   formatRelativeTime,
   isBody,
@@ -42,18 +43,18 @@ describe("isBody", () => {
   });
 });
 
-describe("confidenceLevel", () => {
-  it("maps scores to three levels", () => {
-    expect(confidenceLevel(0.9)).toBe("high");
-    expect(confidenceLevel(0.7)).toBe("high");
-    expect(confidenceLevel(0.5)).toBe("medium");
-    expect(confidenceLevel(0.1)).toBe("low");
+describe("formatDate", () => {
+  it("formats midnight UTC as that same day in every time zone", () => {
+    expect(formatDate("2018-06-25T00:00:00Z")).toBe("25 Jun 2018");
+    expect(formatDate("2024-09-04T00:00:00Z")).toBe("4 Sep 2024");
+    expect(yearOf("2018-01-01T00:00:00Z")).toBe(2018);
   });
 });
 
-describe("formatDate", () => {
-  it("formats midnight UTC as that same day in every time zone", () => {
-    expect(formatDate("2018-06-25T00:00:00Z")).toBe("Jun 25, 2018");
+describe("formatTime", () => {
+  it("uses a 24-hour clock", () => {
+    // Built from local parts, so the test passes in any time zone.
+    expect(formatTime(new Date(2026, 10, 8, 23, 31).toISOString())).toBe("23:31");
   });
 });
 
@@ -78,7 +79,8 @@ describe("place labels", () => {
   });
 
   it("formats coordinates, or null when there are none", () => {
-    expect(formatCoordinates({ lat: -5.20235, lon: 138.126 })).toBe("-5.20°, 138.13°");
+    expect(formatCoordinates({ lat: -5.20235, lon: 138.126 })).toBe("\u22125.20°, 138.13°");
+    expect(formatCoordinates({ lat: -0.001, lon: 0 })).toBe("0.00°, 0.00°");
     expect(formatCoordinates({ lat: null, lon: null })).toBeNull();
   });
 });

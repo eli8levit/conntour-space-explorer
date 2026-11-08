@@ -92,6 +92,14 @@ export const api = {
 
   deleteSearch: (id: number) => request<void>(`/searches/${id}`, { method: "DELETE" }),
 
+  /**
+   * The same DELETE, fired while the page closes (an undo was still pending).
+   * `keepalive` lets the request finish after the tab is gone; nobody reads the answer.
+   */
+  deleteSearchOnUnload: (id: number) => {
+    void fetch(`/api/searches/${id}`, { method: "DELETE", keepalive: true }).catch(() => undefined);
+  },
+
   listPlaces: () => request<PlaceRow[]>("/places"),
 
   health: () => request<Health>("/health"),

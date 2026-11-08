@@ -18,28 +18,29 @@ export function scoreBreakdown(
   return semanticOn ? `Meaning ${formatPercent(hit.semantic_score)} · ${words}` : words;
 }
 
-export type ConfidenceLevel = "high" | "medium" | "low";
-
-// The backend already drops weak results below its threshold, so these
-// levels only change how strong the badge looks among the shown results.
-export function confidenceLevel(confidence: number): ConfidenceLevel {
-  if (confidence >= 0.7) return "high";
-  if (confidence >= 0.4) return "medium";
-  return "low";
-}
-
 /**
- * "2018-06-25T00:00:00Z" -> "Jun 25, 2018".
+ * "2018-06-25T00:00:00Z" -> "25 Jun 2018".
  * NASA dates are midnight UTC. Formatting in local time would show the
  * previous day for anyone west of Greenwich, so we format in UTC.
  */
 export function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(iso));
+  const date = new Date(iso);
+  // A fixed month list: en-GB's Intl writes "Sept", and the design uses three letters everywhere.
+  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** The UTC year of an ISO date (same reason as formatDate: NASA dates are UTC). */
+export function yearOf(iso: string): number {
+  return new Date(iso).getUTCFullYear();
+}
+
+/** "23:31": 24-hour local time, for when the user ran a search (their clock, not UTC). */
+export function formatTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }).format(
+    new Date(iso),
+  );
 }
 
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
@@ -92,8 +93,17 @@ export function provenanceLabel(provenance: Provenance): string {
   return PROVENANCE_LABELS[provenance];
 }
 
-/** "-5.20°, 138.13°", or null when the place has no coordinates (e.g. deep space). */
+// A true minus sign (U+2212), not a hyphen: it has the width of a digit, so columns line up.
+const MINUS = "\u2212";
+
+function formatDegrees(value: number): string {
+  const text = `${Math.abs(value).toFixed(2)}°`;
+  // -0.001 rounds to "0.00": no minus sign on a zero.
+  return value < 0 && text !== "0.00°" ? `${MINUS}${text}` : text;
+}
+
+/** "−5.20°, 138.13°", or null when the place has no coordinates (e.g. deep space). */
 export function formatCoordinates(place: Pick<Place, "lat" | "lon">): string | null {
   if (place.lat === null || place.lon === null) return null;
-  return `${place.lat.toFixed(2)}°, ${place.lon.toFixed(2)}°`;
+  return `${formatDegrees(place.lat)}, ${formatDegrees(place.lon)}`;
 }

@@ -26,6 +26,9 @@ export interface Source {
   photographer: string | null;
   location: string | null;
   image_url: string;
+  /** Pixel size of the medium rendition (image_url); null for 2 of the 100 images. */
+  width: number | null;
+  height: number | null;
   thumb_url: string;
   place: Place | null;
 }
@@ -66,18 +69,35 @@ export interface SearchDetail {
   results: SearchHit[];
 }
 
+/** One of the top-3 thumbnails on a history row, with its confidence for the little bar. */
+export interface SearchPreview {
+  thumb_url: string;
+  confidence: number;
+}
+
+/**
+ * One history row. strong_count, best_confidence and previews let the row say
+ * "13 images, 5 strong, best 100%" without loading the whole search.
+ */
 export interface SearchSummary {
   id: number;
   query: string;
   created_at: string;
   result_count: number;
-  preview_thumbs: string[];
+  /** Results with confidence >= STRONG_MATCH. */
+  strong_count: number;
+  /** null when the search returned nothing. */
+  best_confidence: number | null;
+  /** Top 3 by rank. */
+  previews: SearchPreview[];
 }
 
 /** Keyset page: pass next_cursor back to get the next page; null means the end. */
 export interface CursorPage<T> {
   items: T[];
   next_cursor: string | null;
+  /** Total rows across all pages (the history list sends it). */
+  total?: number;
 }
 
 /** A light row for the 3D scene: one pin per image. */
@@ -97,5 +117,5 @@ export interface PlaceRow {
 export interface Health {
   status: "ok" | "degraded" | "down";
   db: boolean;
-  embedder: "bge-small" | "keyword-only";
+  embedder: "minilm" | "keyword-only";
 }

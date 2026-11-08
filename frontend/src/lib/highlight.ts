@@ -20,9 +20,25 @@ function stem(word: string): string {
 
 /** The stemmed query words worth highlighting. */
 export function queryTerms(query: string): string[] {
+  return queryWords(query).map((word) => word.term);
+}
+
+/**
+ * Like queryTerms, but keeps the word as typed next to its stem, so copy can
+ * say "Matched mars" (the stem is "mar"). One entry per stem.
+ */
+export function queryWords(query: string): { word: string; term: string }[] {
   const words = query.toLowerCase().match(WORD) ?? [];
-  const terms = words.filter((word) => word.length >= 2 && !STOP_WORDS.has(word)).map(stem);
-  return [...new Set(terms)];
+  const seen = new Set<string>();
+  const result: { word: string; term: string }[] = [];
+  for (const word of words) {
+    if (word.length < 2 || STOP_WORDS.has(word)) continue;
+    const term = stem(word);
+    if (seen.has(term)) continue;
+    seen.add(term);
+    result.push({ word, term });
+  }
+  return result;
 }
 
 export interface TextPart {

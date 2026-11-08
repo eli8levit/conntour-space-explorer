@@ -280,7 +280,10 @@ export function SpaceScene({ rows, search, onClearSearch, focusId, onFocus }: Sp
           className: "text-[12px]",
         });
       } else if ((m.body === "mars" || m.body === "moon") && !m.trueSpot) {
-        list.push({ key: `n-${m.key}`, anchor: anchorOf(m), occluder: homeSphere(m.body), content: m.rows[0]!.label, className: "text-[12px] text-muted" });
+        // Only the feature name ("El Capitan", not "El Capitan, Meridiani Planum"): long labels ran
+        // off a phone screen. The card shows the full place.
+        const name = m.rows[0]!.label.split(",")[0]!;
+        list.push({ key: `n-${m.key}`, anchor: anchorOf(m), occluder: homeSphere(m.body), content: name, className: "text-[12px] text-muted" });
       }
     }
     if (selected) {
