@@ -44,6 +44,7 @@ class HistoryRepository:
                     confidence=hit.confidence,
                     keyword_score=hit.keyword_score,
                     semantic_score=hit.semantic_score,
+                    id_rule=hit.id_rule,
                 )
                 for rank, hit in enumerate(hits, start=1)
             ],
@@ -73,6 +74,7 @@ class HistoryRepository:
                     keyword_score=result.keyword_score,
                     semantic_score=result.semantic_score,
                     rank=result.rank,
+                    id_rule=result.id_rule,
                 )
                 for result in search.results
             ],

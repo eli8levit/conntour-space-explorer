@@ -93,18 +93,32 @@ def test_results_without_the_queried_id_can_never_be_strong():
     assert hits[1].confidence == pytest.approx(0.8 + 0.2 * 0.7)
     assert hits[2].confidence == pytest.approx((0.8 + 0.2 * 0.45) / 2)
     assert hits[2].confidence < 0.5
-    # The component scores are kept as they were, so the UI breakdown stays honest.
+    # The component scores are kept as they were, and id_rule says the blend was halved,
+    # so the UI breakdown stays honest.
     assert hits[2].semantic_score == 1.0
+    assert hits[2].id_rule == "halved"
+    # Already strong on its own: the rule changed nothing, so there is nothing to explain.
+    assert hits[1].id_rule is None
 
 
 def test_an_exact_id_match_is_always_strong():
     weak = Candidate(1, keyword_rank=0.4, term_coverage=1.0, cosine=0.25, has_query_ids=True)
-    assert score([weak], "hybrid", PARAMS)[0].confidence == 0.5
+    hit = score([weak], "hybrid", PARAMS)[0]
+    assert (hit.confidence, hit.id_rule) == (0.5, "raised")
 
 
 def test_queries_without_ids_are_not_affected():
     candidate = Candidate(1, keyword_rank=0.0, term_coverage=0.0, cosine=0.6, has_query_ids=None)
-    assert score([candidate], "hybrid", PARAMS)[0].confidence == pytest.approx(0.5)
+    hit = score([candidate], "hybrid", PARAMS)[0]
+    assert hit.confidence == pytest.approx(0.5)
+    assert hit.id_rule is None
+
+
+def test_id_rule_off_marks_nothing():
+    # The eval's --no-guards run sets the factor to 1.0: no score changes, so no "halved".
+    params = ScoringParams(0.2, 0.6, 0.8, 0.2, 0.2, 10, id_mismatch_factor=1.0)
+    other = Candidate(2, keyword_rank=0.9, term_coverage=0.5, cosine=0.9, has_query_ids=False)
+    assert score([other], "hybrid", params)[0].id_rule is None
 
 
 def test_gibberish_keeps_only_results_with_matching_words():

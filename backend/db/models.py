@@ -116,6 +116,8 @@ class SearchResultModel(Base):
     confidence: Mapped[float] = mapped_column(Float)
     keyword_score: Mapped[float] = mapped_column(Float)
     semantic_score: Mapped[float] = mapped_column(Float)
+    # "raised" | "halved" | NULL: what the ID rule did (search_types.IdRule).
+    id_rule: Mapped[str | None] = mapped_column(Text)
 
     search: Mapped[SearchModel] = relationship(back_populates="results")
     source: Mapped[SourceModel] = relationship()

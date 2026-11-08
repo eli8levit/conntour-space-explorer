@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  firstQueryId,
   formatCoordinates,
   formatDate,
   formatTime,
@@ -7,6 +8,7 @@ import {
   formatPercent,
   formatRelativeTime,
   isBody,
+  idRuleNote,
   provenanceLabel,
   scoreBreakdown,
 } from "./format";
@@ -24,14 +26,55 @@ describe("formatPercent", () => {
 });
 
 describe("scoreBreakdown", () => {
-  const hit = { semantic_score: 0.82, keyword_score: 0.4 };
+  const hit = { semantic_score: 0.82, keyword_score: 0.4, id_rule: null };
 
   it("shows both signals", () => {
-    expect(scoreBreakdown(hit, true)).toBe("Meaning 82% · Words 40%");
+    expect(scoreBreakdown(hit, true, "mars")).toBe("Meaning 82% · Words 40%");
   });
 
   it("shows only words when semantic search is off", () => {
-    expect(scoreBreakdown(hit, false)).toBe("Words 40%");
+    expect(scoreBreakdown(hit, false, "mars")).toBe("Words 40%");
+  });
+
+  it("says when the ID rule halved the score", () => {
+    // The live case: STS-129 shows 43%, while 0.8 × 100% + 0.2 × 27% would be 85%.
+    const other = { semantic_score: 1, keyword_score: 0.27, id_rule: "halved" as const };
+    expect(scoreBreakdown(other, true, "STS-135")).toBe(
+      "Meaning 100% · Words 27% · halved: “STS-135” is not in this image",
+    );
+  });
+
+  it("says when the ID rule raised the score", () => {
+    const exact = { semantic_score: 0.2, keyword_score: 0.3, id_rule: "raised" as const };
+    expect(scoreBreakdown(exact, false, "Expedition 61 crew")).toBe("Words 30% · raised: it has “Expedition 61”");
+  });
+});
+
+describe("firstQueryId", () => {
+  it("names the ID the way the user typed it", () => {
+    expect(firstQueryId("STS-135 crew")).toBe("STS-135");
+    expect(firstQueryId("PIA22505")).toBe("PIA22505");
+    expect(firstQueryId("Soyuz MS-13 landing")).toBe("MS-13");
+    expect(firstQueryId("Expedition 61")).toBe("Expedition 61");
+    expect(firstQueryId("61")).toBe("61");
+  });
+
+  it("prefers a letters-and-digits ID over a bare year", () => {
+    expect(firstQueryId("launch in 2011 STS-135")).toBe("STS-135");
+  });
+
+  it("is null without digits", () => {
+    expect(firstQueryId("red planet")).toBeNull();
+  });
+});
+
+describe("idRuleNote", () => {
+  it("is null when the rule changed nothing", () => {
+    expect(idRuleNote(null, "STS-135")).toBeNull();
+  });
+
+  it("falls back to 'the ID' when it cannot name one", () => {
+    expect(idRuleNote("halved", "")).toBe("halved: the ID is not in this image");
   });
 });
 

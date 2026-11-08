@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import config
-from search_types import Candidate, ScoredHit
+from search_types import Candidate, IdRule, ScoredHit
 
 __all__ = [
     "Candidate",
@@ -122,13 +122,17 @@ def score(
         if params.gibberish_guard and not query_has_known_words and kw == 0:
             continue  # rule 1: a meaning-only match for a query with no known words
         conf = confidence(sem, kw, mode, params)
-        # Rule 2: the queried ID decides the tier.
-        if candidate.has_query_ids is True:
-            conf = max(conf, config.STRONG_MATCH)
-        elif candidate.has_query_ids is False:
-            conf *= params.id_mismatch_factor
+        # Rule 2: the queried ID decides the tier. id_rule records a change, so the UI can
+        # say why the confidence is not the meaning/words blend it shows.
+        id_rule: IdRule | None = None
+        if candidate.has_query_ids is True and conf < config.STRONG_MATCH:
+            conf, id_rule = config.STRONG_MATCH, "raised"
+        elif candidate.has_query_ids is False and params.id_mismatch_factor < 1:
+            conf, id_rule = conf * params.id_mismatch_factor, "halved"
         if conf >= params.min_confidence:
-            hits.append(ScoredHit(candidate.source_id, round(conf, 4), round(kw, 4), round(sem, 4)))
+            hits.append(
+                ScoredHit(candidate.source_id, round(conf, 4), round(kw, 4), round(sem, 4), id_rule)
+            )
     # source_id breaks ties so equal scores keep a stable order between runs.
     hits.sort(key=lambda hit: (-hit.confidence, hit.source_id))
     return hits[: params.max_results]

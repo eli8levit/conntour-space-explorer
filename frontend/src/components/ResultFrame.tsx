@@ -27,13 +27,15 @@ interface ResultFrameProps extends HotProps {
   hit: SearchHit;
   to: string;
   semanticOn: boolean;
+  /** The search text: the breakdown names the ID when the ID rule changed the score. */
+  query: string;
 }
 
 /**
  * One result on A2. Its size says its rank (bigger = more confident); the
  * badge, the % and the bar say the same in text, so nothing relies on color.
  */
-export function ResultFrame({ hit, to, semanticOn, hot, onHot }: ResultFrameProps) {
+export function ResultFrame({ hit, to, semanticOn, query, hot, onHot }: ResultFrameProps) {
   const { source, rank, confidence } = hit;
   const [cols, rows] = rankSpan(rank);
   const tier = rankTier(rank);
@@ -89,7 +91,7 @@ export function ResultFrame({ hit, to, semanticOn, hot, onHot }: ResultFrameProp
       {hot && (
         <>
           <HotMarks />
-          <Breakdown text={scoreBreakdown(hit, semanticOn)} />
+          <Breakdown text={scoreBreakdown(hit, semanticOn, query)} />
         </>
       )}
     </li>

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import type { SearchHit, Source } from "../api/types";
 import { displayTitle, nasaTitleIfDifferent, titleForMatching } from "../lib/displayTitle";
 import { eyebrow, parseCaption } from "../lib/details";
-import { bodyLabel, formatCoordinates, formatDate, formatPercent, provenanceLabel, scoreBreakdown, yearOf } from "../lib/format";
+import { bodyLabel, formatCoordinates, formatDate, formatPercent, idRuleNote, provenanceLabel, scoreBreakdown, yearOf } from "../lib/format";
 import { queryTerms } from "../lib/highlight";
 import { isStrong, matchedTerms, whyLine } from "../lib/match";
 import { yearSentence, type YearRange } from "../lib/timeline";
@@ -173,7 +173,11 @@ function Keywords({ keywords, terms }: { keywords: string[]; terms: string[] }) 
 /** A3·10: how well it matched, and why. */
 function MatchBlock({ hit, query, semanticOn }: { hit: SearchHit; query: string; semanticOn: boolean }) {
   const strong = isStrong(hit.confidence);
-  const why = whyLine(matchedTerms(query, { ...hit.source, title: titleForMatching(hit.source) }), hit.semantic_score);
+  const why = whyLine(
+    matchedTerms(query, { ...hit.source, title: titleForMatching(hit.source) }),
+    hit.semantic_score,
+    idRuleNote(hit.id_rule, query),
+  );
   return (
     <div className="group relative flex flex-col gap-1.5">
       <span className="text-xs text-muted">Match for “{query}”</span>
@@ -184,7 +188,7 @@ function MatchBlock({ hit, query, semanticOn }: { hit: SearchHit; query: string;
       <span className="text-xs leading-normal text-muted">{why}.</span>
       {/* The breakdown: on hover for a mouse, always in the accessibility tree. */}
       <span className="text-[11px] text-faint opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100">
-        {scoreBreakdown(hit, semanticOn)}
+        {scoreBreakdown(hit, semanticOn, query)}
       </span>
     </div>
   );

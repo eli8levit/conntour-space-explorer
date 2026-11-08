@@ -108,6 +108,14 @@ async def test_only_images_with_the_queried_id_are_strong(client):
         text = hit["source"]["title"] + " " + hit["source"]["description"]
         if "STS-135" not in text:  # e.g. STS-129: related, but never a strong match
             assert hit["confidence"] < 0.5
+            assert hit["id_rule"] == "halved"  # the UI explains the lower score
+        else:
+            assert hit["id_rule"] in (None, "raised")
+    # The snapshot stores id_rule: reopening the search returns the same values.
+    reopened = (await client.get(f"/api/searches/{search['id']}")).json()
+    assert [hit["id_rule"] for hit in reopened["results"]] == [
+        hit["id_rule"] for hit in search["results"]
+    ]
 
 
 async def test_nasa_id_finds_its_image(client):

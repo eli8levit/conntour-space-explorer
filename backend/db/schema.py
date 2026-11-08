@@ -27,6 +27,8 @@ AS $$ SELECT array_to_string(arr, sep) $$
 SCHEMA_UPGRADES = (
     "ALTER TABLE sources ADD COLUMN IF NOT EXISTS short_title text",
     "ALTER TABLE sources ADD COLUMN IF NOT EXISTS credit text",
+    # Searches stored before this column existed keep NULL: their scores had no ID note.
+    "ALTER TABLE search_results ADD COLUMN IF NOT EXISTS id_rule text",
     # Indexes too: create_all skips indexes of a table that already exists.
     "CREATE INDEX IF NOT EXISTS ix_search_results_source_id ON search_results (source_id)",
 )

@@ -117,6 +117,7 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
             hit={hit}
             to={imageLink(hit.source.id)}
             semanticOn={semanticOn}
+            query={query}
             hot={hotId === hit.source.id}
             onHot={setHotId}
           />

@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, StringConstraints
 
 from config import MAX_QUERY_LENGTH
+from search_types import IdRule
 
 Body = Literal["earth", "orbit", "moon", "mars", "deep_space"]
 Provenance = Literal["caption", "location field", "NASA center (approx.)", "manual"]
@@ -64,6 +65,8 @@ class SearchHit(BaseModel):
     keyword_score: float
     semantic_score: float
     rank: int
+    # "raised" / "halved" when the ID rule changed the confidence, else None.
+    id_rule: IdRule | None = None
 
 
 class SearchRequest(BaseModel):

@@ -53,6 +53,13 @@ export interface Facets {
   bodies: FacetValue<Body>[];
 }
 
+/**
+ * What the backend's ID rule did to a result (backend/services/scoring.py, rule 2):
+ * "raised" an exact ID match to 50%, or "halved" a result without the ID. null means
+ * the confidence is the plain meaning/words blend.
+ */
+export type IdRule = "raised" | "halved";
+
 /** One search result. All scores are 0–1. */
 export interface SearchHit {
   source: Source;
@@ -60,6 +67,7 @@ export interface SearchHit {
   keyword_score: number;
   semantic_score: number;
   rank: number;
+  id_rule: IdRule | null;
 }
 
 /** "keyword" means the embedding model did not load and the backend fell back to full-text only. */

@@ -87,6 +87,12 @@ describe("whyLine", () => {
   it("says 'similar in meaning' when no word matched", () => {
     expect(whyLine([], 0.82)).toBe("Similar in meaning · Meaning 82%");
   });
+
+  it("ends with the ID rule's note when there is one", () => {
+    expect(whyLine([{ term: "sts", field: "title" }], 1, "halved: “STS-135” is not in this image")).toBe(
+      "Matched sts in the title · halved: “STS-135” is not in this image",
+    );
+  });
 });
 
 describe("SCORING_NOTE", () => {

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import type { SearchHit } from "../api/types";
 import { OPENED_IN_APP } from "../hooks/useImageParam";
 import { displayTitle, titleForMatching } from "../lib/displayTitle";
-import { formatPercent, scoreBreakdown } from "../lib/format";
+import { formatPercent, idRuleNote, scoreBreakdown } from "../lib/format";
 import { formatRank, isStrong, matchedTerms, SCORING_NOTE, whyLine } from "../lib/match";
 import { ChevronIcon } from "./Icons";
 import { ConfidenceBar } from "./MatchMarks";
@@ -98,7 +98,9 @@ function RailRow({ hit, query, semanticOn, hot, onHot, to }: RailRowProps) {
   const { source, rank, confidence } = hit;
   const strong = isStrong(confidence);
   const title = displayTitle(source);
-  const why = strong ? whyLine(matchedTerms(query, { ...source, title: titleForMatching(source) }), hit.semantic_score) : null;
+  const why = strong
+    ? whyLine(matchedTerms(query, { ...source, title: titleForMatching(source) }), hit.semantic_score, idRuleNote(hit.id_rule, query))
+    : null;
   // Where the breakdown tooltip goes: measured when the row becomes hot.
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const measure = (element: HTMLElement) => {
@@ -137,7 +139,7 @@ function RailRow({ hit, query, semanticOn, hot, onHot, to }: RailRowProps) {
           </span>
           <ConfidenceBar confidence={confidence} variant="rail" />
           {why && <span className="text-[11px] text-faint">{why}</span>}
-          <span className="sr-only">{scoreBreakdown(hit, semanticOn)}</span>
+          <span className="sr-only">{scoreBreakdown(hit, semanticOn, query)}</span>
         </span>
       </Link>
       {hot && anchor && (
@@ -147,7 +149,7 @@ function RailRow({ hit, query, semanticOn, hot, onHot, to }: RailRowProps) {
           className="pointer-events-none fixed z-40 -translate-x-full -translate-y-1/2 whitespace-nowrap border border-line-strong bg-bg px-2 py-1 text-[11px] text-muted"
           style={{ top: anchor.top, left: anchor.left }}
         >
-          {scoreBreakdown(hit, semanticOn)}
+          {scoreBreakdown(hit, semanticOn, query)}
         </span>
       )}
     </li>

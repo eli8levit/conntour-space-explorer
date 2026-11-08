@@ -106,10 +106,17 @@ const FIELD_PHRASE: Record<MatchField, string> = {
  *   - all words in one field: "Matched mars, rover in the title"
  *   - mixed fields:           "Matched mars in keywords, rover in the description"
  *   - no literal word:        "Similar in meaning · Meaning 82%"
+ *   - the ID rule changed it: "… · halved: “STS-135” is not in this image"
  * The last case is a pure semantic hit ("red planet" -> Mars). It is the
  * moment that shows the hybrid search working, so it is never left empty.
  */
-export function whyLine(matches: MatchedTerm[], semanticScore: number): string {
+export function whyLine(matches: MatchedTerm[], semanticScore: number, idNote: string | null = null): string {
+  const line = whyWords(matches, semanticScore);
+  // The ID rule's note (format.ts idRuleNote) goes last: it explains the score, not the words.
+  return idNote ? `${line} · ${idNote}` : line;
+}
+
+function whyWords(matches: MatchedTerm[], semanticScore: number): string {
   if (matches.length === 0) return `Similar in meaning · Meaning ${formatPercent(semanticScore)}`;
 
   const fields = [...new Set(matches.map((match) => match.field))];

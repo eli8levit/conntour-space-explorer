@@ -5,6 +5,13 @@ them) do not depend on the services layer that scores them.
 """
 
 from dataclasses import dataclass
+from typing import Literal
+
+# What the ID rule (services/scoring.py, rule 2) did to one result's confidence:
+# "raised" lifted an exact ID match up to STRONG_MATCH, "halved" cut a result without the
+# ID. None means the rule did not change the score. The UI shows it next to the
+# "Meaning · Words" breakdown, so the numbers there still add up to the shown confidence.
+IdRule = Literal["raised", "halved"]
 
 
 @dataclass(frozen=True)
@@ -28,3 +35,4 @@ class ScoredHit:
     confidence: float
     keyword_score: float
     semantic_score: float
+    id_rule: IdRule | None = None

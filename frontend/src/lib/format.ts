@@ -1,4 +1,4 @@
-import type { Body, Place, Provenance } from "../api/types";
+import type { Body, IdRule, Place, Provenance } from "../api/types";
 
 /** 0.823 -> "82%". Scores arrive as 0–1 from the backend. */
 export function formatPercent(score: number): string {
@@ -7,15 +7,46 @@ export function formatPercent(score: number): string {
 }
 
 /**
+ * The ID in a query, for display: "STS-135", "PIA22505", or "Expedition 61".
+ * A word with letters and digits wins; otherwise a bare number takes the word before it.
+ * The backend decides what counts as an ID (scoring.query_ids); this only names it, and
+ * only when the backend says the ID rule changed a score.
+ */
+export function firstQueryId(query: string): string | null {
+  const words = query.match(/[A-Za-z0-9]+(?:[-.][A-Za-z0-9]+)*/g) ?? [];
+  const named = words.find((word) => /\d/.test(word) && /[A-Za-z]/.test(word));
+  if (named) return named;
+  const index = words.findIndex((word) => /^\d+$/.test(word));
+  if (index < 0) return null;
+  return index > 0 ? `${words[index - 1]} ${words[index]}` : words[index]!;
+}
+
+/**
+ * Why a confidence is not the meaning/words blend: "halved: “STS-135” is not in this
+ * image" or "raised: it has “STS-135”". null when the ID rule did not change the score.
+ */
+export function idRuleNote(idRule: IdRule | null, query: string): string | null {
+  if (!idRule) return null;
+  const id = firstQueryId(query);
+  const quoted = id ? `“${id}”` : "the ID";
+  return idRule === "halved" ? `halved: ${quoted} is not in this image` : `raised: it has ${quoted}`;
+}
+
+/**
  * "Meaning 82% · Words 40%": the two signals behind one confidence score.
  * When semantic search is off, only the word score exists, so we leave meaning out.
+ * When the ID rule changed the score, its note goes last, so "Meaning 100% · Words 27%"
+ * next to a 43% result still adds up.
  */
 export function scoreBreakdown(
-  hit: { semantic_score: number; keyword_score: number },
+  hit: { semantic_score: number; keyword_score: number; id_rule: IdRule | null },
   semanticOn: boolean,
+  query: string,
 ): string {
   const words = `Words ${formatPercent(hit.keyword_score)}`;
-  return semanticOn ? `Meaning ${formatPercent(hit.semantic_score)} · ${words}` : words;
+  const parts = semanticOn ? [`Meaning ${formatPercent(hit.semantic_score)}`, words] : [words];
+  const note = idRuleNote(hit.id_rule, query);
+  return [...parts, ...(note ? [note] : [])].join(" · ");
 }
 
 /**
