@@ -139,13 +139,13 @@ function DeepSpace({ palette }: { palette: Palette }) {
   const belt = useMemo(() => {
     const random = seeded(7);
     const points: number[] = [];
-    for (let i = 0; i < 220; i++) {
-      const angle = (random() - 0.5) * 1.1;
-      const radius = 2.2 + (random() - 0.5) * 0.35;
+    for (let i = 0; i < 260; i++) {
+      const angle = (random() - 0.5) * 0.9; // a slice of a big circle, curving across the view
+      const radius = 2 + (random() - 0.5) * 0.3;
       points.push(
-        BELT_CENTER.x - 2.2 + radius * Math.cos(angle),
-        BELT_CENTER.y + (random() - 0.5) * 0.12 + angle * 0.25,
-        BELT_CENTER.z + radius * Math.sin(angle) * 0.6,
+        BELT_CENTER.x + radius * Math.sin(angle),
+        BELT_CENTER.y + radius * (Math.cos(angle) - 1) * 0.6 + (random() - 0.5) * 0.08,
+        BELT_CENTER.z + (random() - 0.5) * 0.3,
       );
     }
     return new Float32Array(points);
@@ -166,7 +166,7 @@ function DeepSpace({ palette }: { palette: Palette }) {
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[belt, 3]} />
         </bufferGeometry>
-        <pointsMaterial size={1.5} sizeAttenuation={false} color={palette["line-strong"]} />
+        <pointsMaterial size={1.5} sizeAttenuation={false} color={palette.faint} transparent opacity={0.6} />
       </points>
     </>
   );

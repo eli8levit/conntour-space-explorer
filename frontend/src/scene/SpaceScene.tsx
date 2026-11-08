@@ -1,9 +1,9 @@
 // "Where in space": the scene and its HTML controls. State lives here; the 3D
 // parts (Bodies, MarkerLayer, CameraRig) only draw what they are given.
 import { OrbitControls } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { type MutableRefObject, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
-import { type Camera, Vector3 } from "three";
+import { type Camera, type PerspectiveCamera, Vector3 } from "three";
 import type { PlaceRow } from "../api/types";
 import { Bodies } from "./Bodies";
 import { CameraRig } from "./CameraRig";
@@ -71,6 +71,29 @@ function FrameBridge({ listener }: { listener: MutableRefObject<FrameListener> }
   return null;
 }
 
+/**
+ * Centers the picture in the space the HTML leaves free: right of the year rail,
+ * and left of the card (desktop) or above the bottom sheet (phone). It shifts the
+ * camera's projection with setViewOffset, so labels and picking, which use the
+ * same projection, stay aligned with the drawing.
+ */
+function ViewShift({ cardOpen }: { cardOpen: boolean }) {
+  const camera = useThree((s) => s.camera) as PerspectiveCamera;
+  const size = useThree((s) => s.size);
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    const wide = size.width >= 640;
+    const rail = wide ? 150 : 60;
+    const card = cardOpen && wide ? 364 : 0;
+    const sheet = cardOpen && !wide ? size.height * 0.5 : 0;
+    const shiftX = (rail - card) / 2;
+    const shiftY = -sheet / 2;
+    camera.setViewOffset(size.width, size.height, -shiftX, -shiftY, size.width, size.height);
+    invalidate();
+  }, [camera, size, cardOpen, invalidate]);
+  return null;
+}
+
 /** Camera above a spot on a sphere, looking at the sphere's center (so dragging turns the globe). */
 function poseAbove(center: Vector3, spot: Vector3, distance: number): Pose {
   const direction = spot.clone().sub(center).normalize();
@@ -111,7 +134,7 @@ const BODY_LABELS: { key: string; level: Level; text: string; at: Vector3 }[] = 
   { key: "b-shuttle", level: "earth", text: RINGS.shuttle.label, at: ringLabelPoint(RINGS.shuttle) },
   { key: "b-moon", level: "moon", text: "Moon", at: MOON.center.clone().add(new Vector3(0, MOON.radius + 0.06, 0)) },
   { key: "b-mars", level: "mars", text: "Mars", at: MARS.center.clone().add(new Vector3(0, MARS.radius + 0.08, 0)) },
-  { key: "b-saturn", level: "deep_space", text: "Saturn", at: SATURN.center.clone().add(new Vector3(0, SATURN.radius + 0.35, 0)) },
+  { key: "b-saturn", level: "deep_space", text: "Saturn", at: SATURN.center.clone().add(new Vector3(0, SATURN.radius + 0.22, 0)) },
   { key: "b-belt", level: "deep_space", text: "Asteroid belt", at: BELT_CENTER.clone().add(new Vector3(0.25, 0.32, 0)) },
 ];
 
@@ -163,7 +186,9 @@ export function SpaceScene({ rows, search, onClearSearch, focusId, onFocus }: Sp
   }, [focusId, onFocus]);
 
   // --- Where the camera should be --------------------------------------------
-  const aspect = window.innerWidth / Math.max(1, window.innerHeight - 64);
+  const aspect = window.innerWidth / Math.max(1, window.innerHeight - 64); // close enough for framing
+  // A portrait phone sees less side to side, so every view backs off (1.5× at 390×844).
+  const zoomOut = Math.max(1, 0.9 / aspect);
   let pose: Pose;
   let poseKey: string;
   let limits = { min: LEVELS[level].minDistance, max: LEVELS[level].maxDistance };
@@ -175,8 +200,11 @@ export function SpaceScene({ rows, search, onClearSearch, focusId, onFocus }: Sp
       : null;
   const sphere = focus ? homeSphere(focus.body) : null;
   if (focus && sphere) {
-    const distance = openGroup ? fanDistance(openGroup, aspect) : focus.body === "orbit" ? 3.1 : sphere.radius * 2;
-    pose = poseAbove(sphere.center, focus.spot, distance);
+    // A single pin: about the level distance (90%), turned so the pin faces you, so you still see the whole planet.
+    const distance = openGroup ? fanDistance(openGroup, aspect) : LEVELS[focus.body].cameraOffset.length() * 0.9 * zoomOut;
+    // An orbit photo seen from straight above would sit on top of Earth; look from higher up so the ring reads.
+    const spot = focus.body === "orbit" ? focus.spot.clone().add(new Vector3(0, 1.2, 0)) : focus.spot;
+    pose = poseAbove(sphere.center, spot, distance);
     poseKey = selected ? `pin:${selected.key}` : `cluster:${openKey}`;
   } else if (focus) {
     // Deep space has no planet to turn: look at the object itself from the level's usual angle.
@@ -185,7 +213,7 @@ export function SpaceScene({ rows, search, onClearSearch, focusId, onFocus }: Sp
     limits = { min: 0.3, max: 9 };
   } else {
     const spec = LEVELS[level];
-    pose = { target: spec.center.clone(), position: spec.center.clone().add(spec.cameraOffset) };
+    pose = { target: spec.center.clone(), position: spec.center.clone().addScaledVector(spec.cameraOffset, zoomOut) };
     poseKey = `level:${level}:${levelVisits}`;
   }
 
@@ -333,12 +361,13 @@ export function SpaceScene({ rows, search, onClearSearch, focusId, onFocus }: Sp
           />
           <OrbitControls makeDefault enablePan={false} enableDamping={!reducedMotion} rotateSpeed={0.5} zoomSpeed={0.7} />
           <CameraRig pose={pose} poseKey={poseKey} limits={limits} reducedMotion={reducedMotion} />
+          <ViewShift cardOpen={card !== null} />
           <FrameBridge listener={frameListener} />
         </Canvas>
         <Overlay labels={labels} register={overlayListener} />
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-x-6 gap-y-2 px-4 pt-4 sm:px-8">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-x-6 gap-y-2 bg-gradient-to-b from-bg via-bg/70 to-transparent px-4 pb-6 pt-4 sm:px-8">
         <nav aria-label="Levels" className="pointer-events-auto flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
           {levels.map((l) => (
             <button
@@ -370,6 +399,7 @@ export function SpaceScene({ rows, search, onClearSearch, focusId, onFocus }: Sp
       </div>
 
       <YearRail
+        hiddenOnPhone={card !== null}
         rows={rows}
         bounds={bounds}
         range={range}

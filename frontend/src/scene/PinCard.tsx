@@ -8,8 +8,10 @@ import { mainLabel, tierOf } from "./markers";
 import { cssColor, type Palette } from "./tokens";
 
 /** "25 Jun 2018", in UTC (NASA dates are midnight UTC). */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export function formatDay(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(iso));
+  const d = new Date(iso);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 /** "−5.20°, 138.13°" with a real minus sign (U+2212), as in the A3 modal. */
@@ -53,7 +55,7 @@ export function PinCard({ row, confidence, onClose, onBack }: PinCardProps) {
   const strong = confidence !== undefined && confidence >= 0.5;
   return (
     <section aria-label={`${row.title}, place`} className={shell}>
-      <div className="relative aspect-[16/10] w-full bg-raised">
+      <div className="relative h-36 w-full bg-raised sm:h-auto sm:aspect-[16/10]">
         <img src={row.thumb_url} alt="" className="h-full w-full object-cover" />
       </div>
       <div className="flex flex-col gap-3 p-4">

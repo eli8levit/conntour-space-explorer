@@ -27,17 +27,17 @@ export interface LevelSpec {
 export const EARTH: Sphere = { center: new Vector3(0, 0, 0), radius: 1 };
 export const MOON: Sphere = { center: new Vector3(3.4, 0.8, -2.6), radius: 0.27 };
 export const MARS: Sphere = { center: new Vector3(11, 1.5, -10), radius: 0.53 };
-const DEEP_CENTER = new Vector3(28, 4, -26);
+const DEEP_CENTER = new Vector3(24, 9, 8); // off to the side: never in the background of Earth or Mars
 export const SATURN: Sphere = { center: DEEP_CENTER.clone().add(new Vector3(-0.8, 0.15, 0)), radius: 0.42 };
 /** The middle of the short asteroid-belt arc drawn in the deep-space level. */
 export const BELT_CENTER = DEEP_CENTER.clone().add(new Vector3(0.95, -0.25, 0.3));
 
 export const LEVELS: Record<Level, LevelSpec> = {
   // Start above the US east coast, where most Earth photos were taken.
-  earth: { name: "Earth", center: EARTH.center, cameraOffset: latLonToVector(28, -78, 2.9), minDistance: 1.12, maxDistance: 7 },
+  earth: { name: "Earth", center: EARTH.center, cameraOffset: latLonToVector(30, -82, 3.6), minDistance: 1.12, maxDistance: 7 },
   orbit: { name: "Orbit", center: EARTH.center, cameraOffset: latLonToVector(34, -40, 4.3), minDistance: 1.5, maxDistance: 8 },
   moon: { name: "Moon", center: MOON.center, cameraOffset: latLonToVector(10, 0, 1.0), minDistance: 0.32, maxDistance: 2.5 },
-  mars: { name: "Mars", center: MARS.center, cameraOffset: latLonToVector(12, -60, 1.75), minDistance: 0.6, maxDistance: 4 },
+  mars: { name: "Mars", center: MARS.center, cameraOffset: latLonToVector(12, -60, 2.3), minDistance: 0.6, maxDistance: 4 },
   deep_space: { name: "Deep space", center: DEEP_CENTER, cameraOffset: new Vector3(0.2, 0.8, 4.4), minDistance: 1.2, maxDistance: 9 },
 };
 
@@ -69,7 +69,7 @@ export interface Ring {
 // Shuttle flights from Florida flew at about 28.5°. Altitudes are exaggerated.
 export const RINGS = {
   iss: { radius: 1.32, inclinationDeg: 51.6, nodeDeg: 20, label: "ISS orbit, 51.6°" },
-  shuttle: { radius: 1.18, inclinationDeg: 28.5, nodeDeg: -50, label: "Shuttle orbits, 28.5°" },
+  shuttle: { radius: 1.18, inclinationDeg: 28.5, nodeDeg: 60, label: "Shuttle orbits, 28.5°" },
 } satisfies Record<string, Ring>;
 
 export type RingName = keyof typeof RINGS;

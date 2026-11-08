@@ -13,6 +13,8 @@ const STEP = 7;
 const TIER_ORDER: Record<Tier, number> = { strong: 0, faint: 1, normal: 2, dim: 3 };
 
 interface YearRailProps {
+  /** On a phone the card is a bottom sheet over the rail: hide the rail then. */
+  hiddenOnPhone: boolean;
   rows: PlaceRow[];
   bounds: YearRange;
   range: YearRange | null;
@@ -29,7 +31,7 @@ function squareColor(tier: Tier, selected: boolean): string {
   return cssColor("faint", 0.8);
 }
 
-export function YearRail({ rows, bounds, range, onChange, tierOf, selectedId }: YearRailProps) {
+export function YearRail({ hiddenOnPhone, rows, bounds, range, onChange, tierOf, selectedId }: YearRailProps) {
   const byYear = groupByYear(rows);
   const years = Array.from({ length: bounds.to - bounds.from + 1 }, (_, i) => bounds.to - i);
   const [drag, setDrag] = useState<{ start: number; end: number } | null>(null);
@@ -82,7 +84,9 @@ export function YearRail({ rows, bounds, range, onChange, tierOf, selectedId }: 
   const label = range ? `${range.from} to ${range.to}` : `${bounds.from} to ${bounds.to}`;
 
   return (
-    <div className="absolute bottom-6 left-4 top-14 z-10 flex select-none flex-col sm:left-8 sm:top-16">
+    <div
+      className={`absolute bottom-6 left-4 top-14 z-10 select-none flex-col sm:left-8 sm:top-16 sm:flex ${hiddenOnPhone ? "hidden" : "flex"}`}
+    >
       <div className="mb-3 flex h-5 items-baseline gap-3 text-[12px]">
         <span className="text-fg">{shown ? `${shown.from} to ${shown.to}` : "All years"}</span>
         {range && (
@@ -110,7 +114,8 @@ export function YearRail({ rows, bounds, range, onChange, tierOf, selectedId }: 
         {years.map((year) => {
           const items = [...(byYear.get(year) ?? [])].sort((a, b) => TIER_ORDER[tierOf(a)] - TIER_ORDER[tierOf(b)]);
           const edge = shown && (year === shown.from || year === shown.to);
-          const showLabel = year % 10 === 0 || edge || year === hoverYear;
+          const nearEdge = shown && Math.min(Math.abs(year - shown.from), Math.abs(year - shown.to)) <= 2;
+          const showLabel = edge || year === hoverYear || (year % 10 === 0 && !nearEdge);
           return (
             <div key={year} className="flex items-center" style={{ height: STEP, opacity: inRange(year) ? 1 : 0.3 }}>
               <span

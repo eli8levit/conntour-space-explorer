@@ -5,7 +5,7 @@
 // URL hooks (HANDOFF §9):
 //   ?focus=<source_id>   fly to that pin and open its card (the A3 "Fly there" link)
 //   ?search=<search_id>  light the results of a stored search (strong orange, faint white), dim the rest
-import { Component, type ReactNode, useCallback, useMemo } from "react";
+import { Component, type ReactNode, useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { describeError } from "../api/client";
 import { usePlaces } from "../hooks/places";
@@ -13,12 +13,30 @@ import { useSearch } from "../hooks/searches";
 import { parseId } from "../lib/ids";
 import { type SceneSearch, SpaceScene } from "../scene/SpaceScene";
 
-/** The scene page fills the viewport under the 64px app header, over a fine dot grid (the reference's texture). */
+/** The scene page fills the viewport under the app header, over a fine dot grid (the reference's texture). */
 const FRAME_STYLE = {
   backgroundColor: "rgb(var(--color-bg, 9 9 10))",
   backgroundImage: "radial-gradient(rgb(var(--color-line-strong, 42 42 46)) 0.8px, transparent 1.2px)",
   backgroundSize: "6px 6px",
 };
+
+/**
+ * Where the app header ends. The design says 64px, but the header can wrap on a
+ * phone, so we measure it (and follow its resizes) instead of hardcoding it.
+ */
+function useHeaderBottom(): number {
+  const [bottom, setBottom] = useState(64);
+  useLayoutEffect(() => {
+    const header = document.querySelector("header");
+    if (!header) return;
+    const measure = () => setBottom(header.getBoundingClientRect().bottom);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+  return bottom;
+}
 
 function Message({ children }: { children: ReactNode }) {
   return <div className="absolute inset-0 flex items-center justify-center p-8 text-center text-[13px] text-muted">{children}</div>;
@@ -42,6 +60,7 @@ export default function ScenePage() {
   const focusId = parseId(params.get("focus"));
   const searchId = parseId(params.get("search"));
 
+  const headerBottom = useHeaderBottom();
   const places = usePlaces();
   const search = useSearch(searchId);
 
@@ -69,7 +88,7 @@ export default function ScenePage() {
   const onClearSearch = useCallback(() => setParam("search", null), [setParam]);
 
   return (
-    <section aria-label="Where in space" className="fixed inset-x-0 bottom-0 top-16 overflow-hidden" style={FRAME_STYLE}>
+    <section aria-label="Where in space" className="fixed inset-x-0 bottom-0 overflow-hidden" style={{ ...FRAME_STYLE, top: headerBottom }}>
       {places.isPending ? (
         <Message>Loading the map of places…</Message>
       ) : places.isError ? (
