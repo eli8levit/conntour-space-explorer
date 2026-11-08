@@ -10,6 +10,8 @@ import { useSearchParams } from "react-router-dom";
 import { describeError } from "../api/client";
 import { usePlaces } from "../hooks/places";
 import { useSearch } from "../hooks/searches";
+import { useArchive } from "../hooks/sources";
+import { displayTitle } from "../lib/displayTitle";
 import { parseId } from "../lib/ids";
 import { type SceneSearch, SpaceScene } from "../scene/SpaceScene";
 
@@ -63,6 +65,15 @@ export default function ScenePage() {
   const headerBottom = useHeaderBottom();
   const places = usePlaces();
   const search = useSearch(searchId);
+  const archive = useArchive();
+
+  // A third of the NASA titles are raw IDs. The places list has no captions, so we take the
+  // display title from the archive (already cached by the other pages) and keep the ID until it loads.
+  const rows = useMemo(() => {
+    if (!places.data || !archive.data) return places.data;
+    const titles = new Map(archive.data.items.map((source) => [source.id, displayTitle(source)]));
+    return places.data.map((row) => ({ ...row, title: titles.get(row.source_id) ?? row.title }));
+  }, [places.data, archive.data]);
 
   const sceneSearch = useMemo<SceneSearch | null>(() => {
     if (!search.data) return null;
@@ -89,7 +100,8 @@ export default function ScenePage() {
 
   return (
     <section aria-label="Where in space" className="fixed inset-x-0 bottom-0 overflow-hidden" style={{ ...FRAME_STYLE, top: headerBottom }}>
-      {places.isPending ? (
+      {/* Wait for the archive too (usually cached), so pins never flash raw IDs as titles. */}
+      {places.isPending || archive.isPending ? (
         <Message>Loading the map of places…</Message>
       ) : places.isError ? (
         <Message>
@@ -103,7 +115,7 @@ export default function ScenePage() {
       ) : (
         <WebGLBoundary>
           <SpaceScene
-            rows={places.data}
+            rows={rows ?? places.data}
             search={sceneSearch}
             onClearSearch={onClearSearch}
             focusId={focusId}

@@ -1,6 +1,7 @@
 // The HTML card for the active pin, or the list for an open cluster.
 // It is HTML (not 3D) so it is readable, accessible and selectable.
 import { Link } from "react-router-dom";
+import { OPENED_IN_APP, useImageParam } from "../hooks/useImageParam";
 import type { PlaceRow } from "../api/types";
 import { bodyLabel, provenanceLabel } from "../lib/format";
 import { tierColor } from "./MarkerLayer";
@@ -53,8 +54,10 @@ interface PinCardProps {
 
 export function PinCard({ row, confidence, onClose, onBack }: PinCardProps) {
   const strong = confidence !== undefined && confidence >= 0.5;
+  // The current scene URL (?focus=, ?search=) plus ?image=: the details modal opens over the scene.
+  const { imageLink } = useImageParam();
   return (
-    <section aria-label={`${row.title}, place`} className={shell}>
+    <section aria-label={`${row.title}, place`} data-scene-card className={shell}>
       <div className="relative h-36 w-full bg-raised sm:h-auto sm:aspect-[16/10]">
         <img src={row.thumb_url} alt="" className="h-full w-full object-cover" />
       </div>
@@ -87,7 +90,8 @@ export function PinCard({ row, confidence, onClose, onBack }: PinCardProps) {
         {PLACEMENT_NOTE[row.body] && <p className="text-[12px] text-faint">{PLACEMENT_NOTE[row.body]}</p>}
         <div className="flex items-center gap-3">
           <Link
-            to={`/?image=${row.source_id}`}
+            to={imageLink(row.source_id)}
+            state={OPENED_IN_APP}
             className="border border-line-strong px-3 py-2 text-[13px] text-fg hover:border-fg"
           >
             Open details →
@@ -113,7 +117,7 @@ interface ClusterCardProps {
 
 export function ClusterCard({ rows, confidences, palette, onPick, onClose }: ClusterCardProps) {
   return (
-    <section aria-label="Images at this spot" className={shell}>
+    <section aria-label="Images at this spot" data-scene-card className={shell}>
       <div className="flex items-start justify-between gap-3 p-4 pb-2">
         <div>
           <h2 className="text-[15px] text-fg">

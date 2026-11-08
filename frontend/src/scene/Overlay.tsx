@@ -28,21 +28,39 @@ const LABEL_RANGE = 9;
 
 export type FrameListener = (camera: Camera, width: number, height: number) => void;
 
+/** True when two screen boxes overlap. */
+function overlaps(a: DOMRect, b: { left: number; right: number; top: number; bottom: number }): boolean {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
 export function Overlay({ labels, register }: { labels: Label[]; register: MutableRefObject<FrameListener | null> }) {
   const elements = useRef(new Map<string, HTMLDivElement>());
+  const root = useRef<HTMLDivElement>(null);
   const latest = useRef(labels);
   latest.current = labels;
 
   useEffect(() => {
     const point = new Vector3();
     register.current = (camera, width, height) => {
+      // The open card (pin or cluster list) sits over the canvas: a label under it would be cut in half.
+      const card = document.querySelector("[data-scene-card]")?.getBoundingClientRect() ?? null;
+      const origin = root.current?.getBoundingClientRect();
       for (const label of latest.current) {
         const el = elements.current.get(label.key);
         if (!el) continue;
         const screen = toScreen(label.anchor(point), camera, width, height, label.occluder);
         const near = camera.position.distanceTo(point) < LABEL_RANGE;
-        el.style.visibility = screen.visible && near ? "visible" : "hidden";
-        const shift = label.align === "center" ? "translate(-50%, -50%)" : "translate(10px, -50%)";
+        const center = label.align === "center";
+        let underCard = false;
+        if (card && origin) {
+          const w = el.offsetWidth;
+          const h = el.offsetHeight;
+          const left = origin.left + screen.x + (center ? -w / 2 : 10);
+          const top = origin.top + screen.y - h / 2;
+          underCard = overlaps(card, { left, right: left + w, top, bottom: top + h });
+        }
+        el.style.visibility = screen.visible && near && !underCard ? "visible" : "hidden";
+        const shift = center ? "translate(-50%, -50%)" : "translate(10px, -50%)";
         el.style.transform = `translate(${screen.x.toFixed(1)}px, ${screen.y.toFixed(1)}px) ${shift}`;
       }
     };
@@ -52,7 +70,7 @@ export function Overlay({ labels, register }: { labels: Label[]; register: Mutab
   }, [register]);
 
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div ref={root} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       {labels.map((label) => (
         <div
           key={label.key}
