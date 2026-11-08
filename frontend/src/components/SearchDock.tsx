@@ -1,5 +1,5 @@
 import { useIsMutating } from "@tanstack/react-query";
-import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError, describeError } from "../api/client";
 import { RUN_SEARCH_KEY, useRunSearch } from "../hooks/searches";
@@ -28,17 +28,36 @@ export function SearchDock({ variant, query = "", children }: SearchDockProps) {
   const navigate = useNavigate();
   // True while any search runs, also one started elsewhere (e.g. "Search again" in history).
   const running = useIsMutating({ mutationKey: RUN_SEARCH_KEY }) > 0;
+  // `running` only changes on the next render, so three fast Enter presses all saw false
+  // and saved three history rows. A ref changes at once: set on submit, cleared when the
+  // request settles (success or error).
+  const inFlight = useRef(false);
 
   const trimmed = text.trim();
   // An empty query is a 422 from the backend, so the button stays off; on A2, Enter on the same query does nothing.
   const canSubmit = trimmed !== "" && !running && !(variant === "results" && trimmed === query);
 
+  function submit() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    runSearch.mutate(trimmed, {
+      onSettled: () => {
+        inFlight.current = false;
+      },
+    });
+  }
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (canSubmit) runSearch.mutate(trimmed);
+    if (canSubmit) submit();
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // A held Enter repeats the key; only the first press may submit.
+    if (event.key === "Enter" && event.repeat) {
+      event.preventDefault();
+      return;
+    }
     if (event.key !== "Escape") return;
     // Esc clears: on A2 it leaves the results (back to the archive), on A1 it empties the box.
     if (variant === "results") navigate("/");
@@ -51,7 +70,7 @@ export function SearchDock({ variant, query = "", children }: SearchDockProps) {
 
   return (
     <div className="flex flex-col">
-      {runSearch.isError && <SearchError error={runSearch.error} onRetry={() => runSearch.mutate(trimmed)} />}
+      {runSearch.isError && <SearchError error={runSearch.error} onRetry={submit} />}
       {children}
       {variant === "browse" && (
         <div className="mb-2.5 hidden justify-between px-1 text-[11px] text-muted sm:flex">
