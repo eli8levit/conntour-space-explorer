@@ -2,15 +2,17 @@ import type { ReactNode } from "react";
 
 interface EmptyStateProps {
   title: string;
-  /** Explanation and next steps (links, suggestion buttons). */
+  /** Explanation and next steps (links, suggestions). */
   children?: ReactNode;
+  className?: string;
 }
 
-export function EmptyState({ title, children }: EmptyStateProps) {
+/** A plain message: one line in `fg`, the explanation in `muted`. No boxes, no icons. */
+export function EmptyState({ title, children, className = "" }: EmptyStateProps) {
   return (
-    <div className="rounded border border-dashed border-line px-6 py-12 text-center">
-      <h2 className="text-base font-medium">{title}</h2>
-      {children && <div className="mt-3 text-sm text-muted">{children}</div>}
+    <div className={className}>
+      <p className="text-[15px] text-fg">{title}</p>
+      {children && <div className="mt-1.5 text-[13px] leading-normal text-muted">{children}</div>}
     </div>
   );
 }

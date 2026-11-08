@@ -11,6 +11,12 @@ import { api } from "../api/client";
 import type { CursorPage, SearchSummary } from "../api/types";
 
 const historyKey = ["history"] as const;
+
+/** Lets other components (the results grid, the dock) see that a search is running. */
+export const RUN_SEARCH_KEY = ["runSearch"] as const;
+
+/** History rows per page: the drawer shows "Show 10 older searches". */
+export const HISTORY_PAGE_SIZE = 10;
 const searchKey = (id: number) => ["search", id] as const;
 
 type HistoryData = InfiniteData<CursorPage<SearchSummary>, string | null>;
@@ -25,11 +31,13 @@ export function useRunSearch() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   return useMutation({
+    mutationKey: RUN_SEARCH_KEY,
     mutationFn: (query: string) => api.runSearch(query),
     onSuccess: (search) => {
       queryClient.setQueryData(searchKey(search.id), search);
       // A new entry exists, so the cached history list is out of date.
       void queryClient.invalidateQueries({ queryKey: historyKey });
+      // A new search starts with the full year range: no ?from=&to= carried over.
       navigate(`/search/${search.id}`);
     },
   });
@@ -52,7 +60,7 @@ export function useSearch(id: number | null) {
 export function useHistory() {
   return useInfiniteQuery({
     queryKey: historyKey,
-    queryFn: ({ pageParam }) => api.listSearches(pageParam),
+    queryFn: ({ pageParam }) => api.listSearches(pageParam, HISTORY_PAGE_SIZE),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.next_cursor,
   });
