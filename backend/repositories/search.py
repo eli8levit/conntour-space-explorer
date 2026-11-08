@@ -6,7 +6,7 @@ This is a query, not an entity store, so it does not extend Repository[T].
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.scoring import Candidate
+from search_types import Candidate
 
 # 1. `q`: the query as an OR of its stemmed words. plainto_tsquery ANDs them, so
 #    "images of Mars rovers" would need every word; with OR, each word that matches adds

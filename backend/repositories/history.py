@@ -13,7 +13,7 @@ from config import STRONG_MATCH
 from db.models import SearchModel, SearchResultModel, SourceModel
 from models import Engine, SearchDetail, SearchHit, SearchPreview, SearchSummary
 from repositories.source import to_source
-from services.scoring import ScoredHit
+from search_types import ScoredHit
 
 PREVIEW_THUMBS = 3
 

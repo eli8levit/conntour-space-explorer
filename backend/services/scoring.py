@@ -21,6 +21,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 import config
+from search_types import Candidate, ScoredHit
+
+__all__ = ["Candidate", "Mode", "ScoredHit", "ScoringParams", "score", "semantic_confidence"]
 
 Mode = Literal["hybrid", "keyword", "semantic"]
 
@@ -33,24 +36,6 @@ class ScoringParams:
     keyword_weight: float = config.KEYWORD_WEIGHT
     min_confidence: float = config.MIN_CONFIDENCE
     max_results: int = config.MAX_RESULTS
-
-
-@dataclass(frozen=True)
-class Candidate:
-    """One row from the retrieval query: raw scores before calibration."""
-
-    source_id: int
-    keyword_rank: float  # ts_rank_cd(..., 32), 0 when no query word matches
-    term_coverage: float  # share of the query's words found in this row, 0..1
-    cosine: float | None  # None in keyword-only mode or when the row has no embedding
-
-
-@dataclass(frozen=True)
-class ScoredHit:
-    source_id: int
-    confidence: float
-    keyword_score: float
-    semantic_score: float
 
 
 def clamp01(value: float) -> float:
