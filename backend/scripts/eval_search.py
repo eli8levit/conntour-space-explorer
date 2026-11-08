@@ -134,10 +134,10 @@ def tune(candidates: Candidates, nasa_id: dict[int, str]) -> None:
     check against bad constants, not a claim of optimality."""
     scored = []
     for floor, ceil, w_sem, threshold in itertools.product(
-        [0.05 * i for i in range(1, 13)],  # semantic floor 0.05 .. 0.60
+        [0.05 * i for i in range(1, 15)],  # semantic floor 0.05 .. 0.60
         [0.05 * i for i in range(6, 19)],  # semantic ceil 0.30 .. 0.90
         [0.5, 0.6, 0.7, 0.8],  # semantic weight
-        [0.25, 0.3, 0.35, 0.4, 0.45],  # min confidence
+        [0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55],  # min confidence
     ):
         if ceil - floor < 0.1:
             continue
