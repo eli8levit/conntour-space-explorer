@@ -23,7 +23,9 @@ export function Layout() {
       {/* The scene has its own left-edge year rail, so the tab stays off it. */}
       {!onScene && <HistoryTab />}
       <Outlet />
-      <ImageModal />
+      {/* One overlay at a time. A pasted "/?image=77&history=1" would open both, so the
+          drawer wins (opening it from the app already drops ?image=, see openLink). */}
+      {!drawerOpen && <ImageModal />}
       {drawerOpen ? <HistoryDrawer /> : <UndoToast drawerOpen={false} />}
     </UndoDeleteProvider>
   );
