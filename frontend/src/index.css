@@ -3,27 +3,39 @@
 @tailwind utilities;
 
 /*
- * Design tokens. Components never use raw colors: they use the Tailwind names
- * mapped to these variables in tailwind.config.ts. A design handoff then only
- * changes this block (and component markup), not every class in the app.
- * Colors are "R G B" triplets so Tailwind can add opacity (e.g. bg-fg/10).
+ * "Signal" design tokens (docs/design-handoff/tokens.css). Components never
+ * use raw colors: they use the Tailwind names mapped to these variables in
+ * tailwind.config.ts. Colors are "R G B" triplets so Tailwind can add
+ * opacity (e.g. bg-fg/10).
+ *
+ * One rule to remember: orange (accent) means exactly one thing, "strong
+ * match / active". Everything else is warm greys on near-black.
  */
 :root {
-  --color-bg: 10 10 11; /* page background, near-black */
-  --color-surface: 17 17 19; /* cards, modal, inputs */
-  --color-raised: 26 26 29; /* hover / skeleton fill */
-  --color-line: 39 39 42; /* thin borders and dividers */
-  --color-line-strong: 63 63 70; /* borders on hover, inputs */
-  --color-fg: 245 245 245; /* primary text, active state */
-  --color-muted: 161 161 170; /* secondary text */
-  --color-faint: 113 113 122; /* tertiary text, placeholders */
+  --color-bg: 9 9 10; /* #09090A  page and canvas background */
+  --color-surface: 12 12 14; /* #0C0C0E  ranking rail, history drawer, search dock */
+  --color-raised: 20 20 22; /* #141416  image placeholder before load, hover fill */
+  --color-line: 31 31 35; /* #1F1F23  dividers, rail and drawer borders, row rules */
+  --color-line-strong: 42 42 46; /* #2A2A2E  buttons, inputs, modal border, empty timeline square */
+  --color-fg: 233 231 226; /* #E9E7E2  primary text (warm off-white, never pure #FFF) */
+  --color-soft: 214 212 206; /* #D6D4CE  long body text: descriptions */
+  --color-muted: 166 164 158; /* #A6A49E  labels, secondary text, metadata keys */
+  --color-faint: 142 140 134; /* #8E8C86  tertiary text, hints, tick labels */
+  --color-accent: 255 90 31; /* #FF5A1F  fills and bars for strong matches, active border, hovered frame */
+  --color-accent-text: 255 138 92; /* #FF8A5C  the same meaning as TEXT: thin orange text reads cleaner lighter */
+  --color-bar-faint: 110 108 103; /* #6E6C67  bars of faint matches in the ranking rail */
+  --color-track: 38 38 42; /* #26262A  empty part of a confidence bar */
   --color-danger: 248 113 113; /* errors only */
 
-  --radius-sm: 2px;
-  --radius: 4px;
+  --scrim: rgba(6, 6, 7, 0.8); /* behind the details modal and the history drawer */
+  --caption-bg: rgba(9, 9, 10, 0.86); /* caption strip on result frames */
+  --chip-bg: rgba(9, 9, 10, 0.78); /* small labels on top of photos */
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-sm: 0px; /* Signal is square. No rounded corners anywhere ... */
+  --radius: 0px;
+  --radius-handle: 2px; /* ... except the two timeline drag handles */
+
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
 
   color-scheme: dark;
 }
@@ -31,6 +43,8 @@
 @layer base {
   body {
     @apply bg-bg font-sans text-fg antialiased;
+    letter-spacing: 0.006em; /* Instrument Sans is slightly tight at 12–13px */
+    font-variant-numeric: tabular-nums; /* percentages, years and counts line up */
   }
 
   /* One visible focus style for every interactive element (keyboard only). */
@@ -38,8 +52,88 @@
     @apply outline outline-1 outline-offset-2 outline-fg;
   }
 
-  /* A soft tint, not an underline: line-clamp would cut off an underline on the last line. */
+  /* Matched query words: an orange underline, not a fill, so long text stays calm. */
   mark {
-    @apply rounded-sm bg-fg/20 text-fg;
+    background: none;
+    color: rgb(var(--color-fg));
+    box-shadow: inset 0 -2px 0 rgb(var(--color-accent));
+  }
+
+  ::placeholder {
+    color: #7d7b76; /* from the A1 reference: a step dimmer than `faint` */
+  }
+
+  /* The native search input draws its own clear button; the design has its own "Clear ×". */
+  input[type="search"]::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+  }
+}
+
+@layer utilities {
+  /* A1·11: the canvas drifts very slowly, so the archive feels alive. */
+  @keyframes drift {
+    0%,
+    100% {
+      transform: translate(0, 0);
+    }
+    50% {
+      transform: translate(-30px, -22px);
+    }
+  }
+  .animate-drift {
+    animation: drift 56s ease-in-out infinite;
+  }
+
+  /* A2 loading: the search box border breathes while the query runs. No spinners. */
+  @keyframes border-pulse {
+    0%,
+    100% {
+      border-color: rgb(var(--color-accent) / 0.4);
+    }
+    50% {
+      border-color: rgb(var(--color-accent) / 1);
+    }
+  }
+  .animate-border-pulse {
+    animation: border-pulse 900ms ease-in-out infinite;
+  }
+
+  @keyframes drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .animate-drawer-in {
+    animation: drawer-in 220ms ease-out;
+  }
+  .animate-fade-in {
+    animation: fade-in 220ms ease-out;
+  }
+
+  .writing-vertical {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
+
+  /* §11: under reduced motion nothing moves; the drawer fades instead of sliding. */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-drift,
+    .animate-border-pulse {
+      animation: none;
+    }
+    .animate-drawer-in {
+      animation: fade-in 220ms ease-out;
+    }
   }
 }
