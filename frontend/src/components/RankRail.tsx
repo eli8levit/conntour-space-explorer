@@ -23,9 +23,9 @@ interface RankRailProps {
 }
 
 /**
- * A2·8–10: the results as a ranked list. Strong rows explain why they
- * matched; faint rows are one line each, under a divider. It is an <ol>, so a
- * screen reader hears the ranking as a ranking.
+ * A2·8–10: the results as a ranked list. Every row explains why it matched;
+ * faint rows sit under a divider. It is an <ol>, so a screen reader hears the
+ * ranking as a ranking.
  */
 export function RankRail({ hits, query, semanticOn, hotId, onHot, linkFor, empty, onCollapse, className = "" }: RankRailProps) {
   const firstFaint = hits.findIndex((hit) => !isStrong(hit.confidence));
@@ -98,9 +98,13 @@ function RailRow({ hit, query, semanticOn, hot, onHot, to }: RailRowProps) {
   const { source, rank, confidence } = hit;
   const strong = isStrong(confidence);
   const title = displayTitle(source);
-  const why = strong
-    ? whyLine(matchedTerms(query, { ...source, title: titleForMatching(source) }), hit.semantic_score, idRuleNote(hit.id_rule, query))
-    : null;
+  // Every row, faint ones too: "red planet" has only faint results, and "Similar in
+  // meaning" is the line that shows why they are there at all.
+  const why = whyLine(
+    matchedTerms(query, { ...source, title: titleForMatching(source) }),
+    hit.semantic_score,
+    idRuleNote(hit.id_rule, query),
+  );
   // Where the breakdown tooltip goes: measured when the row becomes hot.
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const measure = (element: HTMLElement) => {
@@ -138,7 +142,7 @@ function RailRow({ hit, query, semanticOn, hot, onHot, to }: RailRowProps) {
             </span>
           </span>
           <ConfidenceBar confidence={confidence} variant="rail" />
-          {why && <span className="text-[11px] text-faint">{why}</span>}
+          <span className="text-[11px] text-faint">{why}</span>
           <span className="sr-only">{scoreBreakdown(hit, semanticOn, query)}</span>
         </span>
       </Link>
