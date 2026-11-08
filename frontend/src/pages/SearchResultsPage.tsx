@@ -1,5 +1,5 @@
 import { useIsMutating } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import type { Source } from "../api/types";
@@ -74,6 +74,8 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
   );
   const openImage = (id: number) => navigate(imageLink(id), { state: OPENED_IN_APP });
   const showRail = railOpen || !wide;
+  const dock = useRef<HTMLDivElement>(null);
+  const dockHeight = useElementHeight(dock, wide);
 
   const timeline = archive.data && (
     <YearTimeline
@@ -88,9 +90,21 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
   );
 
   return (
-    <main className={`min-h-screen pt-[88px] ${wide ? "pb-[300px]" : "pb-28"} ${wide && showRail ? "pr-[344px]" : ""}`}>
+    <main className={wide ? "" : "min-h-screen pb-28 pt-[88px]"}>
       <h1 className="sr-only">Results for “{query}”</h1>
 
+      {/* On wide screens the results scroll in their own area, which ends above the pinned
+          timeline and search box: no result can hide under them, and the set-aside frames
+          continue below the results. The bottom edge fades, so frames pass under it softly. */}
+      <div
+        data-results-scroll={wide ? "" : undefined}
+        className={
+          wide
+            ? `results-scroll fixed left-0 top-16 overflow-y-auto overscroll-contain pb-10 pt-6 ${showRail ? "right-[344px]" : "right-0"}`
+            : ""
+        }
+        style={wide ? { bottom: dockHeight + 24 + 10 } : undefined}
+      >
       <ul
         aria-label="Results, largest first"
         className={`mx-4 grid max-w-[1016px] grid-flow-row-dense auto-rows-[84px] grid-cols-4 gap-2 transition-opacity duration-300 sm:ml-12 sm:mr-8 sm:auto-rows-[100px] sm:grid-cols-[repeat(auto-fill,minmax(112px,1fr))] ${
@@ -111,6 +125,7 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
           <SetAsideFrame key={source.id} source={source} to={imageLink(source.id)} />
         ))}
       </ul>
+      </div>
 
       {!wide && <div className="mx-4 mt-8">{timeline}</div>}
 
@@ -148,15 +163,16 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
         </button>
       )}
 
-      {/* A scrim under the dock, so it reads over the photos. */}
-      <div
-        aria-hidden="true"
-        className={`pointer-events-none fixed bottom-0 left-0 z-10 bg-[linear-gradient(to_bottom,rgba(9,9,10,0),rgba(9,9,10,0.97)_42%)] ${
-          wide ? "h-[330px]" : "h-28"
-        } ${wide && showRail ? "right-[344px]" : "right-0"}`}
-      />
+      {/* Narrow screens scroll the whole page under the dock: a scrim, so the box reads over the photos. */}
+      {!wide && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-10 h-28 bg-[linear-gradient(to_bottom,rgba(9,9,10,0),rgba(9,9,10,0.97)_42%)]"
+        />
+      )}
 
       <div
+        ref={dock}
         className={`vt-dock fixed z-20 ${
           wide ? `bottom-6 left-12 ${showRail ? "w-[min(1016px,calc(100vw-424px))]" : "right-12"}` : "inset-x-4 bottom-4"
         }`}
@@ -168,6 +184,20 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
       </div>
     </main>
   );
+}
+
+/** The height of an element, kept up to date as it resizes (0 while `active` is false). */
+function useElementHeight(ref: RefObject<HTMLElement | null>, active: boolean): number {
+  const [height, setHeight] = useState(0);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!active || !element) return;
+    setHeight(element.getBoundingClientRect().height);
+    const observer = new ResizeObserver(() => setHeight(element.getBoundingClientRect().height));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, active]);
+  return height;
 }
 
 /** What the rail says when there is nothing to list (§6.2). */

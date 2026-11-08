@@ -9,9 +9,9 @@ import { FadeImage } from "./FadeImage";
 import { HotMarks } from "./HotMarks";
 import { ConfidenceBar, RankBadge } from "./MatchMarks";
 
-// Caption sizes per frame tier (A2·3–5): hero 19/26, large 14/18, the rest 12/12.
+// Caption sizes per frame tier (A2·3–5): hero 19/26 (a step smaller on phones), large 14/18, the rest 12/12.
 const CAPTION: Record<FrameTier, { row: string; title: string; pct: string }> = {
-  hero: { row: "px-3.5 pb-[9px] pt-2.5", title: "text-[19px]", pct: "text-[26px] leading-none" },
+  hero: { row: "px-3.5 pb-[9px] pt-2.5", title: "text-base sm:text-[19px]", pct: "text-[22px] leading-none sm:text-[26px]" },
   large: { row: "px-2.5 pb-1.5 pt-[7px]", title: "text-sm", pct: "text-lg leading-none" },
   wide: { row: "px-2.5 pb-1.5 pt-[7px]", title: "text-xs", pct: "text-xs" },
   small: { row: "px-[7px] py-1", title: "text-xs", pct: "text-xs" },

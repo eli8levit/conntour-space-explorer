@@ -69,6 +69,24 @@
 }
 
 @layer utilities {
+  /* A2: the results area fades out over its last 40px, just above the timeline. Its bottom
+     padding is the same 40px, so the last row can always scroll clear of the fade. */
+  .results-scroll {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--color-line-strong)) transparent;
+  }
+  /* A2 rail: the list fades into the scoring note instead of being cut off under it, and,
+     once scrolled, out under the rail title too (data-scrolled is set by RankRail). */
+  .rail-scroll {
+    mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top, 0px), #000 calc(100% - 36px), transparent);
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--color-line-strong)) transparent;
+  }
+  .rail-scroll[data-scrolled] {
+    --fade-top: 28px;
+  }
+
   /* A1·11: the canvas drifts very slowly, so the archive feels alive. */
   @keyframes drift {
     0%,

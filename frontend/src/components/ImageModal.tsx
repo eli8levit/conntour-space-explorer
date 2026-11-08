@@ -74,6 +74,16 @@ function ImageDialog({ id, onClose }: { id: number; onClose: () => void }) {
     };
   }, []);
 
+  // Opened from a link, the image is not loaded yet when showModal() runs, so the dialog itself
+  // holds focus. Once the title exists, move focus there, as when opened from a frame.
+  const loaded = Boolean(source.data);
+  useEffect(() => {
+    const element = dialog.current;
+    if (loaded && element && document.activeElement === element) {
+      element.querySelector<HTMLElement>("[data-initial-focus]")?.focus();
+    }
+  }, [loaded]);
+
   /** Prev/next swap the image in place: `replace`, so stepping does not fill the Back button. */
   const go = (nextId: number | null) => {
     if (nextId !== null) navigate(imageLink(nextId), { replace: true, state: location.state });
@@ -102,7 +112,7 @@ function ImageDialog({ id, onClose }: { id: number; onClose: () => void }) {
         if (event.target === event.currentTarget) onClose();
       }}
       onKeyDown={onKeyDown}
-      className="m-auto h-[calc(100dvh-32px)] max-h-none w-[calc(100vw-32px)] max-w-none overflow-hidden border border-line-strong bg-[#0D0D0F] p-0 text-fg shadow-modal backdrop:bg-[var(--scrim)] min-[900px]:h-[min(788px,calc(100dvh-64px))] min-[900px]:w-[min(1280px,calc(100vw-64px))]"
+      className="m-auto h-[calc(100dvh-32px)] focus-visible:outline-none max-h-none w-[calc(100vw-32px)] max-w-none overflow-hidden border border-line-strong bg-[#0D0D0F] p-0 text-fg shadow-modal backdrop:bg-[var(--scrim)] min-[900px]:h-[min(788px,calc(100dvh-64px))] min-[900px]:w-[min(1280px,calc(100vw-64px))]"
     >
       <div className="grid h-full grid-rows-[55vh_minmax(0,1fr)] min-[900px]:grid-cols-[minmax(0,720px)_minmax(0,1fr)] min-[900px]:grid-rows-1">
         <ImagePane
