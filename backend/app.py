@@ -1,24 +1,30 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from controllers import source_router
-from db import Base, engine
+from controllers import health_router, places_router, searches_router, source_router
+from db import engine, init_schema
+from services.embedding import load_embedder
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan handler - creates tables on startup."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Startup: make sure the schema exists, then load the model once for all requests."""
+    await init_schema(engine)
+    app.state.embedder = load_embedder()
+    logging.getLogger(__name__).info("Search engine: %s", app.state.embedder.name)
     yield
+    await engine.dispose()
 
 
 app = FastAPI(
     title="Space Explorer API",
-    description="API for browsing NASA images",
-    version="0.1.0",
+    description="API for browsing and searching NASA images",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -31,3 +37,6 @@ app.add_middleware(
 )
 
 app.include_router(source_router)
+app.include_router(searches_router)
+app.include_router(places_router)
+app.include_router(health_router)
