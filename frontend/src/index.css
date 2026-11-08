@@ -38,7 +38,8 @@
     @apply outline outline-1 outline-offset-2 outline-fg;
   }
 
+  /* A soft tint, not an underline: line-clamp would cut off an underline on the last line. */
   mark {
-    @apply bg-transparent text-fg underline decoration-muted underline-offset-4;
+    @apply rounded-sm bg-fg/20 text-fg;
   }
 }

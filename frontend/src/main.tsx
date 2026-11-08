@@ -12,6 +12,7 @@ import "@fontsource/ibm-plex-mono/latin-400.css";
 import "@fontsource/ibm-plex-mono/latin-500.css";
 import "./index.css";
 
+import { ApiError } from "./api/client";
 import App from "./App";
 
 const queryClient = new QueryClient({
@@ -21,7 +22,10 @@ const queryClient = new QueryClient({
       // search is a fixed snapshot. Refetching on focus would only add load.
       staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
-      retry: 1,
+      // Retry once on network or server errors. A 4xx (e.g. 404 for a deleted
+      // search) will not change on retry, so we show it at once.
+      retry: (failureCount, error) =>
+        failureCount < 1 && !(error instanceof ApiError && error.status < 500),
     },
   },
 });

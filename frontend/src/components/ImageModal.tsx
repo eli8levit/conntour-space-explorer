@@ -100,7 +100,8 @@ function SourceDetails({ source }: { source: Source }) {
         <img
           src={source.image_url}
           alt={source.title}
-          className="max-h-[70vh] w-full rounded-sm border border-line bg-bg object-contain"
+          // min-h keeps the frame visible while the large image downloads.
+          className="max-h-[70vh] min-h-60 w-full rounded-sm border border-line bg-bg object-contain"
         />
         <span className="sr-only">Open the full image in a new tab</span>
       </a>
