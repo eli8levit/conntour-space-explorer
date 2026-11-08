@@ -3,6 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from controllers.dependencies import DbId
 from db import get_db
 from models import Body, Facets, SearchHit, Source, SourcePage
 from repositories import SourceRepository
@@ -37,7 +38,7 @@ async def get_facets(repository: SourceRepository = Depends(get_repository)) -> 
 
 @router.get("/{source_id}", response_model=Source)
 async def get_source(
-    source_id: int, repository: SourceRepository = Depends(get_repository)
+    source_id: DbId, repository: SourceRepository = Depends(get_repository)
 ) -> Source:
     source = await repository.get_by_id(source_id)
     if source is None:
@@ -47,7 +48,7 @@ async def get_source(
 
 @router.get("/{source_id}/similar", response_model=List[SearchHit])
 async def get_similar(
-    source_id: int,
+    source_id: DbId,
     limit: int = Query(6, ge=1, le=24),
     session: AsyncSession = Depends(get_db),
 ) -> List[SearchHit]:

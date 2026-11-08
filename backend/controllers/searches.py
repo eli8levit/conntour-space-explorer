@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from controllers.dependencies import get_embedder
+from controllers.dependencies import DbId, get_embedder
 from db import get_db
 from models import SearchDetail, SearchHistoryPage, SearchRequest
 from repositories import HistoryRepository
@@ -50,7 +50,7 @@ async def list_searches(
 
 @router.get("/{search_id}", response_model=SearchDetail)
 async def get_search(
-    search_id: int, history: HistoryRepository = Depends(get_history)
+    search_id: DbId, history: HistoryRepository = Depends(get_history)
 ) -> SearchDetail:
     """A past search with the results stored at the time (not a re-run)."""
     detail = await history.get_by_id(search_id)
@@ -61,7 +61,7 @@ async def get_search(
 
 @router.delete("/{search_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_search(
-    search_id: int, history: HistoryRepository = Depends(get_history)
+    search_id: DbId, history: HistoryRepository = Depends(get_history)
 ) -> Response:
     if not await history.delete(search_id):
         raise HTTPException(status_code=404, detail="Search not found")

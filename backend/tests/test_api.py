@@ -63,6 +63,22 @@ async def test_places_has_every_image(client):
     assert "description" not in places[0]
 
 
+# 2147483648 is one past the int32 id column; without the bound asyncpg raised a 500.
+@pytest.mark.parametrize("bad_id", [0, -1, 2147483648, 9999999999])
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/api/searches/{}"),
+        ("DELETE", "/api/searches/{}"),
+        ("GET", "/api/sources/{}"),
+        ("GET", "/api/sources/{}/similar"),
+    ],
+)
+async def test_out_of_range_ids_are_422(client, method, path, bad_id):
+    response = await client.request(method, path.format(bad_id))
+    assert response.status_code == 422
+
+
 @pytest.mark.parametrize("query", ["", "   ", "x" * 201])
 async def test_search_rejects_bad_queries(client, query):
     assert (await client.post("/api/searches", json={"query": query})).status_code == 422
