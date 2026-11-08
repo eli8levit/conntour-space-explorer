@@ -128,11 +128,15 @@ function countColor(tier: Tier): string {
   return cssColor("fg");
 }
 
-/** Names of the bodies themselves, placed once. */
-const BODY_LABELS: { key: string; level: Level; text: string; at: Vector3 }[] = [
+/**
+ * Names of the bodies themselves, placed once. `ring`: an orbit ring's name. On a phone
+ * the two ring names ran into each other and off the right edge, so they show from the
+ * `sm` breakpoint (640px) up; the level bar already says "Orbit".
+ */
+const BODY_LABELS: { key: string; level: Level; text: string; at: Vector3; ring?: true }[] = [
   { key: "b-earth", level: "earth", text: "Earth", at: new Vector3(0, EARTH.radius + 0.12, 0) },
-  { key: "b-iss", level: "earth", text: RINGS.iss.label, at: ringLabelPoint(RINGS.iss) },
-  { key: "b-shuttle", level: "earth", text: RINGS.shuttle.label, at: ringLabelPoint(RINGS.shuttle) },
+  { key: "b-iss", level: "earth", text: RINGS.iss.label, at: ringLabelPoint(RINGS.iss), ring: true },
+  { key: "b-shuttle", level: "earth", text: RINGS.shuttle.label, at: ringLabelPoint(RINGS.shuttle), ring: true },
   { key: "b-moon", level: "moon", text: "Moon", at: MOON.center.clone().add(new Vector3(0, MOON.radius + 0.06, 0)) },
   { key: "b-mars", level: "mars", text: "Mars", at: MARS.center.clone().add(new Vector3(0, MARS.radius + 0.08, 0)) },
   { key: "b-saturn", level: "deep_space", text: "Saturn", at: SATURN.center.clone().add(new Vector3(0, SATURN.radius + 0.22, 0)) },
@@ -276,7 +280,8 @@ export function SpaceScene({ rows, search, onClearSearch, focusId, onFocus }: Sp
       anchor: (out: Vector3) => out.copy(b.at),
       occluder: null,
       content: b.text,
-      className: "text-[12px] text-faint",
+      className: b.ring ? "hidden text-[12px] text-faint sm:block" : "text-[12px] text-faint",
+      belowBar: !b.ring,
     }));
     for (const m of markers) {
       if (neighborhood(m.body) !== here) continue;
@@ -381,7 +386,7 @@ export function SpaceScene({ rows, search, onClearSearch, focusId, onFocus }: Sp
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-x-6 gap-y-2 bg-gradient-to-b from-bg via-bg/70 to-transparent px-4 pb-6 pt-4 sm:px-8">
-        <nav aria-label="Levels" className="pointer-events-auto flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
+        <nav data-scene-bar aria-label="Levels" className="pointer-events-auto flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
           {levels.map((l) => (
             <button
               key={l}

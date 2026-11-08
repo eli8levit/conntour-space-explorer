@@ -17,6 +17,8 @@ export interface Label {
   className?: string;
   /** "right": text starts 10px right of the point. "center": centered on it (the active-pin outline). */
   align?: "right" | "center";
+  /** Never higher than the level bar ([data-scene-bar]): a body name pushed under the buttons is unreadable. */
+  belowBar?: boolean;
 }
 
 /**
@@ -44,6 +46,7 @@ export function Overlay({ labels, register }: { labels: Label[]; register: Mutab
     register.current = (camera, width, height) => {
       // The open card (pin or cluster list) sits over the canvas: a label under it would be cut in half.
       const card = document.querySelector("[data-scene-card]")?.getBoundingClientRect() ?? null;
+      const barBottom = document.querySelector("[data-scene-bar]")?.getBoundingClientRect().bottom ?? null;
       const origin = root.current?.getBoundingClientRect();
       for (const label of latest.current) {
         const el = elements.current.get(label.key);
@@ -51,6 +54,12 @@ export function Overlay({ labels, register }: { labels: Label[]; register: Mutab
         const screen = toScreen(label.anchor(point), camera, width, height, label.occluder);
         const near = camera.position.distanceTo(point) < LABEL_RANGE;
         const center = label.align === "center";
+        if (label.belowBar && barBottom !== null && origin) {
+          // On a phone the planet fills the width, so its name (above the north pole) reached the
+          // level buttons. Push it down to 6px under the bar instead.
+          const minY = barBottom + 6 + el.offsetHeight / 2 - origin.top;
+          screen.y = Math.max(screen.y, minY);
+        }
         let underCard = false;
         if (card && origin) {
           const w = el.offsetWidth;
