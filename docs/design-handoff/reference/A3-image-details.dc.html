@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Signal — frame details</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#09090A}
+a{color:#E9E7E2}a:hover{color:#FF5A1F}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #09090A; color: #E9E7E2; font-family: 'Instrument Sans', system-ui, sans-serif; letter-spacing: 0.006em; box-sizing: border-box">
+
+  <div style="position: absolute; left: 48px; top: 88px; width: 1016px; display: grid; grid-template-columns: repeat(8, 120px); grid-auto-rows: 120px; gap: 8px">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="40">
+      <div style="{{t.cell}}"><img src="{{t.src}}" alt="" style="{{t.img}}"></div>
+    </sc-for>
+  </div>
+  <div style="position: absolute; inset: 0; background: rgba(6, 6, 7, 0.82); z-index: 5"></div>
+
+  <section role="dialog" aria-label="Gale Crater, frame details" style="position: absolute; left: 80px; top: 56px; width: 1280px; height: 788px; box-sizing: border-box; background: #0D0D0F; border: 1px solid #2A2A2E; box-shadow: 0 40px 120px rgba(0, 0, 0, 0.7); display: grid; grid-template-columns: 720px minmax(0, 1fr); z-index: 6">
+
+    <div style="position: relative; background: #050506; display: flex; align-items: center; justify-content: center; overflow: hidden">
+      <img src="/_blob/6612e925d55fa549b658648f8d0c797d" alt="Gale Crater from orbit: wind-carved linear ridges on a layered deposit" style="height: 100%; width: auto; display: block">
+      <div style="position: absolute; left: 20px; top: 18px; display: flex; gap: 8px; align-items: center">
+        <span style="background: #FF5A1F; color: #09090A; font-variant-numeric: tabular-nums; font-size: 13px; padding: 5px 9px">04</span>
+        <span style="background: rgba(9, 9, 10, 0.8); font-size: 13px; padding: 5px 10px">65% match · 4 of 13</span>
+      </div>
+      <button type="button" aria-label="Previous result" style="position: absolute; left: 16px; top: 366px; width: 44px; height: 56px; background: rgba(9, 9, 10, 0.75); border: 1px solid #2A2A2E; color: #E9E7E2; font-size: 20px; cursor: pointer">‹</button>
+      <button type="button" aria-label="Next result" style="position: absolute; right: 16px; top: 366px; width: 44px; height: 56px; background: rgba(9, 9, 10, 0.75); border: 1px solid #2A2A2E; color: #E9E7E2; font-size: 20px; cursor: pointer">›</button>
+      <div style="position: absolute; left: 20px; right: 20px; bottom: 18px; display: flex; justify-content: space-between; align-items: center">
+        <span style="background: rgba(9, 9, 10, 0.8); font-variant-numeric: tabular-nums; font-size: 12px; padding: 5px 9px; color: #C9C7C1">660 × 1280 · medium</span>
+        <a href="#original" style="background: rgba(9, 9, 10, 0.8); font-size: 13px; padding: 7px 12px; text-decoration: none; border: 1px solid #3A3A40">Open full resolution ↗</a>
+      </div>
+    </div>
+
+    <div style="padding: 26px 30px 24px; display: flex; flex-direction: column; gap: 20px; min-width: 0; overflow: hidden">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 13px; color: #A6A49E">Mars · Mars Odyssey</span>
+          <h1 style="margin: 0; font-size: 44px; font-weight: 400; letter-spacing: -0.025em; line-height: 1">Gale Crater</h1>
+        </div>
+        <a href="A2-signal-search.dc.html" aria-label="Close details" style="width: 36px; height: 36px; border: 1px solid #2A2A2E; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; flex: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+      </div>
+
+      <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #D6D4CE">While far from the <span style="color: #E9E7E2; box-shadow: inset 0 -2px 0 #FF5A1F">rover</span>, this VIS image of Gale Crater covers the same central layered deposit that Curiosity is studying. The linear ridges are the result of wind action eroding the material.</p>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #1F1F23">
+        <div style="padding: 12px 0; border-bottom: 1px solid #1F1F23; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #A6A49E">Taken</span><span style="font-size: 14px">25 Jun 2018</span></div>
+        <div style="padding: 12px 0; border-bottom: 1px solid #1F1F23; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #A6A49E">Center</span><span style="font-size: 14px">JPL</span></div>
+        <div style="padding: 12px 0; border-bottom: 1px solid #1F1F23; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #A6A49E">NASA ID</span><span style="font-variant-numeric: tabular-nums; font-size: 13px">PIA22505</span></div>
+        <div style="padding: 12px 0; border-bottom: 1px solid #1F1F23; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #A6A49E">Instrument</span><span style="font-size: 14px">VIS · orbit 72297</span></div>
+        <div style="padding: 12px 0; border-bottom: 1px solid #1F1F23; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #A6A49E">Captured</span><span style="font-variant-numeric: tabular-nums; font-size: 13px">2018-04-02 02:54</span></div>
+        <div style="padding: 12px 0; border-bottom: 1px solid #1F1F23; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #A6A49E">Credit</span><span style="font-size: 14px">NASA/JPL-Caltech/ASU</span></div>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+        <span style="font-size: 13px; padding: 5px 10px; border: 1px solid #FF5A1F; color: #FF8A5C">Mars</span>
+        <span style="font-size: 13px; padding: 5px 10px; border: 1px solid #2E2E33">2001 Mars Odyssey</span>
+        <span style="font-size: 12px; color: #A6A49E; margin-left: 4px">Highlighted words matched your search</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 28px; border-top: 1px solid #1F1F23; padding-top: 16px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; color: #A6A49E">Match for “mars rover”</span>
+          <span style="font-size: 40px; font-weight: 400; letter-spacing: -0.03em; line-height: 1; color: #FF8A5C">65%</span>
+          <span style="height: 2px; background: #26262A; position: relative; display: block; margin-top: 4px"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 65%; background: #FF5A1F"></span></span>
+          <span style="font-size: 12px; color: #A6A49E; line-height: 1.5">Matched mars in keywords, rover in the description.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; color: #A6A49E">Its place in time</span>
+          <span style="font-size: 13px">Taken in 2018, one of 4 images from that year.</span>
+          <div role="img" aria-label="Archive timeline 1950 to 2024 with this 2018 photo lit" style="position: relative; height: 52px; border-bottom: 1px solid #2A2A2E; margin-top: 10px">
+            <sc-for list="{{squares}}" as="q" hint-placeholder-count="100"><span style="{{q.st}}"></span></sc-for>
+            <span style="position: absolute; left: 215px; bottom: 0; width: 1px; height: 40px; background: #FF5A1F"></span>
+            <span style="position: absolute; left: 215px; top: -6px; transform: translateX(-50%); font-size: 11px; color: #FF8A5C; background: #0D0D0F; padding: 0 3px">2018</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8E8C86"><span>1950</span><span>1980</span><span>2000</span><span>2024</span></div>
+        </div>
+      </div>
+
+      <div style="margin-top: auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; align-items: center; border-top: 1px solid #1F1F23; padding-top: 18px">
+        <div style="position: relative; height: 150px; background: #050506; border: 1px solid #1F1F23; overflow: hidden">
+          <svg width="220" height="150" viewBox="0 0 220 150" style="position: absolute; left: 0; top: 0" aria-hidden="true">
+            <path d="M 34 118 C 70 60, 110 40, 148 64" fill="none" stroke="#FF5A1F" stroke-width="1.2" stroke-dasharray="3 4"></path>
+          </svg>
+          <img src="/_blob/81267c211afc9981676e508316f4f5cc" alt="" style="position: absolute; left: 16px; top: 102px; width: 34px; height: 34px">
+          <img src="/_blob/9e3ee3f4ee1a1f18060c52e90f6ff7fa" alt="" style="position: absolute; left: 104px; top: 22px; width: 104px; height: 104px">
+          <span style="position: absolute; left: 148px; top: 66px; width: 12px; height: 12px; margin-left: -6px; margin-top: -6px; border: 1.5px solid #FF5A1F; border-radius: 50%; box-sizing: border-box"></span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; color: #A6A49E">Where this was seen</span>
+          <span style="font-size: 17px">Gale Crater, Mars</span>
+          <span style="font-variant-numeric: tabular-nums; font-size: 12px; color: #C9C7C1">−5.20°, 138.13°</span>
+          <a href="#space" style="font-size: 13px; margin-top: 4px">Fly there in Space view →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var C = {
+      apollo15:'/_blob/331621360562dc47da2a988c36e7b4bc', atlantis:'/_blob/786de553c11109623c0fe20f3f7b926b', delta:'/_blob/bcd465d0a672ffa7db88e269496eeffc',
+      gale:'/_blob/6612e925d55fa549b658648f8d0c797d', ganges:'/_blob/053dd6c0d6e2951ee273b5976c91e3e9', guppy:'/_blob/e66af121e69fb320b5c356cd7d79fc45',
+      lmsim:'/_blob/0b8d6c6e07e7aac0e11f39df82052909', marbles:'/_blob/644c453a3d887475cf810b918acccbb5', ophir:'/_blob/26867f03197d598b3bf884457f6fa1a5',
+      parker:'/_blob/513c1b42ac6f5cf617afc99505431ac5'
+    };
+    var spec = [['marbles',4,2],['parker',2,2],['gale',2,2],['gale',2,2],['lmsim',2,1],['ophir',2,1],['ganges',2,1],['ophir',2,1],['ganges',2,1],['guppy',2,1],['delta',1,1],['atlantis',1,1],['apollo15',1,1]];
+    var tiles = spec.map(function (s) {
+      return { src: C[s[0]], cell: 'grid-column: span ' + s[1] + '; grid-row: span ' + s[2] + '; overflow: hidden; background: #141416;', img: 'width: 100%; height: 100%; object-fit: cover; display: block;' };
+    });
+    var YEARS = [2018,2004,2007,2005,2020,2004,2011,2013,2020,2010,2011,2010,2005,2000,2014,2018,1967,2022,2013,2018,2012,2003,2002,2011,1994,2008,2020,2009,2011,2009,2002,2010,2020,2010,2019,1998,2014,2013,2022,2006,2023,2010,2011,2011,2024,2010,1982,2009,2010,2010,2008,2001,2014,2004,2009,1999,2017,2019,2022,2011,2005,2003,2019,2001,2012,1986,2019,1998,2011,2017,2012,2021,2014,1965,2024,2022,2007,1998,2009,2024,2003,2012,2014,2019,2019,2018,2017,2011,2021,2009,2003,2013,2004,2010,2015,2011,2007,1971,2014,1950];
+    var W = 236, colW = W / 75, byYear = {}, squares = [];
+    YEARS.forEach(function (y, i) { (byYear[y] = byYear[y] || []).push(i); });
+    Object.keys(byYear).forEach(function (k) {
+      var y = Number(k), ids = byYear[k].sort(function (a, b) { return (b === 0) - (a === 0); });
+      ids.forEach(function (idx, st) {
+        squares.push({ st: 'position: absolute; left: ' + ((y - 1950) * colW).toFixed(1) + 'px; bottom: ' + (st * 4 + 1) + 'px; width: ' + Math.max(1.5, colW - 1).toFixed(1) + 'px; height: 3px; background: ' + (idx === 0 ? '#FF5A1F' : '#34343A') + ';' });
+      });
+    });
+    return { tiles: tiles, squares: squares };
+  }
+}
+</script>
+</body>
+</html>

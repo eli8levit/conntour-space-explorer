@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Signal — search history</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#09090A}
+a{color:#E9E7E2;text-decoration-thickness:1px;text-underline-offset:4px}a:hover{color:#FF5A1F}
+.del{color:#8E8C86;background:none;border:0;padding:0;font:inherit;font-size:14px;cursor:pointer}
+.del:hover{color:#E9E7E2}
+.find::placeholder{color:#8E8C86}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #09090A; color: #E9E7E2; font-family: 'Instrument Sans', system-ui, sans-serif; letter-spacing: 0.006em; font-variant-numeric: tabular-nums; box-sizing: border-box">
+
+  <div style="position: absolute; left: 48px; top: 88px; width: 1016px; display: grid; grid-template-columns: repeat(8, 120px); grid-auto-rows: 100px; gap: 8px">
+    <sc-for list="{{bg}}" as="t" hint-placeholder-count="40">
+      <div style="{{t.cell}}"><img src="{{t.src}}" alt="" style="{{t.img}}"></div>
+    </sc-for>
+  </div>
+  <div style="position: absolute; inset: 0; background: rgba(6, 6, 7, 0.8); z-index: 5"></div>
+
+  <aside role="dialog" aria-label="Search history" style="position: absolute; left: 0; top: 0; bottom: 0; width: 720px; box-sizing: border-box; background: #0B0B0C; border-right: 1px solid #2A2A2E; box-shadow: 40px 0 120px rgba(0, 0, 0, 0.6); z-index: 6; display: flex; flex-direction: column">
+
+    <div style="padding: 28px 40px 0; display: flex; justify-content: space-between; align-items: flex-start">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <h1 style="margin: 0; font-size: 56px; line-height: 1; font-weight: 400; letter-spacing: -0.03em">History</h1>
+        <span style="font-size: 14px; color: #A6A49E">24 searches, newest first.</span>
+      </div>
+      <a href="A2-signal-search.dc.html" aria-label="Close history" style="width: 40px; height: 40px; border: 1px solid #2A2A2E; display: inline-flex; align-items: center; justify-content: center; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+    </div>
+
+    <div style="padding: 22px 40px 0">
+      <label for="find" style="position: absolute; left: -9999px">Find a past search</label>
+      <input id="find" class="find" type="search" placeholder="Find a past search" style="display: block; width: 100%; box-sizing: border-box; height: 44px; padding: 0; background: transparent; border: 0; border-bottom: 1px solid #2A2A2E; color: #E9E7E2; font-family: inherit; font-size: 16px; outline: none">
+    </div>
+
+    <div style="flex: 1; overflow: hidden; padding: 4px 40px 0">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+        <sc-if value="{{r.showHead}}" hint-placeholder-val="{{true}}">
+          <h2 style="margin: 0; padding: 18px 0 8px; font-size: 13px; font-weight: 500; color: #A6A49E">{{r.group}}</h2>
+        </sc-if>
+        <article style="{{r.wrap}}">
+          <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1">
+            <span style="display: flex; align-items: baseline; gap: 12px; min-width: 0">
+              <span style="font-size: 27px; font-weight: 400; letter-spacing: -0.02em; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.q}}</span>
+            </span>
+            <span style="font-size: 13px; color: #A6A49E; white-space: nowrap">{{r.when}} · <span style="{{r.metaStyle}}">{{r.meta}}</span></span>
+          </div>
+          <span style="display: flex; gap: 4px; align-items: center; flex: none">
+            <sc-for list="{{r.thumbs}}" as="th" hint-placeholder-count="4">
+              <span style="position: relative; display: block; width: 46px; height: 32px"><img src="{{th.src}}" alt="{{th.alt}}" style="{{th.img}}"><span style="{{th.bar}}"></span></span>
+            </sc-for>
+            <sc-if value="{{r.hasMore}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; color: #8E8C86; padding-left: 4px; width: 30px">{{r.more}}</span></sc-if>
+          </span>
+          <span style="display: flex; gap: 20px; align-items: center; flex: none; padding-left: 8px">
+            <a href="{{r.href}}" style="font-size: 14px; font-weight: 500">{{r.open}}</a>
+            <button type="button" class="del" aria-label="{{r.delLabel}}">Delete</button>
+          </span>
+        </article>
+      </sc-for>
+    </div>
+
+    <div style="padding: 16px 40px 18px; border-top: 1px solid #1F1F23; display: flex; align-items: center; gap: 24px">
+      <a href="#older" style="font-size: 15px; font-weight: 500">Show 10 older searches</a>
+      <span style="font-size: 14px; color: #A6A49E">Showing 6 of 24</span>
+    </div>
+
+    <div role="status" style="position: absolute; left: 760px; width: 480px; bottom: 28px; display: flex; align-items: center; gap: 20px; padding: 14px 18px; background: #E9E7E2; color: #09090A; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5)">
+      <span style="font-size: 15px">Deleted “apollo” and its saved results.</span>
+      <a href="#undo" style="font-size: 15px; font-weight: 600; color: #09090A">Undo</a>
+      <span style="margin-left: auto; font-size: 13px; color: #55534E">Gone in 6 s</span>
+    </div>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var C = {
+      algeria:'/_blob/d0738f6b198a81c241628291c687dab3', apollo15:'/_blob/331621360562dc47da2a988c36e7b4bc', atlantis:'/_blob/786de553c11109623c0fe20f3f7b926b',
+      columbia:'/_blob/4789b97397b0020418e8a7e72a96e88c', delta:'/_blob/bcd465d0a672ffa7db88e269496eeffc', eva:'/_blob/aa705d1d5aebe3582a76fd24b344d747',
+      gale:'/_blob/6612e925d55fa549b658648f8d0c797d', ganges:'/_blob/053dd6c0d6e2951ee273b5976c91e3e9', guppy:'/_blob/e66af121e69fb320b5c356cd7d79fc45',
+      lmsim:'/_blob/0b8d6c6e07e7aac0e11f39df82052909', lunar:'/_blob/47491645b54729a81e25c70e2bbdc2f9', marbles:'/_blob/644c453a3d887475cf810b918acccbb5',
+      ophir:'/_blob/26867f03197d598b3bf884457f6fa1a5', parker:'/_blob/513c1b42ac6f5cf617afc99505431ac5', saturn:'/_blob/5f6422d15378b30d9015997e4db5919f',
+      soyuz:'/_blob/566d175c3b4f7700587785452b7ff26c', storm:'/_blob/5d1d57a20e6d8191b824b6f6ad6c1676', vesta:'/_blob/8c9ebf22ac6dc237ce43893799658302'
+    };
+    // Counts and scores computed from mock_data.json with the agreed scoring.
+    // [query, group, time, total, strong (>=50%), best, [[image, score]...], current]
+    var ALL = [
+      ['mars rover', 'Today', '23:31', 13, 5, 100, [['marbles', 100], ['gale', 65], ['ganges', 40], ['ophir', 40]], true],
+      ['launch at night', 'Today', '23:12', 37, 5, 50, [['columbia', 50], ['atlantis', 50], ['parker', 40]]],
+      ['saturn', 'Today', '22:58', 2, 2, 100, [['apollo15', 100], ['saturn', 80]]],
+      ['lunar landing', 'Yesterday', '21:05', 15, 3, 100, [['lunar', 100], ['soyuz', 50], ['apollo15', 50], ['lmsim', 25]]],
+      ['nebula', 'Yesterday', '20:47', 0, 0, 0, []],
+      ['astronaut spacewalk', 'Friday 6 November', '18:22', 16, 5, 50, [['eva', 50]]]
+    ];
+    var prev = null;
+    var rows = ALL.map(function (r) {
+      var head = r[1] !== prev; prev = r[1];
+      var n = r[3], meta;
+      if (n === 0) meta = 'Nothing matched in the 100 images';
+      else if (r[4] === n) meta = n + (n === 1 ? ' image' : ' images') + ', all strong, best ' + r[5] + '%';
+      else meta = n + ' images, ' + r[4] + ' strong, best ' + r[5] + '%';
+      return {
+        q: r[0], group: r[1], when: r[2], meta: meta, showHead: head, current: !!r[7],
+        metaStyle: n === 0 ? 'color: #A6A49E' : 'color: #D6D4CE',
+        wrap: 'display: flex; align-items: center; gap: 16px; padding: 13px 0 14px; border-top: 1px solid #1F1F23;' + (r[7] ? ' box-shadow: inset 3px 0 0 #FF5A1F; margin-left: -40px; padding-left: 37px; margin-right: -40px; padding-right: 40px; background: #111113;' : ''),
+        href: n === 0 ? 'Main.dc.html' : 'A2-signal-search.dc.html',
+        open: n === 0 ? 'Search again' : 'Open results',
+        delLabel: 'Delete search “' + r[0] + '”',
+        thumbs: r[6].slice(0, 3).map(function (t) {
+          return {
+            src: C[t[0]], alt: t[1] + '% match',
+            img: 'display: block; width: 46px; height: 32px; object-fit: cover; opacity: ' + Math.max(0.4, t[1] / 100).toFixed(2) + ';',
+            bar: 'position: absolute; left: 0; bottom: 0; height: 2px; width: ' + t[1] + '%; background: ' + (t[1] >= 50 ? '#FF5A1F' : '#E9E7E2') + ';'
+          };
+        }),
+        hasMore: n > Math.min(3, r[6].length) && r[6].length > 0,
+        more: '+' + (n - Math.min(3, r[6].length))
+      };
+    });
+    var spec = [['marbles',4,2],['parker',2,2],['gale',2,2],['gale',2,2],['lmsim',2,1],['ophir',2,1],['ganges',2,1],['ophir',2,1],['ganges',2,1],['guppy',2,1],['delta',1,1],['atlantis',1,1],['apollo15',1,1]];
+    var bg = spec.map(function (t) {
+      return { src: C[t[0]], cell: 'grid-column: span ' + t[1] + '; grid-row: span ' + t[2] + '; overflow: hidden; background: #141416;', img: 'width: 100%; height: 100%; object-fit: cover; display: block;' };
+    });
+    for (var i = 0; i < 21; i++) bg.push({ src: C['storm'], cell: 'grid-column: span 1; grid-row: span 1; overflow: hidden; background: #141416;', img: 'width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.15; filter: grayscale(1);' });
+    return { rows: rows, bg: bg };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Signal — idle archive</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#09090A}
+a{color:#E9E7E2}a:hover{color:#FF5A1F}
+input::placeholder{color:#7D7B76}
+@keyframes drift{0%{transform:translate(0px,0px)}50%{transform:translate(-30px,-22px)}100%{transform:translate(0px,0px)}}
+.drift{animation:drift 56s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.drift{animation:none}}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #09090A; color: #E9E7E2; font-family: 'Instrument Sans', system-ui, sans-serif; letter-spacing: 0.006em; box-sizing: border-box">
+
+  <div class="drift" style="position: absolute; left: -262px; top: -96px; width: 1976px; display: grid; grid-template-columns: repeat(16, 116px); grid-auto-rows: 116px; grid-auto-flow: dense; gap: 8px">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="100">
+      <div style="{{t.cell}}">
+        <div style="width: 100%; height: 100%; overflow: hidden; background: #141416"><img src="{{t.src}}" alt="" style="{{t.img}}"></div>
+        <sc-if value="{{t.big}}" hint-placeholder-val="{{false}}">
+          <div style="position: absolute; left: 8px; bottom: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; max-width: calc(100% - 16px)">
+            <span style="background: rgba(9, 9, 10, 0.78); font-variant-numeric: tabular-nums; font-size: 10px; padding: 3px 7px; color: #E9E7E2; white-space: nowrap; font-size: 12px; overflow: hidden; text-overflow: ellipsis; max-width: 100%">{{t.title}}</span>
+            <span style="background: rgba(9, 9, 10, 0.78); font-variant-numeric: tabular-nums; font-size: 10px; padding: 2px 6px; color: #A6A49E">{{t.meta}}</span>
+          </div>
+          <span style="position: absolute; right: 8px; top: 8px; font-variant-numeric: tabular-nums; font-size: 10px; color: #E9E7E2; background: rgba(9, 9, 10, 0.78); padding: 2px 5px">{{t.no}}</span>
+        </sc-if>
+        <sc-if value="{{t.small}}" hint-placeholder-val="{{true}}">
+          <span style="position: absolute; left: 6px; bottom: 6px; font-variant-numeric: tabular-nums; font-size: 9px; color: #E9E7E2; background: rgba(9, 9, 10, 0.7); padding: 1px 4px">{{t.no}}</span>
+        </sc-if>
+        <sc-if value="{{t.hot}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; left: -6px; top: -6px; width: 14px; height: 14px; border-left: 1.5px solid #FF5A1F; border-top: 1.5px solid #FF5A1F"></span>
+          <span style="position: absolute; right: -6px; top: -6px; width: 14px; height: 14px; border-right: 1.5px solid #FF5A1F; border-top: 1.5px solid #FF5A1F"></span>
+          <span style="position: absolute; left: -6px; bottom: -6px; width: 14px; height: 14px; border-left: 1.5px solid #FF5A1F; border-bottom: 1.5px solid #FF5A1F"></span>
+          <span style="position: absolute; right: -6px; bottom: -6px; width: 14px; height: 14px; border-right: 1.5px solid #FF5A1F; border-bottom: 1.5px solid #FF5A1F"></span>
+          <span style="position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(255, 90, 31, 0.55)"></span>
+          <span style="position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: rgba(255, 90, 31, 0.55)"></span>
+          <div style="position: absolute; left: calc(100% + 14px); top: 10px; display: flex; flex-direction: column; gap: 2px; white-space: nowrap; z-index: 3">
+            <span style="background: #FF5A1F; color: #09090A; font-variant-numeric: tabular-nums; font-size: 11px; padding: 3px 7px; font-weight: 500">Gale Crater · PIA22505</span>
+            <span style="background: #09090A; color: #FF8A5C; font-variant-numeric: tabular-nums; font-size: 11px; padding: 3px 7px">JPL · 25 Jun 2018 · Mars</span>
+            <span style="background: #09090A; color: #A6A49E; font-variant-numeric: tabular-nums; font-size: 11px; padding: 3px 7px">−5.20°, 138.13°</span>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <header style="position: absolute; left: 0; right: 0; top: 0; height: 64px; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; background: rgba(9, 9, 10, 0.82); backdrop-filter: blur(14px); border-bottom: 1px solid #1C1C1F; z-index: 5">
+    <div style="display: flex; align-items: baseline; gap: 14px">
+      <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em">Space Explorer</span>
+      <span style="font-size: 13px; color: #8E8C86">NASA Image Library</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; font-variant-numeric: tabular-nums; font-size: 12px; color: #8E8C86; ">
+      <span style="width: 6px; height: 6px; border-radius: 50%; background: #FF5A1F; display: inline-block"></span>
+      <span style="color: #E9E7E2">100 frames</span><span>·</span><span>10 NASA centers</span><span>·</span><span>1950–2024</span>
+    </div>
+    <span style="font-variant-numeric: tabular-nums; font-size: 12px; color: #8E8C86">8 Nov 2026 · 20:02 UTC</span>
+  </header>
+
+  <a href="A4-signal-history.dc.html" aria-label="Open search history, 24 searches" style="position: absolute; left: 0; top: 340px; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 10px; background: rgba(9, 9, 10, 0.88); backdrop-filter: blur(12px); border: 1px solid #2A2A2E; border-left: 0; text-decoration: none">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path><path d="M12 7v5l3 2"></path></svg>
+    <span style="writing-mode: vertical-rl; transform: rotate(180deg); font-size: 13px">History · 24</span>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8E8C86" stroke-width="1.8" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+  </a>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 220px; background: linear-gradient(to bottom, rgba(9, 9, 10, 0), rgba(9, 9, 10, 0.95) 55%); z-index: 3; pointer-events: none"></div>
+
+  <div style="position: absolute; left: 380px; bottom: 36px; width: 680px; z-index: 4; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; font-size: 11px; color: #A6A49E; padding: 0 4px">
+      <span>Drag to explore · hover a frame for details</span><span>Press / to search</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 14px; height: 64px; box-sizing: border-box; padding: 0 12px 0 20px; background: #0B0B0C; border: 1px solid #3A3A40; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+      <label for="q-a1" style="position: absolute; left: -9999px">Query the archive</label>
+      <input id="q-a1" type="text" placeholder="Describe what you’re looking for" style="flex: 1; background: transparent; border: 0; outline: none; color: #E9E7E2; font-family: 'Instrument Sans', sans-serif; font-size: 22px; font-weight: 400; padding: 0">
+      <a href="A2-signal-search.dc.html" style="background: #FF5A1F; color: #09090A; text-decoration: none; font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 500; padding: 12px 16px">Search ⏎</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var C = {
+      algeria:'/_blob/d0738f6b198a81c241628291c687dab3', apollo15:'/_blob/331621360562dc47da2a988c36e7b4bc', atlantis:'/_blob/786de553c11109623c0fe20f3f7b926b',
+      columbia:'/_blob/4789b97397b0020418e8a7e72a96e88c', delta:'/_blob/bcd465d0a672ffa7db88e269496eeffc', eva:'/_blob/aa705d1d5aebe3582a76fd24b344d747',
+      gale:'/_blob/6612e925d55fa549b658648f8d0c797d', ganges:'/_blob/053dd6c0d6e2951ee273b5976c91e3e9', guppy:'/_blob/e66af121e69fb320b5c356cd7d79fc45',
+      lmsim:'/_blob/0b8d6c6e07e7aac0e11f39df82052909', lunar:'/_blob/47491645b54729a81e25c70e2bbdc2f9', marbles:'/_blob/644c453a3d887475cf810b918acccbb5',
+      ophir:'/_blob/26867f03197d598b3bf884457f6fa1a5', parker:'/_blob/513c1b42ac6f5cf617afc99505431ac5', saturn:'/_blob/5f6422d15378b30d9015997e4db5919f',
+      soyuz:'/_blob/566d175c3b4f7700587785452b7ff26c', storm:'/_blob/5d1d57a20e6d8191b824b6f6ad6c1676', vesta:'/_blob/8c9ebf22ac6dc237ce43893799658302'
+    };
+    var META = {
+      gale: ['Gale Crater', 'PIA22505 · JPL · 2018'], ganges: ['Ganges Chasma', 'PIA13637 · JPL · 2010'], ophir: ['Ophir Chasma Dunes', 'PIA05956 · JPL · 2004'],
+      saturn: ['Saturn’s hexagon in infrared', 'PIA17654 · JPL · 2013'], vesta: ['Small, dark asteroids', 'PIA14732 · JPL · 2011'], algeria: ['Flooding in Algeria', 'PIA13962 · JPL · 2012'],
+      storm: ['Spring storm, New England', 'GSFC · 2017'], columbia: ['Columbia, STS 61-C', '61c-s-047 · JSC · 1986'], atlantis: ['Atlantis, STS-129', 'sts129-s-077 · JSC · 2009'],
+      eva: ['Herrington, second EVA', 'S113E05187 · JSC · 2002'], parker: ['Parker Solar Probe', 'KSC · 2018'], lunar: ['Lunar landing testing', 'LRC · 1965'],
+      lmsim: ['LM mission simulator', 'S67-15795 · JSC · 1967'], guppy: ['Orion on the Super Guppy', 'GRC · 2019'], soyuz: ['Expedition 61 Soyuz landing', 'HQ · 2020'],
+      delta: ['Delta IV Heavy, EFT-1', 'KSC · 2014'], marbles: ['Perseverance marble countdown', 'HQ · 2021'], apollo15: ['Apollo 15 crew', '7120051 · MSFC · 1971']
+    };
+    var names = ['storm','eva','delta','apollo15','saturn','lunar','soyuz','ganges','columbia','guppy','parker','ophir','atlantis','lmsim','marbles'];
+    var once = { 22: 'vesta', 77: 'algeria' };
+    var tiles = [];
+    for (var i = 0; i < 100; i++) {
+      var h = (i * 2654435761) >>> 0;
+      var hot = i === 21;
+      var n = hot ? 'gale' : (once[i] || names[(i * 4) % names.length]);
+      var r = (h >>> 11) % 100;
+      var cs = 1, rs = 1;
+      if (hot) { cs = 2; rs = 3; }
+      else if (r < 12) { cs = 3; rs = 2; }
+      else if (r < 30) { cs = 2; rs = 2; }
+      else if (r < 46) { cs = 2; rs = 1; }
+      else if (r < 60) { cs = 1; rs = 2; }
+      var big = cs * rs >= 4;
+      var px = (h >>> 5) % 100, py = (h >>> 9) % 100;
+      tiles.push({
+        hot: hot, big: big && !hot, small: !big && !hot,
+        no: ('00' + (i + 1)).slice(-3),
+        title: META[n][0], meta: META[n][1],
+        src: C[n],
+        cell: 'position: relative; grid-column: span ' + cs + '; grid-row: span ' + rs + ';' + (hot ? ' outline: 1px solid #FF5A1F; z-index: 2;' : ''),
+        img: 'width: 100%; height: 100%; object-fit: cover; display: block; object-position: ' + (big || hot ? '50% 45%' : px + '% ' + py + '%') + '; transform: scale(' + (big || hot ? 1 : 1.15) + ');'
+      });
+    }
+    return { tiles: tiles };
+  }
+}
+</script>
+</body>
+</html>

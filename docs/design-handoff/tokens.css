@@ -1,0 +1,55 @@
+/*
+ * Signal design tokens. Drop-in replacement for the :root block in frontend/src/index.css.
+ * Same variable names as the existing tailwind.config.ts, plus five new ones
+ * (soft, accent, accent-text, bar-faint, scrim). Add those five to tailwind.config.ts:
+ *
+ *   soft: token("soft"), accent: token("accent"), "accent-text": token("accent-text"),
+ *   "bar-faint": token("bar-faint"),
+ *
+ * Colors are "R G B" triplets so Tailwind opacity modifiers keep working (bg-fg/10).
+ */
+:root {
+  --color-bg: 9 9 10;            /* #09090A  page and canvas background */
+  --color-surface: 12 12 14;     /* #0C0C0E  ranking rail, history drawer, search dock (#0B0B0C is fine too) */
+  --color-raised: 20 20 22;      /* #141416  image placeholder before load, hover fill */
+  --color-line: 31 31 35;        /* #1F1F23  dividers, rail and drawer borders, row rules */
+  --color-line-strong: 42 42 46; /* #2A2A2E  buttons, inputs, modal border, empty timeline square */
+  --color-fg: 233 231 226;       /* #E9E7E2  primary text (warm off-white, never pure #FFF) */
+  --color-soft: 214 212 206;     /* #D6D4CE  long body text: descriptions */
+  --color-muted: 166 164 158;    /* #A6A49E  labels, secondary text, metadata keys */
+  --color-faint: 142 140 134;    /* #8E8C86  tertiary text, hints, tick labels */
+  --color-accent: 255 90 31;     /* #FF5A1F  THE accent: strong-match badges/bars, active search border, hover frame */
+  --color-accent-text: 255 138 92; /* #FF8A5C accent used as TEXT (percentages, rank numbers): readable on near-black */
+  --color-bar-faint: 110 108 103;  /* #6E6C67 bars of faint matches in the ranking rail */
+  --color-danger: 248 113 113;   /* errors only (unchanged) */
+
+  --scrim: rgba(6, 6, 7, 0.8);   /* behind the details modal and the history drawer */
+  --caption-bg: rgba(9, 9, 10, 0.86); /* caption strip on result frames */
+  --chip-bg: rgba(9, 9, 10, 0.78);    /* small labels on top of photos */
+
+  --radius-sm: 0px;  /* Signal is square. No rounded corners anywhere ... */
+  --radius: 0px;
+  --radius-handle: 2px; /* ... except the two timeline drag handles */
+
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-sans); /* no monospace in this design: numbers use tabular figures instead */
+
+  color-scheme: dark;
+}
+
+@layer base {
+  body {
+    @apply bg-bg font-sans text-fg antialiased;
+    letter-spacing: 0.006em;              /* Instrument Sans is slightly tight at 12–13px */
+    font-variant-numeric: tabular-nums;   /* percentages, years and counts line up */
+  }
+  :focus-visible {
+    @apply outline outline-1 outline-offset-2 outline-fg;
+  }
+  /* Matched query words inside description / title: an orange underline, not a fill. */
+  mark {
+    background: none;
+    color: rgb(var(--color-fg));
+    box-shadow: inset 0 -2px 0 rgb(var(--color-accent));
+  }
+}

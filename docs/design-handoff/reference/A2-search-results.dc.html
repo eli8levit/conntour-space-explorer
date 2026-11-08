@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Signal — ranked search results</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#09090A}
+a{color:#E9E7E2}a:hover{color:#FF5A1F}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #09090A; color: #E9E7E2; font-family: 'Instrument Sans', system-ui, sans-serif; letter-spacing: 0.006em; font-variant-numeric: tabular-nums; box-sizing: border-box">
+
+  <div style="position: absolute; left: 48px; top: 88px; width: 1016px; display: grid; grid-template-columns: repeat(8, 120px); grid-auto-rows: 100px; gap: 8px">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="60">
+      <div style="{{t.cell}}">
+        <div style="width: 100%; height: 100%; overflow: hidden; background: #141416"><img src="{{t.src}}" alt="" style="{{t.img}}"></div>
+        <sc-if value="{{t.match}}" hint-placeholder-val="{{false}}">
+          <span style="{{t.badge}}">{{t.rank}}</span>
+          <div style="position: absolute; left: 0; right: 0; bottom: 0; background: rgba(9, 9, 10, 0.86); display: flex; flex-direction: column">
+            <div style="{{t.capRow}}">
+              <sc-if value="{{t.showTitle}}" hint-placeholder-val="{{true}}">
+                <span style="{{t.titleStyle}}">{{t.title}}</span>
+              </sc-if>
+              <span style="{{t.pctStyle}}">{{t.pct}}</span>
+            </div>
+            <span style="height: 3px; background: #26262A; position: relative; display: block"><span style="{{t.bar}}"></span></span>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <header style="position: absolute; left: 0; right: 0; top: 0; height: 64px; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; background: rgba(9, 9, 10, 0.9); backdrop-filter: blur(14px); border-bottom: 1px solid #1C1C1F; z-index: 5">
+    <a href="Main.dc.html" style="display: flex; align-items: baseline; gap: 14px; text-decoration: none">
+      <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em">Space Explorer</span>
+      <span style="font-size: 13px; color: #8E8C86">100 images from the NASA Image Library</span>
+    </a>
+    <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #A6A49E">
+      <span style="width: 7px; height: 7px; border-radius: 50%; background: #FF5A1F; display: inline-block"></span>
+      <span style="color: #E9E7E2">5 strong matches, 8 faint</span><span>· 87 images set aside</span>
+    </div>
+    <span style="font-size: 13px; color: #8E8C86">↑ ↓ step through · Esc clears</span>
+  </header>
+
+  <a href="A4-signal-history.dc.html" aria-label="Open search history, 25 searches" style="position: absolute; left: 0; top: 300px; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 10px; background: rgba(9, 9, 10, 0.9); border: 1px solid #2A2A2E; border-left: 0; text-decoration: none">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path><path d="M12 7v5l3 2"></path></svg>
+    <span style="writing-mode: vertical-rl; transform: rotate(180deg); font-size: 13px">History · 25</span>
+  </a>
+
+  <aside style="position: absolute; right: 0; top: 64px; bottom: 0; width: 344px; box-sizing: border-box; background: #0C0C0E; border-left: 1px solid #1F1F23; padding: 20px 24px 18px; display: flex; flex-direction: column; gap: 6px; z-index: 4">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px">
+      <span style="font-size: 15px; font-weight: 500">13 results, ranked by match</span>
+      <button type="button" aria-label="Collapse results list" style="width: 28px; height: 28px; background: transparent; border: 1px solid #2A2A2E; color: #A6A49E; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+    </div>
+    <div style="display: flex; flex-direction: column">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="13">
+        <sc-if value="{{r.divider}}" hint-placeholder-val="{{false}}">
+          <span style="font-size: 12px; color: #A6A49E; padding: 12px 0 6px">Faint matches, under 50%. Each has only “mars” or only “rover”.</span>
+        </sc-if>
+        <a href="A3-signal-inspect.dc.html" style="{{r.row}}">
+          <span style="{{r.rankStyle}}">{{r.rank}}</span>
+          <span style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+            <span style="display: flex; justify-content: space-between; gap: 10px; align-items: baseline">
+              <span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.title}}</span>
+              <span style="{{r.pctStyle}}">{{r.pct}}</span>
+            </span>
+            <span style="height: 2px; background: #1F1F23; position: relative; display: block"><span style="{{r.bar}}"></span></span>
+            <sc-if value="{{r.strong}}" hint-placeholder-val="{{true}}"><span style="font-size: 11px; color: #8E8C86">{{r.why}}</span></sc-if>
+          </span>
+        </a>
+      </sc-for>
+    </div>
+    <span style="margin-top: auto; border-top: 1px solid #1F1F23; padding-top: 12px; font-size: 12px; color: #A6A49E; line-height: 1.5">Each word scores where it appears best: title 100%, keywords 80%, description 50%. The match is their average.</span>
+  </aside>
+
+  <div style="position: absolute; left: 0; right: 344px; bottom: 0; height: 330px; background: linear-gradient(to bottom, rgba(9, 9, 10, 0), rgba(9, 9, 10, 0.97) 42%); z-index: 3; pointer-events: none"></div>
+
+  <section aria-label="Search and filter by year" style="position: absolute; left: 48px; bottom: 24px; width: 1016px; z-index: 4; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 2px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <span style="font-size: 13px; color: #A6A49E"><span style="color: #E9E7E2">When these were taken.</span> Each square is one image. Drag the handles to narrow by year.</span>
+        <span style="font-size: 13px; display: flex; gap: 16px; align-items: baseline"><span>1950 to 2024</span><a href="#reset" style="color: #A6A49E; font-size: 12px">Reset years</a></span>
+      </div>
+      <div role="img" aria-label="Archive timeline 1950 to 2024. 13 matching images are lit: strong matches in 2004, 2013, 2018 and 2021." style="position: relative; height: 72px; border-bottom: 1px solid #2A2A2E">
+        <sc-for list="{{squares}}" as="q" hint-placeholder-count="100">
+          <span style="{{q.st}}"></span>
+        </sc-for>
+        <span style="position: absolute; left: -1px; bottom: -6px; width: 2px; height: 84px; background: #E9E7E2"></span>
+        <span style="position: absolute; left: -6px; bottom: 30px; width: 12px; height: 22px; background: #E9E7E2; border-radius: 2px"></span>
+        <span style="position: absolute; right: -1px; bottom: -6px; width: 2px; height: 84px; background: #E9E7E2"></span>
+        <span style="position: absolute; right: -6px; bottom: 30px; width: 12px; height: 22px; background: #E9E7E2; border-radius: 2px"></span>
+      </div>
+      <div style="position: relative; height: 16px">
+        <sc-for list="{{ticks}}" as="k" hint-placeholder-count="8">
+          <span style="{{k.st}}">{{k.label}}</span>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 14px; height: 62px; box-sizing: border-box; padding: 0 12px 0 20px; background: #0B0B0C; border: 1px solid #FF5A1F; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+      <label for="q-a2" style="position: absolute; left: -9999px">Search the archive</label>
+      <input id="q-a2" type="text" value="mars rover" style="flex: 1; background: transparent; border: 0; outline: none; color: #E9E7E2; font-family: 'Instrument Sans', sans-serif; font-size: 24px; font-weight: 400; padding: 0">
+      <a href="Main.dc.html" style="font-size: 13px; text-decoration: none; color: #A6A49E; border: 1px solid #2E2E33; padding: 10px 14px">Clear ×</a>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var C = {
+      algeria:'/_blob/d0738f6b198a81c241628291c687dab3', apollo15:'/_blob/331621360562dc47da2a988c36e7b4bc', atlantis:'/_blob/786de553c11109623c0fe20f3f7b926b',
+      columbia:'/_blob/4789b97397b0020418e8a7e72a96e88c', delta:'/_blob/bcd465d0a672ffa7db88e269496eeffc', eva:'/_blob/aa705d1d5aebe3582a76fd24b344d747',
+      gale:'/_blob/6612e925d55fa549b658648f8d0c797d', ganges:'/_blob/053dd6c0d6e2951ee273b5976c91e3e9', guppy:'/_blob/e66af121e69fb320b5c356cd7d79fc45',
+      lmsim:'/_blob/0b8d6c6e07e7aac0e11f39df82052909', lunar:'/_blob/47491645b54729a81e25c70e2bbdc2f9', marbles:'/_blob/644c453a3d887475cf810b918acccbb5',
+      ophir:'/_blob/26867f03197d598b3bf884457f6fa1a5', parker:'/_blob/513c1b42ac6f5cf617afc99505431ac5', saturn:'/_blob/5f6422d15378b30d9015997e4db5919f',
+      soyuz:'/_blob/566d175c3b4f7700587785452b7ff26c', storm:'/_blob/5d1d57a20e6d8191b824b6f6ad6c1676', vesta:'/_blob/8c9ebf22ac6dc237ce43893799658302'
+    };
+    // Real results for "mars rover" from mock_data.json.
+    // [rank, title, pct, image (stand-in where not downloaded), crop, colSpan, rowSpan, record index, matched words]
+    var results = [
+      ['01', 'Perseverance Mars Rover Marble Countdown', 100, 'marbles', '50% 50%', 4, 2, 88, 'mars, rover in the title'],
+      ['02', 'Curiosity Rover’s First Anniversary', 90, 'parker', '40% 40%', 2, 2, 37, 'rover in the title, mars in keywords'],
+      ['03', 'Focus on El Capitan-2', 80, 'gale', '50% 70%', 2, 2, 92, 'mars, rover in keywords'],
+      ['04', 'Gale Crater', 65, 'gale', '50% 40%', 2, 2, 0, 'mars in keywords, rover in description'],
+      ['05', 'Mars Briefing', 50, 'lmsim', '50% 50%', 2, 1, 23, 'mars in the title'],
+      ['06', 'Knob in Propontis', 40, 'ophir', '50% 30%', 2, 1, 5, 'mars'],
+      ['07', 'Ganges Chasma', 40, 'ganges', '50% 50%', 2, 1, 33, 'mars'],
+      ['08', 'Ophir Chasma Dunes', 40, 'ophir', '50% 70%', 2, 1, 53, 'mars'],
+      ['09', 'Lycus Sulci', 40, 'ganges', '50% 20%', 2, 1, 60, 'mars'],
+      ['10', 'Artemis-2 Heat Shield Arrival', 40, 'guppy', '60% 50%', 2, 1, 66, 'mars'],
+      ['11', 'Artemis I Baton Handoff', 25, 'delta', '50% 50%', 1, 1, 17, 'mars, in description'],
+      ['12', 'KSC-2011-7291', 25, 'atlantis', '50% 60%', 1, 1, 87, 'mars, in description'],
+      ['13', 'Saturn Apollo Program', 25, 'apollo15', '50% 40%', 1, 1, 97, 'rover, in description']
+    ];
+    var STRONG = 50, ORANGE = '#FF5A1F', ORANGE_T = '#FF8A5C';
+    var tiles = results.map(function (r) {
+      var top = r[0] === '01', big = r[5] * r[6] >= 4, tiny = r[5] === 1;
+      var strong = r[2] >= STRONG;
+      return {
+        match: true, rank: r[0], title: r[1], pct: r[2] + '%', showTitle: !tiny,
+        src: C[r[3]],
+        cell: 'position: relative; grid-column: span ' + r[5] + '; grid-row: span ' + r[6] + ';',
+        img: 'width: 100%; height: 100%; object-fit: cover; display: block; object-position: ' + r[4] + ';' + (strong ? '' : ' opacity: 0.82;'),
+        badge: 'position: absolute; left: 0; top: 0; background: ' + (strong ? ORANGE : '#E9E7E2') + '; color: #09090A; font-weight: 600; ' + (top ? 'font-size: 26px; padding: 6px 12px;' : big ? 'font-size: 17px; padding: 5px 9px;' : 'font-size: 12px; padding: 3px 6px;'),
+        capRow: 'display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: ' + (top ? '10px 14px 9px' : tiny ? '4px 7px' : '7px 10px 6px') + ';',
+        titleStyle: (top ? 'font-size: 19px;' : big ? 'font-size: 14px;' : 'font-size: 12px;') + ' white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;',
+        pctStyle: (top ? 'font-size: 26px; font-weight: 400;' : big ? 'font-size: 18px; font-weight: 400;' : 'font-size: 12px;') + ' color: ' + (strong ? ORANGE_T : '#E9E7E2') + '; flex: none;',
+        bar: 'position: absolute; left: 0; top: 0; bottom: 0; width: ' + r[2] + '%; background: ' + (strong ? ORANGE : '#E9E7E2') + ';'
+      };
+    });
+    var rest = ['storm','eva','delta','saturn','lunar','soyuz','columbia','parker','atlantis','lmsim','vesta','algeria','apollo15','guppy'];
+    for (var i = 0; i < 35; i++) {
+      var h = (i * 2654435761) >>> 0;
+      tiles.push({
+        match: false, src: C[rest[(i * 5) % rest.length]],
+        cell: 'position: relative; grid-column: span 1; grid-row: span 1;',
+        img: 'width: 100%; height: 100%; object-fit: cover; display: block; object-position: ' + ((h >>> 5) % 100) + '% ' + ((h >>> 9) % 100) + '%; opacity: 0.16; filter: grayscale(1);'
+      });
+    }
+    var rows = results.map(function (r, i) {
+      var strong = r[2] >= STRONG;
+      return {
+        rank: r[0], title: r[1], pct: r[2] + '%', why: 'Matched ' + r[8], strong: strong,
+        divider: i > 0 && results[i - 1][2] >= STRONG && !strong,
+        row: 'display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; padding: 7px 0 8px; border-bottom: 1px solid #1A1A1D; text-decoration: none;',
+        rankStyle: 'font-size: 12px; font-weight: 600; padding-top: 1px; color: ' + (strong ? ORANGE_T : '#8E8C86') + ';',
+        pctStyle: 'font-size: 13px; flex: none; color: ' + (strong ? ORANGE_T : '#E9E7E2') + ';',
+        bar: 'position: absolute; left: 0; top: 0; bottom: 0; width: ' + r[2] + '%; background: ' + (strong ? ORANGE : '#6E6C67') + ';'
+      };
+    });
+    // Year of each of the 100 records, in mock_data.json order.
+    var YEARS = [2018,2004,2007,2005,2020,2004,2011,2013,2020,2010,2011,2010,2005,2000,2014,2018,1967,2022,2013,2018,2012,2003,2002,2011,1994,2008,2020,2009,2011,2009,2002,2010,2020,2010,2019,1998,2014,2013,2022,2006,2023,2010,2011,2011,2024,2010,1982,2009,2010,2010,2008,2001,2014,2004,2009,1999,2017,2019,2022,2011,2005,2003,2019,2001,2012,1986,2019,1998,2011,2017,2012,2021,2014,1965,2024,2022,2007,1998,2009,2024,2003,2012,2014,2019,2019,2018,2017,2011,2021,2009,2003,2013,2004,2010,2015,2011,2007,1971,2014,1950];
+    var score = {};
+    results.forEach(function (r) { score[r[7]] = r[2]; });
+    var SPAN = 75, W = 1016, colW = W / SPAN;
+    var byYear = {};
+    YEARS.forEach(function (y, i) { (byYear[y] = byYear[y] || []).push(i); });
+    var squares = [];
+    Object.keys(byYear).forEach(function (k) {
+      var y = Number(k), ids = byYear[k].slice();
+      ids.sort(function (a, b) { return (score[b] || 0) - (score[a] || 0); });
+      ids.forEach(function (idx, stack) {
+        var s = score[idx], col = s >= STRONG ? ORANGE : s ? '#E9E7E2' : '#2A2A2E';
+        squares.push({ st: 'position: absolute; left: ' + ((y - 1950) * colW + 1).toFixed(1) + 'px; bottom: ' + (stack * 7 + 1) + 'px; width: ' + (colW - 3).toFixed(1) + 'px; height: 5px; background: ' + col + ';' + (s && s < STRONG ? ' opacity: 0.75;' : '') });
+      });
+    });
+    var ticks = [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020].map(function (y) {
+      return { label: String(y), st: 'position: absolute; top: 0; left: ' + ((y - 1950) * colW).toFixed(1) + 'px; font-size: 12px; color: #8E8C86;' };
+    });
+    return { tiles: tiles, rows: rows, squares: squares, ticks: ticks };
+  }
+}
+</script>
+</body>
+</html>
