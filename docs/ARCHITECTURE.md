@@ -163,7 +163,7 @@ for the logic that is not HTTP and not SQL.
 | `backend/models.py` | Pydantic schemas: the JSON contract with the frontend (snake_case). |
 | `backend/controllers/` | HTTP only: routes, query parameters, status codes, 404s. `dependencies.py` gives the embedder to routes, so tests can swap it. |
 | `backend/services/` | Logic. `search.py` (the search use case), `scoring.py` (pure scoring functions), `embedding.py` (the `Embedder` protocol, the real model and the keyword-only fallback), `cursor.py` (opaque history cursors). |
-| `backend/repositories/` | All SQL. They return Pydantic models, never ORM rows. `source.py` (browse, facets, places, similar), `search.py` (the hybrid retrieval query), `history.py` (create, page, get, delete). `base.py` is the scaffold's generic `Repository[T]`. |
+| `backend/repositories/` | All SQL. They return Pydantic models, never ORM rows. `source.py` (browse, one image, places), `search.py` (the hybrid retrieval query), `history.py` (create, page, get, delete). `base.py` is the scaffold's generic `Repository[T]`. |
 | `backend/db/` | SQLAlchemy models, the async engine and session, and `schema.py` (idempotent schema setup). |
 | `backend/scripts/` | `seed_db.py` (idempotent seed, runs on every start), `eval_search.py` (search quality), `build_places.py` (one-off draft of the places). |
 | `backend/data/` | `mock_data.json` (the 100 NASA items) and `places.json` (a hand-reviewed place for each image). |
@@ -174,9 +174,7 @@ API endpoints:
 | Method and path | Returns |
 |---|---|
 | `GET /api/sources?limit=24&offset=0&center=&body=` | `{items, total}`, newest first, optional filters |
-| `GET /api/sources/facets` | Centers and bodies with counts (not used by the current UI) |
 | `GET /api/sources/{id}` | One image with full metadata and its place |
-| `GET /api/sources/{id}/similar?limit=6` | "More like this": nearest stored embeddings (not used by the current UI) |
 | `POST /api/searches` `{query}` | 201 and the stored `SearchDetail` |
 | `GET /api/searches?limit=20&cursor=` | `{items, next_cursor, total}`, newest first |
 | `GET /api/searches/{id}` | The stored snapshot (not a re-run) |
@@ -259,10 +257,6 @@ strong also makes Parker strong. So "red planet" finds the right images in the r
 but shows them as faint matches (best 0.42).
 
 Full numbers, the formula comparison and the model sweep: [search-eval.md](search-eval.md).
-
-**"More like this"** (`GET /api/sources/{id}/similar`) uses the stored embeddings only. It needs
-no query embedding, so it works even when the model did not load at this start. The old UI showed
-it in the image modal; the new design does not use it yet.
 
 ## 6. Search history
 
@@ -547,7 +541,7 @@ command runs as `volta run --node 22 npx vitest run`.
 - **Observability**: structured logs, request and search latency metrics, the share of
   keyword-only searches, and the "no strong match" rate as a search-quality signal.
 - **Scale the read paths**: the archive UI loads all images at once today, so it would move to
-  pages or viewport tiles with keyset pagination. Also cached facets, an estimated history total,
+  pages or viewport tiles with keyset pagination. Also an estimated history total,
   and an index on `search_results.source_id`.
 - **Scale the scene**: `/api/places` returns every row today. At a large scale it would return
   server-side clusters for the visible area.

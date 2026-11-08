@@ -47,16 +47,6 @@ class SourcePage(BaseModel):
     total: int
 
 
-class FacetValue(BaseModel):
-    value: str
-    count: int
-
-
-class Facets(BaseModel):
-    centers: list[FacetValue]
-    bodies: list[FacetValue]
-
-
 class SearchHit(BaseModel):
     """One result. All scores are calibrated to 0..1 (see services/scoring.py)."""
 
@@ -98,7 +88,6 @@ class SearchSummary(BaseModel):
     strong_count: int  # results with confidence >= config.STRONG_MATCH
     best_confidence: float | None  # None when the search found nothing
     previews: list[SearchPreview]  # top 3 by rank
-    preview_thumbs: list[str]  # deprecated: same as previews[].thumb_url, to be removed
 
 
 class SearchHistoryPage(BaseModel):

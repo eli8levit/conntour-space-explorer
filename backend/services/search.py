@@ -4,17 +4,10 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import CANDIDATE_POOL
-from models import Engine, SearchDetail, SearchHit
-from repositories import HistoryRepository, SearchIndexRepository, SourceRepository
+from models import Engine, SearchDetail
+from repositories import HistoryRepository, SearchIndexRepository
 from services.embedding import Embedder
-from services.scoring import (
-    Mode,
-    ScoredHit,
-    ScoringParams,
-    query_ids,
-    score,
-    semantic_confidence,
-)
+from services.scoring import Mode, ScoredHit, ScoringParams, query_ids, score
 
 
 async def score_query(
@@ -49,25 +42,3 @@ async def run_search(session: AsyncSession, embedder: Embedder, query: str) -> S
     detail = await history.get_by_id(search_id)
     assert detail is not None
     return detail
-
-
-async def similar_sources(
-    session: AsyncSession, source_id: int, limit: int, params: ScoringParams = ScoringParams()
-) -> list[SearchHit]:
-    """More like this: the nearest stored embeddings. Empty when there are none."""
-    sources = SourceRepository(session)
-    neighbours = await sources.get_similar(source_id, limit)
-    by_id = await sources.get_many([neighbour_id for neighbour_id, _ in neighbours])
-    hits = []
-    for rank, (neighbour_id, cosine) in enumerate(neighbours, start=1):
-        sem = round(semantic_confidence(cosine, params), 4)
-        hits.append(
-            SearchHit(
-                source=by_id[neighbour_id],
-                confidence=sem,
-                keyword_score=0.0,
-                semantic_score=sem,
-                rank=rank,
-            )
-        )
-    return hits

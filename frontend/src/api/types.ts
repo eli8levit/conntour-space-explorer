@@ -43,16 +43,6 @@ export interface SourcePage {
   total: number;
 }
 
-export interface FacetValue<T extends string = string> {
-  value: T;
-  count: number;
-}
-
-export interface Facets {
-  centers: FacetValue[];
-  bodies: FacetValue<Body>[];
-}
-
 /**
  * What the backend's ID rule did to a result (backend/services/scoring.py, rule 2):
  * "raised" an exact ID match to 50%, or "halved" a result without the ID. null means
@@ -126,10 +116,4 @@ export interface PlaceRow {
   lon: number | null;
   label: string;
   provenance: Provenance;
-}
-
-export interface Health {
-  status: "ok" | "degraded" | "down";
-  db: boolean;
-  embedder: "minilm" | "keyword-only";
 }

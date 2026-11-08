@@ -21,17 +21,17 @@ async def test_sources_page_is_newest_first_with_total(client):
     assert not {i["id"] for i in body["items"]} & {i["id"] for i in second["items"]}
 
 
-async def test_sources_filters_match_facets(client):
-    facets = (await client.get("/api/sources/facets")).json()
-    mars = next(f for f in facets["bodies"] if f["value"] == "mars")
-    jsc = next(f for f in facets["centers"] if f["value"] == "JSC")
+async def test_sources_filters(client):
+    everything = (await client.get("/api/sources", params={"limit": 100})).json()["items"]
+    mars = sum(item["place"]["body"] == "mars" for item in everything)
+    jsc = sum(item["center"] == "JSC" for item in everything)
 
     by_body = (await client.get("/api/sources", params={"body": "mars", "limit": 100})).json()
-    assert by_body["total"] == mars["count"] == len(by_body["items"])
+    assert by_body["total"] == mars == len(by_body["items"]) > 0
     assert all(item["place"]["body"] == "mars" for item in by_body["items"])
 
     by_center = (await client.get("/api/sources", params={"center": "JSC"})).json()
-    assert by_center["total"] == jsc["count"]
+    assert by_center["total"] == jsc > 0
 
     assert (await client.get("/api/sources", params={"body": "venus"})).status_code == 422
 
@@ -48,15 +48,6 @@ async def test_source_detail_and_404(client):
     assert (await client.get("/api/sources/999999")).status_code == 404
 
 
-async def test_similar_excludes_itself(client):
-    response = await client.get("/api/sources/1/similar", params={"limit": 4})
-    hits = response.json()
-    assert response.status_code == 200 and len(hits) == 4
-    assert all(hit["source"]["id"] != 1 for hit in hits)
-    assert [hit["rank"] for hit in hits] == [1, 2, 3, 4]
-    assert (await client.get("/api/sources/999999/similar")).status_code == 404
-
-
 async def test_places_has_every_image(client):
     places = (await client.get("/api/places")).json()
     assert len(places) == 100
@@ -71,7 +62,6 @@ async def test_places_has_every_image(client):
         ("GET", "/api/searches/{}"),
         ("DELETE", "/api/searches/{}"),
         ("GET", "/api/sources/{}"),
-        ("GET", "/api/sources/{}/similar"),
     ],
 )
 async def test_out_of_range_ids_are_422(client, method, path, bad_id):
@@ -216,7 +206,6 @@ async def test_history_summary_matches_the_snapshot(client):
         {"thumb_url": hit["source"]["thumb_url"], "confidence": hit["confidence"]}
         for hit in search["results"][:3]
     ]
-    assert summary["preview_thumbs"] == [p["thumb_url"] for p in summary["previews"]]
 
     no_results = next(item for item in page["items"] if item["id"] == empty["id"])
     assert no_results["result_count"] == 0

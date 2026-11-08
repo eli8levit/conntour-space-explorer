@@ -1,15 +1,4 @@
-import type {
-  Body,
-  CursorPage,
-  Facets,
-  Health,
-  PlaceRow,
-  SearchDetail,
-  SearchHit,
-  SearchSummary,
-  Source,
-  SourcePage,
-} from "./types";
+import type { Body, CursorPage, PlaceRow, SearchDetail, SearchSummary, Source, SourcePage } from "./types";
 
 /** A non-2xx response. `status` lets callers tell "not found" (404) from "invalid input" (422). */
 export class ApiError extends Error {
@@ -77,11 +66,6 @@ export const api = {
 
   getSource: (id: number) => request<Source>(`/sources/${id}`),
 
-  getSimilar: (id: number, limit = 6) =>
-    request<SearchHit[]>(`/sources/${id}/similar${queryString({ limit })}`),
-
-  getFacets: () => request<Facets>("/sources/facets"),
-
   runSearch: (query: string) =>
     request<SearchDetail>("/searches", { method: "POST", body: JSON.stringify({ query }) }),
 
@@ -102,6 +86,4 @@ export const api = {
   },
 
   listPlaces: () => request<PlaceRow[]>("/places"),
-
-  health: () => request<Health>("/health"),
 };

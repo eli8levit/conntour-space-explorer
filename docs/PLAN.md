@@ -83,9 +83,9 @@ backend/
 ### API contract (fixed up front so backend and frontend work in parallel)
 - `GET /api/sources?limit=24&offset=0&center=&body=` → `{items: Source[], total}`
 - `GET /api/sources/{id}` → `Source` (full metadata + `place`)
-- `GET /api/sources/{id}/similar?limit=6` → `SearchHit[]` (cheap with embeddings; "more like this" in the image modal)
+- `GET /api/sources/{id}/similar?limit=6` → `SearchHit[]` (cheap with embeddings; "more like this" in the image modal). *Later removed: no UI used it.*
 - `POST /api/searches {query}` → `SearchDetail {id, query, created_at, engine, results: SearchHit[]}`, where `SearchHit = {source, confidence, keyword_score, semantic_score, rank}`
-- `GET /api/searches?limit=20&cursor=` → `{items: SearchSummary[], next_cursor}`, with `SearchSummary = {id, query, created_at, result_count, preview_thumbs[≤3]}`
+- `GET /api/searches?limit=20&cursor=` → `{items: SearchSummary[], next_cursor}`, with `SearchSummary = {id, query, created_at, result_count, preview_thumbs[≤3]}` (*later replaced by `previews`*)
 - `GET /api/searches/{id}` → `SearchDetail` (the stored snapshot, not a re-run)
 - `DELETE /api/searches/{id}` → 204
 - `GET /api/places` → a light list for the scene `{source_id, title, thumb_url, body, lat, lon, provenance}`

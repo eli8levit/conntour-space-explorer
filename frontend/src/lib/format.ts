@@ -74,27 +74,6 @@ export function formatTime(iso: string): string {
   );
 }
 
-const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ["year", 365 * 24 * 3600],
-  ["month", 30 * 24 * 3600],
-  ["week", 7 * 24 * 3600],
-  ["day", 24 * 3600],
-  ["hour", 3600],
-  ["minute", 60],
-];
-
-/** "5 minutes ago", "yesterday", "just now". `now` is a parameter so tests are deterministic. */
-export function formatRelativeTime(iso: string, now: Date = new Date()): string {
-  const seconds = (new Date(iso).getTime() - now.getTime()) / 1000;
-  if (Math.abs(seconds) < 45) return "just now";
-
-  const format = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-  for (const [unit, size] of UNITS) {
-    if (Math.abs(seconds) >= size) return format.format(Math.round(seconds / size), unit);
-  }
-  return format.format(Math.round(seconds / 60), "minute");
-}
-
 const BODY_LABELS: Record<Body, string> = {
   earth: "Earth",
   orbit: "Earth orbit",
@@ -105,11 +84,6 @@ const BODY_LABELS: Record<Body, string> = {
 
 export function bodyLabel(body: Body): string {
   return BODY_LABELS[body];
-}
-
-/** Checks a URL value before we send it to the API as a body filter. */
-export function isBody(value: string): value is Body {
-  return Object.hasOwn(BODY_LABELS, value);
 }
 
 // Says plainly how we know the place, so an approximate pin is never shown as exact.

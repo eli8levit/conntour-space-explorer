@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import SourceModel
-from models import Facets, FacetValue, Place, PlacePin, Source, SourcePage
+from models import Place, PlacePin, Source, SourcePage
 from repositories.base import Repository
 
 
@@ -62,13 +62,6 @@ class SourceRepository(Repository[Source]):
         row = await self._session.get(SourceModel, entity_id)
         return to_source(row) if row else None
 
-    async def get_many(self, ids: list[int]) -> dict[int, Source]:
-        """Load several sources in one query (for search results)."""
-        if not ids:
-            return {}
-        result = await self._session.execute(select(SourceModel).where(SourceModel.id.in_(ids)))
-        return {row.id: to_source(row) for row in result.scalars().all()}
-
     async def get_page(
         self, limit: int, offset: int, center: str | None, body: str | None
     ) -> SourcePage:
@@ -92,21 +85,6 @@ class SourceRepository(Repository[Source]):
         )
         return SourcePage(
             items=[to_source(row) for row in result.scalars().all()], total=total or 0
-        )
-
-    async def get_facets(self) -> Facets:
-        async def count_by(column) -> list[FacetValue]:
-            result = await self._session.execute(
-                select(column, func.count())
-                .where(column.is_not(None))
-                .group_by(column)
-                .order_by(func.count().desc(), column)
-            )
-            return [FacetValue(value=value, count=count) for value, count in result.all()]
-
-        return Facets(
-            centers=await count_by(SourceModel.center),
-            bodies=await count_by(SourceModel.place_body),
         )
 
     async def get_places(self) -> list[PlacePin]:
@@ -144,19 +122,3 @@ class SourceRepository(Repository[Source]):
             )
             for row in result.all()
         ]
-
-    async def get_similar(self, source_id: int, limit: int) -> list[tuple[int, float]]:
-        """(source_id, cosine) of the nearest images to this one, itself excluded."""
-        target = await self._session.scalar(
-            select(SourceModel.embedding).where(SourceModel.id == source_id)
-        )
-        if target is None:
-            return []
-        distance = SourceModel.embedding.cosine_distance(target)
-        result = await self._session.execute(
-            select(SourceModel.id, (1 - distance).label("cosine"))
-            .where(SourceModel.id != source_id, SourceModel.embedding.is_not(None))
-            .order_by(distance)
-            .limit(limit)
-        )
-        return [(row.id, float(row.cosine)) for row in result.all()]

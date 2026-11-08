@@ -6,8 +6,6 @@ import {
   formatTime,
   yearOf,
   formatPercent,
-  formatRelativeTime,
-  isBody,
   idRuleNote,
   provenanceLabel,
   scoreBreakdown,
@@ -78,14 +76,6 @@ describe("idRuleNote", () => {
   });
 });
 
-describe("isBody", () => {
-  it("accepts known bodies only", () => {
-    expect(isBody("mars")).toBe(true);
-    expect(isBody("pluto")).toBe(false);
-    expect(isBody("toString")).toBe(false);
-  });
-});
-
 describe("formatDate", () => {
   it("formats midnight UTC as that same day in every time zone", () => {
     expect(formatDate("2018-06-25T00:00:00Z")).toBe("25 Jun 2018");
@@ -98,21 +88,6 @@ describe("formatTime", () => {
   it("uses a 24-hour clock", () => {
     // Built from local parts, so the test passes in any time zone.
     expect(formatTime(new Date(2026, 10, 8, 23, 31).toISOString())).toBe("23:31");
-  });
-});
-
-describe("formatRelativeTime", () => {
-  const now = new Date("2026-11-08T12:00:00Z");
-
-  it("says just now for the last few seconds", () => {
-    expect(formatRelativeTime("2026-11-08T11:59:30Z", now)).toBe("just now");
-  });
-
-  it("uses the largest whole unit", () => {
-    expect(formatRelativeTime("2026-11-08T11:55:00Z", now)).toBe("5 minutes ago");
-    expect(formatRelativeTime("2026-11-08T09:00:00Z", now)).toBe("3 hours ago");
-    expect(formatRelativeTime("2026-11-07T12:00:00Z", now)).toBe("yesterday");
-    expect(formatRelativeTime("2026-10-25T12:00:00Z", now)).toBe("2 weeks ago");
   });
 });
 

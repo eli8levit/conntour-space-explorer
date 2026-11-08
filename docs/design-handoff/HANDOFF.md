@@ -128,7 +128,7 @@ function spanFor(id: number): [cols: number, rows: number] {
 
 **Callouts**
 1. **Wordmark.** "Space Explorer" 17/600 plus the subtitle. Clicking it goes to `/` and clears the search.
-2. **Status line.** An orange dot (6px circle), then "100 images · 10 NASA centers · 1950–2024", 12–13px, `faint` with the first item in `fg`. Compute these from the data (facets endpoint or the loaded list); don't hardcode them.
+2. **Status line.** An orange dot (6px circle), then "100 images · 10 NASA centers · 1950–2024", 12–13px, `faint` with the first item in `fg`. Compute these from the data (the loaded list; the facets endpoint was removed later); don't hardcode them.
 3. **Big-frame caption** (frames with area ≥ 4 cells). Two stacked chips bottom-left at 8px inset, background `--chip-bg`: the title (12px, `fg`) and a meta line (10–11px, `muted`: `NASA_ID · CENTER · YEAR`). The plate number sits top-right in a chip.
 4. **Small-frame label** (area < 4). Only the plate number "013", bottom-left, 9–10px chip.
 5. **Hovered frame.**

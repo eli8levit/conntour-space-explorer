@@ -1,13 +1,10 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from controllers.dependencies import DbId
 from db import get_db
-from models import Body, Facets, SearchHit, Source, SourcePage
+from models import Body, Source, SourcePage
 from repositories import SourceRepository
-from services.search import similar_sources
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
 
@@ -29,13 +26,6 @@ async def get_sources(
     return await repository.get_page(limit, offset, center, body)
 
 
-# Declared before /{source_id}, otherwise "facets" would be parsed as an id.
-@router.get("/facets", response_model=Facets)
-async def get_facets(repository: SourceRepository = Depends(get_repository)) -> Facets:
-    """Values and counts for the filter dropdowns."""
-    return await repository.get_facets()
-
-
 @router.get("/{source_id}", response_model=Source)
 async def get_source(
     source_id: DbId, repository: SourceRepository = Depends(get_repository)
@@ -44,15 +34,3 @@ async def get_source(
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found")
     return source
-
-
-@router.get("/{source_id}/similar", response_model=List[SearchHit])
-async def get_similar(
-    source_id: DbId,
-    limit: int = Query(6, ge=1, le=24),
-    session: AsyncSession = Depends(get_db),
-) -> List[SearchHit]:
-    """Images closest in meaning to this one."""
-    if await SourceRepository(session).get_by_id(source_id) is None:
-        raise HTTPException(status_code=404, detail="Source not found")
-    return await similar_sources(session, source_id, limit)
