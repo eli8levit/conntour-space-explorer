@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { Source } from "../api/types";
 import { OPENED_IN_APP } from "../hooks/useImageParam";
 import { isBigFrame } from "../lib/canvas";
+import { frameTransitionName } from "../lib/viewTransition";
 import { displayTitle } from "../lib/displayTitle";
 import { bodyLabel, formatCoordinates, formatDate, yearOf } from "../lib/format";
 import type { Span } from "../lib/match";
@@ -38,7 +39,11 @@ export function CanvasFrame({ source, span, plate, to }: CanvasFrameProps) {
   return (
     <li
       className="group relative hover:z-10 has-[:focus-visible]:z-10"
-      style={{ gridColumn: `span ${span[0]}`, gridRow: `span ${span[1]}` }}
+      style={{
+        gridColumn: `span ${span[0]}`,
+        gridRow: `span ${span[1]}`,
+        viewTransitionName: frameTransitionName(source.id),
+      }}
     >
       <Link
         to={to}

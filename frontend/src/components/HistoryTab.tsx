@@ -21,7 +21,7 @@ export function HistoryTab() {
       state={OPENED_IN_APP}
       aria-label={count === null ? "Open search history" : `Open search history, ${count} searches`}
       // Phones have no spare left edge (the grid starts at 16px): they get HistoryButton in the header.
-      className="fixed left-0 top-[38vh] z-20 hidden flex-col items-center gap-2.5 border border-l-0 border-line-strong bg-bg/90 px-2.5 py-4 text-fg backdrop-blur-md transition-colors hover:border-faint sm:flex"
+      className="vt-tab fixed left-0 top-[38vh] z-20 hidden flex-col items-center gap-2.5 border border-l-0 border-line-strong bg-bg/90 px-2.5 py-4 text-fg backdrop-blur-md transition-colors hover:border-faint sm:flex"
     >
       <HistoryIcon />
       <span className="writing-vertical text-[13px]">History{count === null ? "" : ` · ${count}`}</span>

@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
+import { withViewTransition } from "../lib/viewTransition";
 import type { CursorPage, SearchSummary } from "../api/types";
 
 const historyKey = ["history"] as const;
@@ -38,7 +39,8 @@ export function useRunSearch() {
       // A new entry exists, so the cached history list is out of date.
       void queryClient.invalidateQueries({ queryKey: historyKey });
       // A new search starts with the full year range: no ?from=&to= carried over.
-      navigate(`/search/${search.id}`);
+      // The frames glide from the archive layout into the ranked one (where the browser supports it).
+      withViewTransition(() => navigate(`/search/${search.id}`));
     },
   });
 }

@@ -133,7 +133,7 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
             />
           }
           className={
-            wide ? "fixed bottom-0 right-0 top-16 z-20 w-[344px] border-l border-line" : "mx-4 mt-8 border-t border-line !px-0"
+            wide ? "vt-rail fixed bottom-0 right-0 top-16 z-20 w-[344px] border-l border-line" : "mx-4 mt-8 border-t border-line !px-0"
           }
         />
       )}
@@ -157,7 +157,7 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
       />
 
       <div
-        className={`fixed z-20 ${
+        className={`vt-dock fixed z-20 ${
           wide ? `bottom-6 left-12 ${showRail ? "w-[min(1016px,calc(100vw-424px))]" : "right-12"}` : "inset-x-4 bottom-4"
         }`}
       >

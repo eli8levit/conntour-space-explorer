@@ -4,6 +4,7 @@ import { OPENED_IN_APP } from "../hooks/useImageParam";
 import { displayTitle } from "../lib/displayTitle";
 import { formatPercent, scoreBreakdown, yearOf } from "../lib/format";
 import { formatRank, isStrong, rankSpan, rankTier, type FrameTier } from "../lib/match";
+import { frameTransitionName } from "../lib/viewTransition";
 import { FadeImage } from "./FadeImage";
 import { HotMarks } from "./HotMarks";
 import { ConfidenceBar, RankBadge } from "./MatchMarks";
@@ -43,7 +44,7 @@ export function ResultFrame({ hit, to, semanticOn, hot, onHot }: ResultFrameProp
   return (
     <li
       className={`relative ${hot ? "z-10" : ""}`}
-      style={{ gridColumn: `span ${cols}`, gridRow: `span ${rows}` }}
+      style={{ gridColumn: `span ${cols}`, gridRow: `span ${rows}`, viewTransitionName: frameTransitionName(source.id) }}
       onPointerEnter={() => onHot(source.id)}
       onPointerLeave={() => onHot(null)}
     >
@@ -114,7 +115,10 @@ function Breakdown({ text }: { text: string }) {
  */
 export function SetAsideFrame({ source, to }: { source: Source; to: string }) {
   return (
-    <li className="opacity-[0.16] grayscale transition-opacity hover:opacity-40">
+    <li
+      className="opacity-[0.16] grayscale transition-opacity hover:opacity-40"
+      style={{ viewTransitionName: frameTransitionName(source.id) }}
+    >
       <Link
         to={to}
         state={OPENED_IN_APP}

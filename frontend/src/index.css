@@ -125,6 +125,23 @@
     transform: rotate(180deg);
   }
 
+  /*
+   * A1 -> A2 reflow (lib/viewTransition.ts): the frames glide, and the fixed chrome gets
+   * its own names so it stays on top of the flying frames instead of under them.
+   */
+  .vt-header {
+    view-transition-name: site-header;
+  }
+  .vt-dock {
+    view-transition-name: search-dock;
+  }
+  .vt-rail {
+    view-transition-name: rank-rail;
+  }
+  .vt-tab {
+    view-transition-name: history-tab;
+  }
+
   /* §11: under reduced motion nothing moves; the drawer fades instead of sliding. */
   @media (prefers-reduced-motion: reduce) {
     .animate-drift,

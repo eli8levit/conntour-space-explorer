@@ -23,7 +23,7 @@ export function Header() {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-[#1C1C1F] px-4 ${
+      className={`vt-header fixed inset-x-0 top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-[#1C1C1F] px-4 ${
         onCanvas ? "bg-bg/[0.82]" : "bg-bg/90"
       } backdrop-blur-[14px] sm:px-8`}
     >
