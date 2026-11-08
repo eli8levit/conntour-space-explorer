@@ -2,7 +2,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { SearchHit } from "../api/types";
 import { OPENED_IN_APP } from "../hooks/useImageParam";
-import { displayTitle } from "../lib/displayTitle";
+import { displayTitle, titleForMatching } from "../lib/displayTitle";
 import { formatPercent, scoreBreakdown } from "../lib/format";
 import { formatRank, isStrong, matchedTerms, SCORING_NOTE, whyLine } from "../lib/match";
 import { ChevronIcon } from "./Icons";
@@ -29,6 +29,7 @@ interface RankRailProps {
  */
 export function RankRail({ hits, query, semanticOn, hotId, onHot, linkFor, empty, onCollapse, className = "" }: RankRailProps) {
   const firstFaint = hits.findIndex((hit) => !isStrong(hit.confidence));
+  const [scrolled, setScrolled] = useState(false);
 
   return (
     <aside aria-labelledby="rail-title" className={`flex flex-col gap-1.5 bg-surface px-6 pb-[18px] pt-5 ${className}`}>
@@ -55,7 +56,11 @@ export function RankRail({ hits, query, semanticOn, hotId, onHot, linkFor, empty
       {hits.length === 0 ? (
         empty
       ) : (
-        <ol className="-mr-3 min-h-0 flex-1 overflow-y-auto pr-3">
+        <ol
+          onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 4)}
+          data-scrolled={scrolled ? "" : undefined}
+          className="rail-scroll -mr-3 min-h-0 flex-1 overflow-y-auto pb-9 pr-3"
+        >
           {hits.map((hit, index) => (
             <Fragment key={hit.source.id}>
               {index === firstFaint && (
@@ -93,7 +98,7 @@ function RailRow({ hit, query, semanticOn, hot, onHot, to }: RailRowProps) {
   const { source, rank, confidence } = hit;
   const strong = isStrong(confidence);
   const title = displayTitle(source);
-  const why = strong ? whyLine(matchedTerms(query, { ...source, title }), hit.semantic_score) : null;
+  const why = strong ? whyLine(matchedTerms(query, { ...source, title: titleForMatching(source) }), hit.semantic_score) : null;
   // Where the breakdown tooltip goes: measured when the row becomes hot.
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const measure = (element: HTMLElement) => {

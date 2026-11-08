@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { SearchHit, Source } from "../api/types";
-import { displayTitle } from "../lib/displayTitle";
+import { displayTitle, nasaTitleIfDifferent, titleForMatching } from "../lib/displayTitle";
 import { eyebrow, parseCaption } from "../lib/details";
 import { bodyLabel, formatCoordinates, formatDate, formatPercent, provenanceLabel, scoreBreakdown, yearOf } from "../lib/format";
 import { queryTerms } from "../lib/highlight";
@@ -36,7 +36,7 @@ export function ImageDetails({ source, hit, query, semanticOn, archive, extent, 
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-[13px] text-muted">{eyebrow(source)}</span>
           {/* Focus starts on the title (not the × button), so screen readers announce where they are. */}
-          <h2 tabIndex={-1} data-initial-focus className="text-[32px] leading-none tracking-[-0.025em] focus-visible:outline-none sm:text-[44px]">
+          <h2 tabIndex={-1} data-initial-focus className="text-balance text-[32px] leading-none tracking-[-0.025em] focus-visible:outline-none sm:text-[44px]">
             <HighlightedText text={title} terms={terms} />
           </h2>
         </div>
@@ -55,7 +55,7 @@ export function ImageDetails({ source, hit, query, semanticOn, archive, extent, 
       <Keywords keywords={source.keywords} terms={terms} />
 
       <div className={`grid gap-7 border-t border-line pt-4 ${hit && query ? "sm:grid-cols-2" : ""}`}>
-        {hit && query && <MatchBlock hit={hit} query={query} semanticOn={semanticOn} title={title} />}
+        {hit && query && <MatchBlock hit={hit} query={query} semanticOn={semanticOn} />}
         {archive.length > 0 && <PlaceInTime source={source} archive={archive} extent={extent} />}
       </div>
 
@@ -114,18 +114,32 @@ function MetaGrid({ source, caption }: { source: Source; caption: ReturnType<typ
   if (source.location) fields.push(["Location", source.location]);
   if (instrument) fields.push(["Instrument", instrument]);
   if (caption.captured) fields.push(["Captured", <span className="text-[13px]">{caption.captured}</span>]);
-  // Credit is the one group we say is missing, so a reader does not wonder whether we lost it.
-  if (caption.credit) fields.push(["Credit", caption.credit]);
+  // The record's credit (photographer, else secondary_creator), else the caption's "Photo credit:".
+  // A credit that only repeats the Photographer cell is left out. Credit is the one group we say
+  // is missing, so a reader does not wonder whether we lost it.
+  const credit = [source.credit, caption.credit].find((value) => value && value !== source.photographer);
+  if (credit) fields.push(["Credit", credit]);
   else if (!source.photographer) fields.push(["Credit", <span className="text-muted">Not in the NASA record</span>]);
 
+  const nasaTitle = nasaTitleIfDifferent(source);
   return (
     <dl className="grid grid-cols-2 border-t border-line sm:grid-cols-3">
       {fields.map(([label, value]) => (
-        <div key={label} className="flex min-w-0 flex-col gap-1 border-b border-line py-3 pr-3">
+        // The last column needs no gutter: "NASA/JPL-Caltech/ASU" then fits on one line, as in the design.
+        <div key={label} className="flex min-w-0 flex-col gap-1 border-b border-line py-3 pr-3 sm:[&:nth-child(3n)]:pr-0">
           <dt className="text-xs text-muted">{label}</dt>
           <dd className="break-words text-sm">{value}</dd>
         </div>
       ))}
+      {/* The title above is ours; this is NASA's own, which can be a whole caption, so it folds to two lines. */}
+      {nasaTitle && (
+        <div className="col-span-full flex min-w-0 flex-col gap-1 border-b border-line py-3 pr-3">
+          <dt className="text-xs text-muted">NASA title</dt>
+          <dd className="line-clamp-2 break-words text-sm" title={nasaTitle.length > 120 ? nasaTitle : undefined}>
+            {nasaTitle}
+          </dd>
+        </div>
+      )}
     </dl>
   );
 }
@@ -157,9 +171,9 @@ function Keywords({ keywords, terms }: { keywords: string[]; terms: string[] }) 
 }
 
 /** A3·10: how well it matched, and why. */
-function MatchBlock({ hit, query, semanticOn, title }: { hit: SearchHit; query: string; semanticOn: boolean; title: string }) {
+function MatchBlock({ hit, query, semanticOn }: { hit: SearchHit; query: string; semanticOn: boolean }) {
   const strong = isStrong(hit.confidence);
-  const why = whyLine(matchedTerms(query, { ...hit.source, title }), hit.semantic_score);
+  const why = whyLine(matchedTerms(query, { ...hit.source, title: titleForMatching(hit.source) }), hit.semantic_score);
   return (
     <div className="group relative flex flex-col gap-1.5">
       <span className="text-xs text-muted">Match for “{query}”</span>

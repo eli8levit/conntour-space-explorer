@@ -18,12 +18,17 @@ export interface Place {
 export interface Source {
   id: number;
   nasa_id: string;
+  /** The NASA title as recorded: sometimes an ID ("KSC-98pc637") or a whole caption. */
   title: string;
+  /** Hand-written display title (backend/data/titles.json), at most 34 characters. */
+  short_title: string | null;
   description: string;
   date_created: string; // ISO 8601
   center: string;
   keywords: string[];
   photographer: string | null;
+  /** Who to credit: the photographer, else NASA's secondary_creator. */
+  credit: string | null;
   location: string | null;
   image_url: string;
   /** Pixel size of the medium rendition (image_url); null for 2 of the 100 images. */
@@ -105,6 +110,7 @@ export interface PlaceRow {
   source_id: number;
   nasa_id: string;
   title: string;
+  short_title: string | null;
   thumb_url: string;
   date_created: string;
   body: Body;

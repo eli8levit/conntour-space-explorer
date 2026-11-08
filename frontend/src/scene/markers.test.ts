@@ -9,6 +9,7 @@ function row(body: PlaceRow["body"], lat: number | null, lon: number | null, lab
     source_id: id,
     nasa_id: `N${id}`,
     title: `Photo ${id}`,
+    short_title: null,
     thumb_url: "",
     date_created: `20${10 + (id % 10)}-01-01T00:00:00Z`,
     body,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capAtWord, displayTitle, isIdLike, titleFromCaption } from "./displayTitle";
+import { capAtWord, displayTitle, isIdLike, nasaTitleIfDifferent, titleFromCaption } from "./displayTitle";
 
 // Real records from the archive (captions shortened).
 const source = (title: string, nasa_id: string, description: string) => ({ title, nasa_id, description });
@@ -15,6 +15,36 @@ describe("isIdLike", () => {
     for (const title of ["Gale Crater", "STS-135", "2014 NASM Event", "Artemis-2 Heat Shield Arrival"]) {
       expect(isIdLike(title)).toBe(false);
     }
+  });
+});
+
+describe("displayTitle with a short title", () => {
+  it("prefers the hand-written short title", () => {
+    const ksc = { ...source("KSC-2011-1022", "KSC-2011-1022", "A great blue heron wades in the water."), short_title: "Great blue heron at Kennedy" };
+    expect(displayTitle(ksc)).toBe("Great blue heron at Kennedy");
+  });
+
+  it("falls back to the derivation when the short title is missing or blank", () => {
+    const base = source("KSC-2011-1022", "KSC-2011-1022", "A great blue heron wades in the water.");
+    expect(displayTitle({ ...base, short_title: null })).toBe("A great blue heron wades in the water");
+    expect(displayTitle({ ...base, short_title: "  " })).toBe("A great blue heron wades in the water");
+  });
+});
+
+describe("nasaTitleIfDifferent", () => {
+  it("returns the NASA title when it says something else", () => {
+    const record = { ...source("Launch of Space Shuttle Atlantis / STS-129 Mission", "sts129-s-077", ""), short_title: "Atlantis, STS-129" };
+    expect(nasaTitleIfDifferent(record)).toBe("Launch of Space Shuttle Atlantis / STS-129 Mission");
+  });
+
+  it("skips a title that only differs in case or apostrophes", () => {
+    expect(nasaTitleIfDifferent({ ...source("Mars Briefing", "201108040004HQ", ""), short_title: "Mars briefing" })).toBeNull();
+    expect(nasaTitleIfDifferent({ ...source("Curiosity Rover's Day", "x1", ""), short_title: "Curiosity rover’s day" })).toBeNull();
+  });
+
+  it("skips an ID, which the NASA ID row already shows", () => {
+    expect(nasaTitleIfDifferent({ ...source("KSC-2011-1022", "KSC-2011-1022", ""), short_title: "Great blue heron at Kennedy" })).toBeNull();
+    expect(nasaTitleIfDifferent({ ...source("KSC-05pd-1505", "05pd1505", ""), short_title: "Access arm extended to Discovery" })).toBeNull();
   });
 });
 

@@ -1,5 +1,7 @@
-// About a third of the NASA records use a raw ID as their title
-// ("iss071e608493", "KSC-98pc637", "2010-4372"). An ID tells a visitor
+// Every image has a hand-written short title (backend/data/titles.json), and
+// displayTitle() shows it. The derivation below is the fallback for a record
+// without one: about a third of the NASA records use a raw ID as their title
+// ("iss071e608493", "KSC-98pc637", "2010-4372"), which tells a visitor
 // nothing, so for those we build a short title from the caption instead.
 // The real nasa_id stays visible in the image details.
 import type { Source } from "../api/types";
@@ -127,12 +129,22 @@ export function titleFromCaption(caption: string): string {
   return capAtWord(sentence);
 }
 
+type TitleFields = Pick<Source, "title" | "nasa_id" | "description"> & { short_title?: string | null };
+
 /**
- * The title to show for an image. Keeps the NASA title when it is a real
- * title; derives one from the caption when the title is an ID (or the whole
- * caption pasted in as a title).
+ * The title to show for an image: the hand-written short title when there is
+ * one. Otherwise keeps the NASA title when it is a real title, and derives
+ * one from the caption when the title is an ID (or the whole caption pasted
+ * in as a title).
  */
-export function displayTitle(source: Pick<Source, "title" | "nasa_id" | "description">): string {
+export function displayTitle(source: TitleFields): string {
+  const short = source.short_title?.trim();
+  if (short) return short;
+  return derivedTitle(source);
+}
+
+/** The NASA title when it is a real one, else a title built from the caption. */
+export function derivedTitle(source: Pick<Source, "title" | "nasa_id" | "description">): string {
   const title = source.title.trim();
   const idLike = title === source.nasa_id || isIdLike(title);
   if (!idLike && title.length <= LONG_TITLE) return title;
@@ -140,4 +152,29 @@ export function displayTitle(source: Pick<Source, "title" | "nasa_id" | "descrip
   const derived = titleFromCaption(source.description) || titleFromCaption(title);
   // Nothing better in the caption (it is an ID too, or empty): the ID is all we have.
   return derived && !isIdLike(derived) ? derived : title;
+}
+
+const normalize = (text: string) => text.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, " ").trim();
+
+/**
+ * The NASA title for the A3 "NASA title" row, or null when it adds nothing:
+ * it reads the same as the title on screen (case aside), or it is only the
+ * ID, which the NASA ID row already shows.
+ */
+export function nasaTitleIfDifferent(source: TitleFields): string | null {
+  const title = source.title.replace(/\s+/g, " ").trim();
+  if (!title || title === source.nasa_id || isIdLike(title)) return null;
+  return normalize(title) === normalize(displayTitle(source)) ? null : title;
+}
+
+/**
+ * The text the "why it matched" line treats as the title: the title on screen
+ * plus the NASA title (or its caption-derived stand-in), since the search
+ * scored the NASA title. "Matched mars in the title" then holds for
+ * "Perseverance marble countdown", whose NASA title has "Mars" in it.
+ */
+export function titleForMatching(source: TitleFields): string {
+  const shown = displayTitle(source);
+  const nasa = derivedTitle(source);
+  return shown === nasa ? shown : `${shown} ${nasa}`;
 }
