@@ -248,8 +248,8 @@ measurements are in [search-eval.md](search-eval.md), "Choice 3"):
 2. **IDs.** If the query names an ID ("STS-135", "Expedition 61", "PIA22505"), images with that
    exact ID are raised to at least 0.5, and images without it get half their score, which is always
    under 0.5. `query_ids` finds the IDs: a word with a digit, or a bare number with the word before
-   it. A year (1900–2099) is a date, not an ID ("launch in 2011"), unless a capitalized name comes
-   before it ("SSME 2058").
+   it. A standalone year (1900–2099) is never an ID, whatever word comes
+   before it ("launch in 2011", "Apollo 1969").
 
 The ID rule changes the confidence after the blend, so "Meaning 100% · Words 27%" no longer adds
 up to the 43% on screen. So each hit carries `id_rule` (`"raised"`, `"halved"` or `null` when the

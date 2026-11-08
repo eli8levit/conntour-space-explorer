@@ -59,18 +59,6 @@ class ScoringParams:
 # A query word with a digit in it: STS-135, PIA22505, MS-13, 61.
 _WORD = re.compile(r"[A-Za-z0-9]+(?:[-.][A-Za-z0-9]+)*")
 _YEAR = re.compile(r"(?:19|20)\d\d")
-# Words that put a year in time instead of naming a thing: "in 2011", "June 2011",
-# "Fiscal Year 2020". Capitalized at the start of a query they still are not names.
-_DATE_WORDS = frozenset(
-    "in on of from since by during after before until to at around year "
-    "january february march april may june july august september october november december "
-    "jan feb mar apr jun jul aug sep sept oct nov dec".split()
-)
-
-
-def _is_name(word: str) -> bool:
-    """A capitalized word that can own a number: "SSME" in "SSME 2058", "Mars" in "Mars 2020"."""
-    return word.isalpha() and word[0].isupper() and word.lower() not in _DATE_WORDS
 
 
 def query_ids(query: str) -> list[str]:
@@ -78,8 +66,9 @@ def query_ids(query: str) -> list[str]:
 
     A word with a digit is an ID ("STS-135", "PIA22505", "MS-13"). A bare number keeps
     the word before it, because "61" alone is not an ID but "Expedition 61" is.
-    A year (1900-2099) is a date, not an ID: "launch in 2011" names no ID. It is an ID
-    only after a capitalized name, the way "Expedition 61" is ("SSME 2058" is an engine).
+    A standalone year (1900-2099) is never an ID, whatever word comes before it:
+    "launch in 2011" and "Apollo 1969" name no ID, so they must not halve every image
+    that lacks that exact phrase.
     """
     words = _WORD.findall(query)
     ids = []
@@ -87,7 +76,7 @@ def query_ids(query: str) -> list[str]:
         if not any(ch.isdigit() for ch in word):
             continue
         previous = words[i - 1] if i > 0 else ""
-        if _YEAR.fullmatch(word) and not _is_name(previous):
+        if _YEAR.fullmatch(word):
             continue  # a date: the ID rule must not halve every image without "2011"
         if word.isdigit() and previous and not any(ch.isdigit() for ch in previous):
             ids.append(f"{previous} {word}")
