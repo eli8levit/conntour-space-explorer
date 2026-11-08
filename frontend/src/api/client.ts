@@ -22,6 +22,14 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * A message for the user. ApiError carries the server's message; anything
+ * else means fetch itself failed (network down, backend not running).
+ */
+export function describeError(error: unknown): string {
+  return error instanceof ApiError ? error.message : "Could not reach the server.";
+}
+
 // FastAPI errors look like {detail: "text"} or, for validation (422),
 // {detail: [{msg: "text", ...}]}. Turn either into one readable line.
 function errorMessage(status: number, body: unknown): string {

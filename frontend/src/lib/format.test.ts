@@ -5,7 +5,9 @@ import {
   formatDate,
   formatPercent,
   formatRelativeTime,
+  isBody,
   provenanceLabel,
+  scoreBreakdown,
 } from "./format";
 
 describe("formatPercent", () => {
@@ -17,6 +19,26 @@ describe("formatPercent", () => {
   it("clamps scores outside 0–1", () => {
     expect(formatPercent(1.2)).toBe("100%");
     expect(formatPercent(-0.1)).toBe("0%");
+  });
+});
+
+describe("scoreBreakdown", () => {
+  const hit = { semantic_score: 0.82, keyword_score: 0.4 };
+
+  it("shows both signals", () => {
+    expect(scoreBreakdown(hit, true)).toBe("Meaning 82% · Words 40%");
+  });
+
+  it("shows only words when semantic search is off", () => {
+    expect(scoreBreakdown(hit, false)).toBe("Words 40%");
+  });
+});
+
+describe("isBody", () => {
+  it("accepts known bodies only", () => {
+    expect(isBody("mars")).toBe(true);
+    expect(isBody("pluto")).toBe(false);
+    expect(isBody("toString")).toBe(false);
   });
 });
 

@@ -6,6 +6,18 @@ export function formatPercent(score: number): string {
   return `${Math.round(clamped * 100)}%`;
 }
 
+/**
+ * "Meaning 82% · Words 40%": the two signals behind one confidence score.
+ * When semantic search is off, only the word score exists, so we leave meaning out.
+ */
+export function scoreBreakdown(
+  hit: { semantic_score: number; keyword_score: number },
+  semanticOn: boolean,
+): string {
+  const words = `Words ${formatPercent(hit.keyword_score)}`;
+  return semanticOn ? `Meaning ${formatPercent(hit.semantic_score)} · ${words}` : words;
+}
+
 export type ConfidenceLevel = "high" | "medium" | "low";
 
 // The backend already drops weak results below its threshold, so these
@@ -61,6 +73,11 @@ const BODY_LABELS: Record<Body, string> = {
 
 export function bodyLabel(body: Body): string {
   return BODY_LABELS[body];
+}
+
+/** Checks a URL value before we send it to the API as a body filter. */
+export function isBody(value: string): value is Body {
+  return Object.hasOwn(BODY_LABELS, value);
 }
 
 // Says plainly how we know the place, so an approximate pin is never shown as exact.

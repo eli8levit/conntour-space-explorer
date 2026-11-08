@@ -6,6 +6,7 @@ import {
   useQueryClient,
   type InfiniteData,
 } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { CursorPage, SearchSummary } from "../api/types";
 
@@ -15,27 +16,34 @@ const searchKey = (id: number) => ["search", id] as const;
 type HistoryData = InfiniteData<CursorPage<SearchSummary>, string | null>;
 
 /**
- * Runs a new search. Each run is saved by the backend as a history entry.
- * The response already holds the full results, so we put it in the cache:
- * the results page then renders at once, with no second request.
+ * Runs a new search and opens its results page. Each run is saved by the
+ * backend as a history entry. The response already holds the full results,
+ * so we put it in the cache: /search/:id then renders at once, with no
+ * second request.
  */
 export function useRunSearch() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   return useMutation({
     mutationFn: (query: string) => api.runSearch(query),
     onSuccess: (search) => {
       queryClient.setQueryData(searchKey(search.id), search);
       // A new entry exists, so the cached history list is out of date.
       void queryClient.invalidateQueries({ queryKey: historyKey });
+      navigate(`/search/${search.id}`);
     },
   });
 }
 
-/** A stored search (fresh or from history). It is a snapshot, so it never goes stale. */
-export function useSearch(id: number) {
+/**
+ * A stored search, fresh or from history. Same request either way: it is a
+ * snapshot of what the user saw, so it never goes stale. `null` = no search.
+ */
+export function useSearch(id: number | null) {
   return useQuery({
-    queryKey: searchKey(id),
-    queryFn: () => api.getSearch(id),
+    queryKey: searchKey(id ?? -1),
+    queryFn: () => api.getSearch(id as number),
+    enabled: id !== null,
     staleTime: Infinity,
   });
 }
