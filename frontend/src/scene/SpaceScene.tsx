@@ -25,6 +25,7 @@ import {
   SATURN,
 } from "./layout";
 import { MarkerLayer } from "./MarkerLayer";
+import { searchLevel } from "./searchLevel";
 import {
   buildMarkers,
   fanSpacing,
@@ -173,6 +174,15 @@ export function SpaceScene({ rows, search, onClearSearch, focusId, onFocus }: Sp
     const group = groups.find((g) => g.rows.includes(focusRow));
     setOpenKey(group && group.rows.length > 1 ? group.key : null);
   }, [focusRow, groups]);
+
+  // A stored search without a ?focus opens on the level that holds most of its strong matches.
+  const searchOpened = useRef<Map<number, number> | null>(null);
+  useEffect(() => {
+    if (!confidences || focusId !== null || searchOpened.current === confidences) return;
+    searchOpened.current = confidences;
+    const best = searchLevel(rows, confidences);
+    if (best) setLevel(best);
+  }, [confidences, focusId, rows]);
 
   // Esc steps back: card → cluster → nothing.
   useEffect(() => {
