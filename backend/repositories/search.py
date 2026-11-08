@@ -3,7 +3,9 @@
 This is a query, not an entity store, so it does not extend Repository[T].
 """
 
-from sqlalchemy import text
+from collections.abc import Sequence
+
+from sqlalchemy import ARRAY, Text, bindparam, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from search_types import Candidate
@@ -18,6 +20,9 @@ from search_types import Candidate
 # 3. Both raw scores for every candidate, so a row found by one retriever still gets
 #    the other score, plus how many query words the row contains (so a caption that has
 #    "solar" but not "flares" is not a full keyword match). Scoring is in services/scoring.py.
+# 4. `has_query_ids`: whether the row contains every ID the query names, each as a
+#    phrase ("STS-135" is the lexemes sts, -135 next to each other, so STS-129 or a
+#    caption with "STS" and "135" far apart do not count). NULL when there are no IDs.
 HYBRID_CANDIDATES_SQL = text(
     """
     WITH q AS (
@@ -43,12 +48,14 @@ HYBRID_CANDIDATES_SQL = text(
               FROM unnest(q.terms) AS term
              WHERE s.search_vector @@ quote_literal(term)::tsquery) AS matched_terms,
            cardinality(q.terms) AS query_terms,
-           1 - (s.embedding <=> CAST(:qvec AS vector)) AS cosine
+           1 - (s.embedding <=> CAST(:qvec AS vector)) AS cosine,
+           (SELECT bool_and(s.search_vector @@ phraseto_tsquery('english', id))
+              FROM unnest(:ids) AS id) AS has_query_ids
       FROM candidates c
       JOIN sources s ON s.id = c.id
      CROSS JOIN q
     """
-)
+).bindparams(bindparam("ids", type_=ARRAY(Text)))
 
 
 def vector_literal(vector: list[float]) -> str:
@@ -61,7 +68,7 @@ class SearchIndexRepository:
         self._session = session
 
     async def candidates(
-        self, query: str, query_vector: list[float] | None, pool: int
+        self, query: str, query_vector: list[float] | None, pool: int, ids: Sequence[str] = ()
     ) -> list[Candidate]:
         qvec = vector_literal(query_vector) if query_vector is not None else None
         if qvec is not None:
@@ -71,7 +78,8 @@ class SearchIndexRepository:
             # nothing today. (int(): SET takes no bind parameters; 1000 is pgvector's max.)
             await self._session.execute(text(f"SET LOCAL hnsw.ef_search = {min(int(pool), 1000)}"))
         result = await self._session.execute(
-            HYBRID_CANDIDATES_SQL, {"query": query, "qvec": qvec, "pool": pool}
+            HYBRID_CANDIDATES_SQL,
+            {"query": query, "qvec": qvec, "pool": pool, "ids": list(ids)},
         )
         return [
             Candidate(
@@ -79,6 +87,7 @@ class SearchIndexRepository:
                 keyword_rank=float(row.keyword_rank),
                 term_coverage=row.matched_terms / row.query_terms if row.query_terms else 0.0,
                 cosine=float(row.cosine) if row.cosine is not None else None,
+                has_query_ids=row.has_query_ids,
             )
             for row in result.all()
         ]

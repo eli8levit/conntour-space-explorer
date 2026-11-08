@@ -5,10 +5,14 @@ and where the remaining limit is.
 
 ## How it is measured
 
-`backend/scripts/eval_search.py` contains 14 queries. For each query, I read the 100
-captions and wrote down which images a person would expect. There are also 3 off-topic
-queries ("solar flares", "black hole", "deep sea fishing"). Nothing in the data is
-really about these topics.
+`backend/scripts/eval_search.py` contains 15 labeled queries. For each query, I read the
+100 captions and wrote down which images a person would expect. It also has:
+
+- 3 off-topic queries ("solar flares", "black hole", "deep sea fishing"). Nothing in the
+  data is really about these topics.
+- 3 gibberish queries ("zzqx", "asdfgh qwerty", "lorem ipsum"). They must return nothing.
+- 2 ID queries ("STS-135", "Expedition 61"). Only the images with that exact ID may be
+  strong.
 
 For each query, the script measures:
 
@@ -19,12 +23,16 @@ For each query, the script measures:
   UI shows these results in orange.
 - **Off-topic results**: how many results the 3 off-topic queries return. The number in
   brackets is how many of them are strong. That number should be 0.
+- **Gibberish results**: how many results the gibberish queries return. It should be 0.
+- **ID queries: strong, no ID**: how many strong results for an ID query do not contain
+  that ID. It should be 0.
 
 Run it inside the backend container, where the model is available:
 
 ```
 docker compose exec backend python scripts/eval_search.py          # the table
 docker compose exec backend python scripts/eval_search.py --tune   # grid search for the constants
+docker compose exec backend python scripts/eval_search.py --no-guards   # without the two rules below
 ```
 
 The script does not store anything. It calls the retrieval and scoring code directly.
@@ -41,11 +49,16 @@ confidence = 0.8 * meaning + 0.2 * words
 ```
 
 - Results under 0.20 are dropped. Results at 0.50 or higher are "strong".
+- Two guard rules come after the formula (see "Choice 3"):
+  1. **Gibberish:** if the model knows none of your words, only results that contain one
+     of your words can appear.
+  2. **IDs:** if you type an ID (STS-135, Expedition 61, PIA22505), images with that
+     exact ID are strong matches, and images without it cannot be.
 - One SQL query gets both raw scores. Then `services/scoring.py` turns them into the
   confidence.
 - If the model cannot load, search switches to keyword-only, and confidence = words.
 
-## Final results (all-MiniLM-L6-v2, constants above)
+## Final results (all-MiniLM-L6-v2, constants above, both guard rules on)
 
 ```
 query                              keyword P@5/R    semantic P@5/R      hybrid P@5/R
@@ -55,19 +68,26 @@ rover                                  0.60/0.60         0.60/1.00         0.80/
 space shuttle launch                   0.67/1.00         0.00/1.00         0.67/1.00
 astronaut spacewalk                    0.40/0.60         0.80/1.00         0.80/1.00
 Saturn                                 1.00/1.00         0.50/1.00         1.00/1.00
-STS-135                                1.00/1.00         0.67/1.00         1.00/1.00
+STS-135                                1.00/1.00         1.00/1.00         1.00/1.00
 Russian cosmonaut training             0.75/0.75         0.50/1.00         0.75/1.00
 rocket engine test                     1.00/1.00         0.33/1.00         0.67/1.00
 animals                                0.00/0.00         1.00/1.00         1.00/1.00
 storm seen from space                  0.50/0.50         1.00/1.00         1.00/1.00
 Apollo moon mission                    0.33/0.33         1.00/1.00         1.00/1.00
 Soyuz                                  0.80/1.00         0.80/1.00         0.80/1.00
+Expedition 61                          1.00/1.00         1.00/1.00         1.00/1.00
 life aboard the space station          0.00/0.33         0.40/0.67         0.40/0.83
 ------------------------------------------------------------------------------------
-mean                                   0.57/0.65         0.64/0.96         0.82/0.96
-relevant and strong                         0.34              0.75              0.72
+mean                                   0.60/0.67         0.69/0.97         0.83/0.97
+relevant and strong                         0.38              0.77              0.74
 off-topic results (strong)                 1 (0)            11 (1)             5 (0)
+gibberish results                              0                 0                 0
+ID queries: strong, no ID                      0                 7                 0
 ```
+
+The "semantic" column is for comparison only, and the app never uses it. Its 7 is
+expected: in that mode, a full meaning score of 1.0 halved is exactly 0.5. In hybrid
+mode, confidence is always below 1, so a halved score always stays under 0.5.
 
 Hybrid search is better than either half alone:
 
@@ -137,6 +157,61 @@ Notes on the sweep:
 - The larger general models (bge-base, gte-base) give more strong results, but they
   also make Parker Solar Probe a strong match for "solar flares". That is a strong
   off-topic result, which is the error the UI should avoid most.
+
+## Choice 3: two guard rules
+
+These problems showed up live:
+
+- "zzqx" returned "CAS Quantum Technologies" at 0.25.
+- "STS-135" returned 30 strong results, among them STS-129 and other missions at ~0.85.
+  The meaning score is 1.0 for every STS caption, so only the words separated them.
+
+**Rule 1, gibberish:** if the model knows none of your words, only results that contain
+one of your words can appear.
+
+- A word the model knows is one token in its vocabulary ("planet"). An unknown word is
+  split into pieces ("zzqx" becomes z, ##z, ##q, ##x).
+- For a query made only of unknown words, the vector has no meaning to compare. So
+  matches on meaning alone are dropped, and exact word matches still count.
+- Rare real words also split into pieces ("manatee", "cosmonaut"). They still work,
+  because the archive contains them. For example, "manatee" finds the manatee photo by
+  keyword. It only loses the extra matches on meaning alone (the heron).
+
+**Rule 2, IDs:** if you type an ID, images with that exact ID are strong matches, and
+images without it cannot be.
+
+- An ID is a word that contains a digit (STS-135, PIA22505, MS-13). A bare number keeps
+  the word before it: "Expedition 61", not "61".
+- SQL checks each ID as a phrase. "STS-135" is the lexemes `sts` and `-135` next to each
+  other, so a caption that has "STS" and "135" far apart does not count.
+- Images with the ID are raised to at least 0.5. Images without it get half their score.
+  This is always under 0.5, because the words score is rank / (rank + 1) < 1.
+- The NASA id is now part of the full-text index (weight A), so "PIA22505" finds Gale
+  Crater.
+
+Hybrid mode, without the rules (`--no-guards`) and with them:
+
+| | Without the rules | With the rules |
+|---|---|---|
+| P@5 / recall | 0.80 / 0.97 | 0.83 / 0.97 |
+| Relevant and strong | 0.74 | 0.74 |
+| Off-topic results (strong) | 5 (0) | 5 (0) |
+| Gibberish results | 1 | 0 |
+| ID queries: strong, no ID | 36 | 0 |
+| "Expedition 61" P@5 | 0.50 | 1.00 |
+
+The rest of the 15 labeled queries did not change. The tuner still picks the same
+constants (floor 0.20, ceil 0.50, 80/20, min 0.20).
+
+**What the rules do not fix:**
+
+- "solar flares" still returns "Mars briefing" at 0.22, as a faint result.
+- A higher bar for matches on meaning alone would remove it, but it would also remove
+  the manatees for "animals" (0.22). Their meaning scores are the same (cosine 0.282 and
+  0.283), so no principled bar can keep one and drop the other.
+- I also tested a bar relative to the query's own score distribution (a z-score). It did
+  not separate gibberish from real queries either: "zzqx" stands out from the archive
+  more than "red planet" does.
 
 ## The remaining limit
 

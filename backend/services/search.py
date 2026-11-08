@@ -7,7 +7,14 @@ from config import CANDIDATE_POOL
 from models import Engine, SearchDetail, SearchHit
 from repositories import HistoryRepository, SearchIndexRepository, SourceRepository
 from services.embedding import Embedder
-from services.scoring import Mode, ScoredHit, ScoringParams, score, semantic_confidence
+from services.scoring import (
+    Mode,
+    ScoredHit,
+    ScoringParams,
+    query_ids,
+    score,
+    semantic_confidence,
+)
 
 
 async def score_query(
@@ -28,9 +35,9 @@ async def score_query(
     if mode is None or query_vector is None:
         mode = engine
     candidates = await SearchIndexRepository(session).candidates(
-        query, query_vector, CANDIDATE_POOL
+        query, query_vector, CANDIDATE_POOL, query_ids(query)
     )
-    return engine, score(candidates, mode, params)
+    return engine, score(candidates, mode, params, embedder.knows_any_word(query))
 
 
 async def run_search(session: AsyncSession, embedder: Embedder, query: str) -> SearchDetail:

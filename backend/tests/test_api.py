@@ -85,6 +85,25 @@ async def test_search_ranks_exact_mission_id_first(client):
     )
 
 
+async def test_only_images_with_the_queried_id_are_strong(client):
+    search = (await client.post("/api/searches", json={"query": "STS-135"})).json()
+    assert search["results"]
+    for hit in search["results"]:
+        text = hit["source"]["title"] + " " + hit["source"]["description"]
+        if "STS-135" not in text:  # e.g. STS-129: related, but never a strong match
+            assert hit["confidence"] < 0.5
+
+
+async def test_nasa_id_finds_its_image(client):
+    search = (await client.post("/api/searches", json={"query": "PIA22505"})).json()
+    assert search["results"][0]["source"]["nasa_id"] == "PIA22505"
+
+
+async def test_gibberish_returns_nothing(client):
+    search = (await client.post("/api/searches", json={"query": "zzqx"})).json()
+    assert search["results"] == []
+
+
 async def test_reopened_search_is_the_stored_snapshot(client):
     created = (await client.post("/api/searches", json={"query": "Mars"})).json()
     reopened = await client.get(f"/api/searches/{created['id']}")

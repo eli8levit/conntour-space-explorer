@@ -37,6 +37,11 @@ SEMANTIC_CEIL = 0.50  # cosine at or above this counts as "clearly about it" -> 
 SEMANTIC_WEIGHT = 0.8
 KEYWORD_WEIGHT = 0.2
 MIN_CONFIDENCE = 0.20
+# If the query names an ID (STS-135, Expedition 61), images with that exact ID are raised
+# to at least STRONG_MATCH, and images without it get their confidence multiplied by this.
+# Confidence is always < 1 (the word score is rank / (rank + 1)), so with 0.5 they can
+# never reach STRONG_MATCH.
+ID_MISMATCH_FACTOR = 0.5
 MAX_RESULTS = 50
 # Results at or above this are "strong" matches (orange in the UI). The frontend mirrors
 # this value in one place; change both together.

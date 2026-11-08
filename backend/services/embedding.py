@@ -5,6 +5,7 @@ app can fall back to keyword-only search when the model cannot load.
 """
 
 import logging
+import re
 from typing import Literal, Protocol, Sequence
 
 from config import EMBEDDING_MODEL, EMBEDDINGS_ENABLED
@@ -23,6 +24,11 @@ class Embedder(Protocol):
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         """Vectors for stored documents (same order as `texts`)."""
+        ...
+
+    def knows_any_word(self, text: str) -> bool:
+        """False when the model has none of the query's words in its vocabulary
+        (gibberish like "zzqx"); its vector then carries no meaning to compare."""
         ...
 
 
@@ -47,6 +53,16 @@ class FastEmbedEmbedder:
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         return [vector.tolist() for vector in self._model.passage_embed(list(texts))]
 
+    def knows_any_word(self, text: str) -> bool:
+        # A word the model knows is one vocabulary token ("planet"); an unknown one is
+        # split into pieces ("zzqx" -> z ##z ##q ##x). Rare real words split too
+        # ("manatee"), but those still match by keyword when the archive has them.
+        tokenizer = self._model.model.tokenizer
+        return any(
+            len(tokenizer.encode(word, add_special_tokens=False).tokens) == 1
+            for word in re.findall(r"[A-Za-z]+", text)
+        )
+
 
 class NullEmbedder:
     """Keyword-only mode: the app keeps working when the model is missing."""
@@ -58,6 +74,9 @@ class NullEmbedder:
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         return []
+
+    def knows_any_word(self, text: str) -> bool:
+        return True  # unused: without a vector there are no meaning-only results
 
 
 def load_embedder() -> Embedder:

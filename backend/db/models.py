@@ -22,12 +22,13 @@ class Base(DeclarativeBase):
     pass
 
 
-# Weighted full-text document: a hit in the title (A) outranks one in the keywords (B),
-# which outranks one in the long caption (C). Postgres keeps it up to date by itself.
+# Weighted full-text document: a hit in the title or the NASA id (A) outranks one in the
+# keywords (B), which outranks one in the long caption (C). Postgres keeps it up to date
+# by itself. The id is in it so that typing "PIA22505" finds that image.
 # `immutable_array_to_string` is created in db/schema.py: the built-in array_to_string is
 # only STABLE, and a generated column needs an IMMUTABLE expression.
 SEARCH_VECTOR_SQL = (
-    "setweight(to_tsvector('english', coalesce(title, '')), 'A') || "
+    "setweight(to_tsvector('english', coalesce(title, '') || ' ' || nasa_id), 'A') || "
     "setweight(to_tsvector('english', coalesce(immutable_array_to_string(keywords, ' '), '')), 'B') || "
     "setweight(to_tsvector('english', coalesce(description, '')), 'C')"
 )

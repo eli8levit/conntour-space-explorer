@@ -13,8 +13,11 @@ Metrics, per mode:
 - Strong: relevant images returned with confidence >= STRONG_MATCH (shown orange in the UI).
 - Noise: results returned for queries whose topic is not in the data (should be ~0),
   and how many of those were "strong" (should be 0).
+- Gibberish: results for non-words like "zzqx" (should be 0).
+- ID queries: strong results for "STS-135" / "Expedition 61" without that ID (should be 0).
 Nothing is stored: this calls the retrieval and scoring code directly, not the API.
-`--tune` grid-searches the constants in config.py.
+`--tune` grid-searches the constants in config.py. `--no-guards` turns off the gibberish
+and ID rules, to show what they change.
 """
 
 import asyncio
@@ -30,7 +33,7 @@ from config import CANDIDATE_POOL, STRONG_MATCH  # noqa: E402
 from db import AsyncSessionLocal, engine  # noqa: E402
 from repositories import SearchIndexRepository, SourceRepository  # noqa: E402
 from services.embedding import load_embedder  # noqa: E402
-from services.scoring import Candidate, Mode, ScoringParams, score  # noqa: E402
+from services.scoring import Candidate, Mode, ScoringParams, query_ids, score  # noqa: E402
 
 LABELS: dict[str, set[str]] = {
     # Mars surface images; most never say "red" or "planet".
@@ -68,6 +71,8 @@ LABELS: dict[str, set[str]] = {
         "201405280008HQ",
         "NHQ201909240001",
     },
+    # ID queries: only these exact images may be strong (see ID_QUERIES).
+    "Expedition 61": {"NHQ202002060027", "NHQ201909240001"},
     "life aboard the space station": {
         "iss034e031142",
         "iss034e010621",
@@ -79,6 +84,10 @@ LABELS: dict[str, set[str]] = {
 }
 # Topics that are not in the data: every result is noise.
 NEGATIVES = ["solar flares", "black hole", "deep sea fishing"]
+# Not words at all: must return nothing.
+GIBBERISH = ["zzqx", "asdfgh qwerty", "lorem ipsum"]
+# Queries naming an ID: a strong result without that ID is an error.
+ID_QUERIES = ["STS-135", "Expedition 61"]
 MODES: list[Mode] = ["keyword", "semantic", "hybrid"]
 
 
@@ -89,7 +98,21 @@ class Row:
     strong_recall: float
 
 
-Candidates = dict[str, list[Candidate]]
+@dataclass
+class Noise:
+    off_topic: int  # results for NEGATIVES
+    off_topic_strong: int
+    gibberish: int  # results for GIBBERISH (should be 0)
+    strong_without_id: int  # strong results for ID_QUERIES that lack the ID (should be 0)
+
+
+@dataclass
+class Retrieved:
+    candidates: list[Candidate]
+    known_words: bool  # does the model know any word of the query?
+
+
+Candidates = dict[str, Retrieved]
 
 
 async def fetch_candidates() -> tuple[Candidates, dict[int, str]]:
@@ -102,8 +125,13 @@ async def fetch_candidates() -> tuple[Candidates, dict[int, str]]:
         sources = await SourceRepository(session).get_all()
         index = SearchIndexRepository(session)
         candidates = {
-            query: await index.candidates(query, embedder.embed_query(query), CANDIDATE_POOL)
-            for query in [*LABELS, *NEGATIVES]
+            query: Retrieved(
+                await index.candidates(
+                    query, embedder.embed_query(query), CANDIDATE_POOL, query_ids(query)
+                ),
+                embedder.knows_any_word(query),
+            )
+            for query in [*LABELS, *NEGATIVES, *GIBBERISH]
         }
     return candidates, {source.id: source.nasa_id for source in sources}
 
@@ -114,20 +142,33 @@ def evaluate(
     params: ScoringParams,
     modes: list[Mode] = MODES,
 ):
+    def run(query: str, mode: Mode):
+        retrieved = candidates[query]
+        return score(retrieved.candidates, mode, params, retrieved.known_words)
+
     results: dict[Mode, list[Row]] = {mode: [] for mode in modes}
-    noise: dict[Mode, tuple[int, int]] = {}
+    noise: dict[Mode, Noise] = {}
     for mode in modes:
         for query, relevant in LABELS.items():
-            hits = [
-                (nasa_id[h.source_id], h.confidence) for h in score(candidates[query], mode, params)
-            ]
+            hits = [(nasa_id[h.source_id], h.confidence) for h in run(query, mode)]
             top5 = sum(1 for n, _ in hits[:5] if n in relevant)
             found = sum(1 for n, _ in hits if n in relevant)
             strong = sum(1 for n, c in hits if n in relevant and c >= STRONG_MATCH)
             k = len(relevant)
             results[mode].append(Row(top5 / min(5, k), found / k, strong / k))
-        off_topic = [hit for q in NEGATIVES for hit in score(candidates[q], mode, params)]
-        noise[mode] = (len(off_topic), sum(1 for h in off_topic if h.confidence >= STRONG_MATCH))
+        off_topic = [hit for q in NEGATIVES for hit in run(q, mode)]
+        wrong_id = [
+            hit
+            for q in ID_QUERIES
+            for hit in run(q, mode)
+            if hit.confidence >= STRONG_MATCH and nasa_id[hit.source_id] not in LABELS[q]
+        ]
+        noise[mode] = Noise(
+            off_topic=len(off_topic),
+            off_topic_strong=sum(1 for h in off_topic if h.confidence >= STRONG_MATCH),
+            gibberish=sum(len(run(q, mode)) for q in GIBBERISH),
+            strong_without_id=len(wrong_id),
+        )
     return results, noise
 
 
@@ -153,9 +194,15 @@ def tune(candidates: Candidates, nasa_id: dict[int, str]) -> None:
         results, noise = evaluate(candidates, nasa_id, params, ["hybrid"])
         hybrid = results["hybrid"]
         p5, recall, strong = (mean(hybrid, f) for f in ("p_at_5", "recall", "strong_recall"))
-        off_topic, strong_off_topic = noise["hybrid"]
-        objective = p5 + 0.5 * recall + 0.5 * strong - 0.02 * off_topic - 0.1 * strong_off_topic
-        scored.append((objective, params, p5, recall, strong, off_topic))
+        n = noise["hybrid"]
+        objective = (
+            p5
+            + 0.5 * recall
+            + 0.5 * strong
+            - 0.02 * n.off_topic
+            - 0.1 * (n.off_topic_strong + n.gibberish + n.strong_without_id)
+        )
+        scored.append((objective, params, p5, recall, strong, n.off_topic))
     scored.sort(key=lambda item: -item[0])
     for objective, params, p5, recall, strong, off_topic in scored[:10]:
         print(
@@ -183,10 +230,13 @@ def print_table(results, noise) -> None:
         f"{'relevant and strong':30s}"
         + "".join(f"{mean(results[m], 'strong_recall'):>18.2f}" for m in MODES)
     )
-    print(
-        f"{'off-topic results (strong)':30s}"
-        + "".join(f"{f'{noise[m][0]} ({noise[m][1]})':>18s}" for m in MODES)
-    )
+    rows = [
+        ("off-topic results (strong)", lambda n: f"{n.off_topic} ({n.off_topic_strong})"),
+        ("gibberish results", lambda n: str(n.gibberish)),
+        ("ID queries: strong, no ID", lambda n: str(n.strong_without_id)),
+    ]
+    for label, cell in rows:
+        print(f"{label:30s}" + "".join(f"{cell(noise[m]):>18s}" for m in MODES))
 
 
 async def main() -> None:
@@ -196,6 +246,9 @@ async def main() -> None:
         await engine.dispose()
     if "--tune" in sys.argv:
         tune(candidates, nasa_id)
+    elif "--no-guards" in sys.argv:  # the scoring before the two guard rules, to compare
+        params = ScoringParams(id_mismatch_factor=1.0, gibberish_guard=False)
+        print_table(*evaluate(candidates, nasa_id, params))
     else:
         print_table(*evaluate(candidates, nasa_id, ScoringParams()))
 

@@ -15,6 +15,9 @@ class Candidate:
     keyword_rank: float  # ts_rank_cd(..., 32), 0 when no query word matches
     term_coverage: float  # share of the query's words found in this row, 0..1
     cosine: float | None  # None in keyword-only mode or when the row has no embedding
+    # True/False: the row contains every ID the query names (see scoring.query_ids).
+    # None: the query names no ID.
+    has_query_ids: bool | None = None
 
 
 @dataclass(frozen=True)

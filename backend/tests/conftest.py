@@ -53,6 +53,13 @@ class FakeEmbedder:
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         return [self._vector(text) for text in texts]
 
+    def knows_any_word(self, text: str) -> bool:
+        # Stand-in for a vocabulary: words made of letters with a vowel, under 12 letters.
+        return any(
+            re.search(r"[aeiou]", word) and len(word) < 12
+            for word in re.findall(r"[a-z]+", text.lower())
+        )
+
 
 async def _create_database_if_missing(url: str) -> None:
     parsed = make_url(url)

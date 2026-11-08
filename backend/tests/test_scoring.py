@@ -5,6 +5,7 @@ from services.scoring import (
     ScoringParams,
     confidence,
     keyword_confidence,
+    query_ids,
     score,
     semantic_confidence,
 )
@@ -65,3 +66,51 @@ def test_equal_scores_keep_a_stable_order():
     same = dict(keyword_rank=0.5, term_coverage=1.0, cosine=0.5)
     candidates = [Candidate(source_id=i, **same) for i in (9, 3, 7)]
     assert [hit.source_id for hit in score(candidates, "hybrid", PARAMS)] == [3, 7, 9]
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("STS-135", ["STS-135"]),
+        ("STS-135 crew", ["STS-135"]),
+        ("Expedition 61", ["Expedition 61"]),
+        ("Soyuz MS-13 landing", ["MS-13"]),
+        ("PIA22505", ["PIA22505"]),
+        ("61", ["61"]),
+        ("red planet", []),
+    ],
+)
+def test_query_ids(query, expected):
+    assert query_ids(query) == expected
+
+
+def test_results_without_the_queried_id_can_never_be_strong():
+    params = ScoringParams(0.2, 0.6, 0.8, 0.2, 0.2, 10, id_mismatch_factor=0.5)
+    with_id = Candidate(1, keyword_rank=0.7, term_coverage=1.0, cosine=0.9, has_query_ids=True)
+    # Another mission: full meaning score and some word overlap, but not the ID.
+    other = Candidate(2, keyword_rank=0.9, term_coverage=0.5, cosine=0.9, has_query_ids=False)
+    hits = {hit.source_id: hit for hit in score([with_id, other], "hybrid", params)}
+    assert hits[1].confidence == pytest.approx(0.8 + 0.2 * 0.7)
+    assert hits[2].confidence == pytest.approx((0.8 + 0.2 * 0.45) / 2)
+    assert hits[2].confidence < 0.5
+    # The component scores are kept as they were, so the UI breakdown stays honest.
+    assert hits[2].semantic_score == 1.0
+
+
+def test_an_exact_id_match_is_always_strong():
+    weak = Candidate(1, keyword_rank=0.4, term_coverage=1.0, cosine=0.25, has_query_ids=True)
+    assert score([weak], "hybrid", PARAMS)[0].confidence == 0.5
+
+
+def test_queries_without_ids_are_not_affected():
+    candidate = Candidate(1, keyword_rank=0.0, term_coverage=0.0, cosine=0.6, has_query_ids=None)
+    assert score([candidate], "hybrid", PARAMS)[0].confidence == pytest.approx(0.5)
+
+
+def test_gibberish_keeps_only_results_with_matching_words():
+    meaning_only = Candidate(1, keyword_rank=0.0, term_coverage=0.0, cosine=0.6)
+    word_match = Candidate(2, keyword_rank=0.6, term_coverage=1.0, cosine=0.3)
+    known = score([meaning_only, word_match], "hybrid", PARAMS, query_has_known_words=True)
+    unknown = score([meaning_only, word_match], "hybrid", PARAMS, query_has_known_words=False)
+    assert {hit.source_id for hit in known} == {1, 2}
+    assert [hit.source_id for hit in unknown] == [2]
