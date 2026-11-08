@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from config import CORS_ORIGINS
 from controllers import health_router, places_router, searches_router, source_router
 from db import engine, init_schema
 from services.embedding import load_embedder
@@ -28,11 +29,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# The browser never needs CORS in normal use: nginx (production) and Vite (dev) serve the
+# app and proxy /api on the same origin. This list only covers calling the API directly
+# from another local dev origin. No cookies or auth headers are used, so no credentials;
+# and only the methods the API has.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 

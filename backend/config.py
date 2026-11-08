@@ -10,6 +10,13 @@ DATABASE_URL = os.getenv(
     "postgresql+asyncpg://postgres:postgres@localhost:5433/space_explorer",
 )
 
+# Origins allowed to call the API from another origin (comma-separated). See app.py.
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3001,http://localhost:5173").split(",")
+    if origin.strip()
+]
+
 # The Dockerfile downloads this model at build time, so it must match the build ARG.
 # all-MiniLM-L6-v2 beat bge-small-en-v1.5 in scripts/eval_search.py (hybrid P@5 0.79 vs
 # 0.69) and separates on-topic from off-topic text far better (see the eval notes).
