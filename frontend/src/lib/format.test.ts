@@ -46,6 +46,7 @@ describe("isBody", () => {
 describe("formatDate", () => {
   it("formats midnight UTC as that same day in every time zone", () => {
     expect(formatDate("2018-06-25T00:00:00Z")).toBe("25 Jun 2018");
+    expect(formatDate("2024-09-04T00:00:00Z")).toBe("4 Sep 2024");
     expect(yearOf("2018-01-01T00:00:00Z")).toBe(2018);
   });
 });

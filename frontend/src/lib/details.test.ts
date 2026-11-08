@@ -21,6 +21,12 @@ describe("parseCaption", () => {
     expect(parts.credit).toBe("NASA/Rusty Backer");
   });
 
+  it("drops a leading ID, its date and the dashes (they are shown as metadata)", () => {
+    expect(parseCaption("iss071e608493 (Sept. 4, 2024) --- NASA astronaut Suni Williams works.").text).toBe(
+      "NASA astronaut Suni Williams works.",
+    );
+  });
+
   it("leaves a plain caption alone", () => {
     expect(parseCaption("Lycus Sulci")).toEqual({
       text: "Lycus Sulci",

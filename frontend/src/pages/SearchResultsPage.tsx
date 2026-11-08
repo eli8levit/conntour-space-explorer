@@ -93,7 +93,7 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
 
       <ul
         aria-label="Results, largest first"
-        className={`mx-4 grid max-w-[1016px] grid-flow-row-dense auto-rows-[84px] grid-cols-4 gap-2 transition-opacity duration-300 sm:mx-12 sm:auto-rows-[100px] sm:grid-cols-[repeat(auto-fill,minmax(112px,1fr))] ${
+        className={`mx-4 grid max-w-[1016px] grid-flow-row-dense auto-rows-[84px] grid-cols-4 gap-2 transition-opacity duration-300 sm:ml-12 sm:mr-8 sm:auto-rows-[100px] sm:grid-cols-[repeat(auto-fill,minmax(112px,1fr))] ${
           running || loading ? "opacity-50" : ""
         } ${wide && !showRail ? "sm:max-w-none" : ""}`}
       >
@@ -158,7 +158,7 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
 
       <div
         className={`fixed z-20 ${
-          wide ? `bottom-6 left-12 ${showRail ? "w-[min(1016px,calc(100vw-440px))]" : "right-12"}` : "inset-x-4 bottom-4"
+          wide ? `bottom-6 left-12 ${showRail ? "w-[min(1016px,calc(100vw-424px))]" : "right-12"}` : "inset-x-4 bottom-4"
         }`}
       >
         {/* Keyed by search: a new search starts with its own query in the box. */}

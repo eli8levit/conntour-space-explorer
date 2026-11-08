@@ -23,24 +23,25 @@ export function Header() {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-30 grid h-16 grid-cols-[auto_1fr_auto] items-center gap-4 border-b border-[#1C1C1F] px-4 ${
+      className={`fixed inset-x-0 top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-[#1C1C1F] px-4 ${
         onCanvas ? "bg-bg/[0.82]" : "bg-bg/90"
-      } backdrop-blur-[14px] sm:px-8 lg:grid-cols-[1fr_auto_1fr]`}
+      } backdrop-blur-[14px] sm:px-8`}
     >
-      <Link to="/" className="flex min-w-0 items-baseline gap-3.5 justify-self-start">
+      <Link to="/" className="flex min-w-0 shrink-0 items-baseline gap-3.5">
         <span className="whitespace-nowrap text-[17px] font-semibold tracking-[-0.01em]">Space Explorer</span>
         <span className="hidden truncate text-[13px] text-faint md:inline">
           {total === undefined ? "NASA Image Library" : `${total} images from the NASA Image Library`}
         </span>
       </Link>
 
-      <div className="min-w-0 justify-self-end lg:justify-self-center">
+      {/* Spaced like the design: three groups, equal gaps between them (not a strict centre). */}
+      <div className="min-w-0">
         {searchId !== null ? <SearchStatus id={searchId} /> : onScene ? null : <ArchiveStatus />}
       </div>
 
       {!onScene && <HistoryButton />}
 
-      <div className="hidden justify-self-end text-[13px] lg:block">
+      <div className="hidden shrink-0 text-[13px] lg:block">
         {searchId !== null ? (
           <Link to={`/scene?search=${searchId}`} className="text-muted hover:text-fg">
             See these in space →

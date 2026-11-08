@@ -82,7 +82,8 @@ export function SearchDock({ variant, query = "", children }: SearchDockProps) {
           autoComplete="off"
           enterKeyHint="search"
           // The box shows focus with its orange border, so the input needs no outline of its own.
-          className={`min-w-0 flex-1 bg-transparent p-0 text-fg focus-visible:outline-none ${
+          // Placeholder #7D7B76 is from the A1 reference: a step dimmer than `faint`.
+          className={`min-w-0 flex-1 bg-transparent p-0 text-fg placeholder:text-[#7D7B76] focus-visible:outline-none ${
             variant === "browse" ? "text-[17px] sm:text-[22px]" : "text-xl sm:text-2xl"
           }`}
         />

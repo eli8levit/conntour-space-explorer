@@ -44,6 +44,9 @@
   body {
     @apply bg-bg font-sans text-fg antialiased;
     letter-spacing: 0.006em; /* Instrument Sans is slightly tight at 12–13px */
+    /* The design files set no line-height, so text sits at the font's own "normal" (about 1.2).
+       Long text (descriptions, notes) sets its own 1.5–1.6 where it is used. */
+    line-height: normal;
     font-variant-numeric: tabular-nums; /* percentages, years and counts line up */
   }
 
@@ -57,10 +60,6 @@
     background: none;
     color: rgb(var(--color-fg));
     box-shadow: inset 0 -2px 0 rgb(var(--color-accent));
-  }
-
-  ::placeholder {
-    color: #7d7b76; /* from the A1 reference: a step dimmer than `faint` */
   }
 
   /* The native search input draws its own clear button; the design has its own "Clear ×". */

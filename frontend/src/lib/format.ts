@@ -24,13 +24,12 @@ export function scoreBreakdown(
  * previous day for anyone west of Greenwich, so we format in UTC.
  */
 export function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(iso));
+  const date = new Date(iso);
+  // A fixed month list: en-GB's Intl writes "Sept", and the design uses three letters everywhere.
+  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** The UTC year of an ISO date (same reason as formatDate: NASA dates are UTC). */
 export function yearOf(iso: string): number {

@@ -32,6 +32,22 @@ const PREFIXES: RegExp[] = [
   /^[A-Z][A-Z .'’]+,\s*[A-Za-z]+\.?\s*[-–—]+\s*/,
 ];
 
+/**
+ * "ISS034-E-010621 (31 Dec. 2012) --- Canadian…" -> "Canadian…": only the ID,
+ * its date and the dashes. The NASA ID and the date are shown as metadata
+ * already, so the A3 description starts at the first real word.
+ */
+export function stripIdPrefix(caption: string): string {
+  const text = caption.trim();
+  const firstToken = text.split(/\s/, 1)[0] ?? "";
+  if (!isIdLike(firstToken)) return text;
+  return text
+    .slice(firstToken.length)
+    .trimStart()
+    .replace(PREFIXES[0]!, "")
+    .replace(PREFIXES[1]!, "");
+}
+
 /** Removes a leading ID, date, dateline or "---" from a caption, repeatedly. */
 function stripCaptionPrefix(caption: string): string {
   let text = caption.trim();

@@ -34,7 +34,11 @@ export function RankRail({ hits, query, semanticOn, hotId, onHot, linkFor, empty
     <aside aria-labelledby="rail-title" className={`flex flex-col gap-1.5 bg-surface px-6 pb-[18px] pt-5 ${className}`}>
       <div className="flex items-center justify-between pb-1.5">
         <h2 id="rail-title" className="text-[15px] font-medium">
-          {hits.length === 1 ? "1 result, ranked by match" : `${hits.length} results, ranked by match`}
+          {hits.length === 0
+            ? "No results"
+            : hits.length === 1
+              ? "1 result, ranked by match"
+              : `${hits.length} results, ranked by match`}
         </h2>
         {onCollapse && (
           <button

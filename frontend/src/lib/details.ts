@@ -1,6 +1,7 @@
 // A3, image details: split the NASA caption into the readable text and the
 // facts buried at its end, so the facts can go in the metadata grid.
 import type { Source } from "../api/types";
+import { stripIdPrefix } from "./displayTitle";
 import { bodyLabel } from "./format";
 
 export interface CaptionParts {
@@ -19,7 +20,7 @@ const field = (text: string, label: string) =>
 
 /** Takes the caption apart. Every field is null when the caption does not have it. */
 export function parseCaption(description: string): CaptionParts {
-  let text = description.trim();
+  let text = stripIdPrefix(description);
 
   // A bare link at the very end (the JPL photojournal page) adds nothing to read.
   text = text.replace(/\s*https?:\/\/\S+\s*$/, "");
