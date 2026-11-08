@@ -1,8 +1,20 @@
 """Turn raw retrieval scores into one 0..1 confidence. Pure functions, unit-tested.
 
-Raw scores are not comparable: cosine similarity uses only part of its range (unrelated
-text still scores ~0.1, the best matches ~0.6), and ts_rank_cd measures word density, not
-how much of the query was found. Each is mapped to 0..1, then the two are averaged.
+The formula, in one sentence: confidence is 80% how close the meaning is and 20% how
+many of your words the image's text contains.
+
+    meaning    = clamp((cosine - SEMANTIC_FLOOR) / (SEMANTIC_CEIL - SEMANTIC_FLOOR), 0, 1)
+    words      = ts_rank_cd(..., 32) * (query words found / query words)
+    confidence = SEMANTIC_WEIGHT * meaning + KEYWORD_WEIGHT * words     (0.8 / 0.2)
+
+Results under MIN_CONFIDENCE are dropped; STRONG_MATCH (0.5) and above count as strong.
+In keyword-only mode (no model) confidence = words.
+
+Why this blend: scripts/eval_search.py compared it with noisy-OR, a "words boost
+meaning" product, max(meaning, blend) and the old 50/50 average. The 80/20 average had
+the best P@5 (0.82) and recall (0.96), lets meaning-only matches reach "strong" (a 50/50
+average capped them at 0.5), and keeps exact IDs like "STS-135" first, which noisy-OR and
+max() lost because every STS-* caption saturates the meaning score.
 """
 
 from dataclasses import dataclass
