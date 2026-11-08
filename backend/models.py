@@ -25,12 +25,14 @@ class Source(BaseModel):
 
     id: int
     nasa_id: str
-    title: str
+    title: str  # the NASA title, as in the record (sometimes an ID or a whole caption)
+    short_title: str | None  # hand-written display title (data/titles.json)
     description: str
     date_created: datetime
     center: str
     keywords: list[str]
     photographer: str | None
+    credit: str | None  # photographer, else NASA's secondary_creator
     location: str | None
     image_url: str
     width: int | None  # pixel size of image_url, when NASA lists it
@@ -108,6 +110,7 @@ class PlacePin(BaseModel):
     source_id: int
     nasa_id: str
     title: str
+    short_title: str | None
     thumb_url: str
     date_created: datetime
     body: Body

@@ -7,7 +7,8 @@ every restart. Now each step only fills what is missing:
 1. create the extension, function and tables if they do not exist;
 2. insert the 100 sources only when the table is empty;
 3. embed rows whose embedding is NULL (e.g. the model was unavailable last time);
-4. apply data/places.json (cheap, and picks up hand edits to the file).
+4. apply data/places.json and data/titles.json, and refresh the credit column (cheap,
+   and picks up hand edits to the files and rows inserted before the columns existed).
 """
 
 import asyncio
@@ -36,6 +37,7 @@ logger = logging.getLogger("seed")
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 MOCK_DATA = DATA_DIR / "mock_data.json"
 PLACES = DATA_DIR / "places.json"
+TITLES = DATA_DIR / "titles.json"
 
 # Browser-friendly renditions, best first. ~orig is sometimes a TIFF, which browsers
 # cannot show, so it only counts when it is a JPEG.
@@ -61,6 +63,17 @@ def clean_text(raw: str) -> str:
     return html.unescape(re.sub(r"<[^>]+>", "", raw)).strip()
 
 
+def credit_of(data: dict[str, Any]) -> str | None:
+    """Who to credit: the photographer, else secondary_creator ("NASA/JPL-Caltech/ASU").
+
+    Some records write "NASA_Kim Shiflett" for "NASA/Kim Shiflett"."""
+    for key in ("photographer", "secondary_creator"):
+        value = (data.get(key) or "").strip()
+        if value:
+            return re.sub(r"^NASA_", "NASA/", value)
+    return None
+
+
 def parse_item(item: dict[str, Any]) -> dict[str, Any]:
     data = item["data"][0]
     links = [link for link in item.get("links", []) if link.get("render") == "image"]
@@ -73,6 +86,7 @@ def parse_item(item: dict[str, Any]) -> dict[str, Any]:
         "center": data["center"],
         "keywords": split_keywords(data.get("keywords")),
         "photographer": data.get("photographer"),
+        "credit": credit_of(data),
         "location": (data.get("location") or "").strip() or None,
         "image_url": image["href"],
         # NASA lists pixel sizes for most renditions; missing ones stay NULL.
@@ -129,6 +143,30 @@ async def apply_places(session: AsyncSession) -> int:
     return len(places)
 
 
+async def apply_titles(session: AsyncSession) -> int:
+    with open(TITLES) as f:
+        titles = json.load(f)
+    for entry in titles:
+        await session.execute(
+            update(SourceModel)
+            .where(SourceModel.nasa_id == entry["nasa_id"])
+            .values(short_title=entry["short_title"])
+        )
+    return len(titles)
+
+
+async def apply_credits(session: AsyncSession) -> int:
+    """Fills `credit` on rows inserted before the column existed (and keeps it in sync)."""
+    items = load_items()
+    for values in items:
+        await session.execute(
+            update(SourceModel)
+            .where(SourceModel.nasa_id == values["nasa_id"])
+            .values(credit=values["credit"])
+        )
+    return len(items)
+
+
 async def seed(
     db_engine: AsyncEngine, session_factory: async_sessionmaker[AsyncSession], embedder: Embedder
 ) -> None:
@@ -137,8 +175,17 @@ async def seed(
         inserted = await insert_sources_if_empty(session)
         embedded = await fill_missing_embeddings(session, embedder)
         placed = await apply_places(session)
+        titled = await apply_titles(session)
+        credited = await apply_credits(session)
         await session.commit()
-    logger.info("Seed: %d inserted, %d embedded, %d places applied", inserted, embedded, placed)
+    logger.info(
+        "Seed: %d inserted, %d embedded, %d places, %d titles, %d credits applied",
+        inserted,
+        embedded,
+        placed,
+        titled,
+        credited,
+    )
 
 
 async def main() -> None:

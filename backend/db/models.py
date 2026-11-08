@@ -41,11 +41,16 @@ class SourceModel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     nasa_id: Mapped[str] = mapped_column(Text, unique=True)
     title: Mapped[str] = mapped_column(Text)
+    # Hand-written display title from data/titles.json (NASA titles are often IDs or
+    # whole captions). Display only: search still scores the NASA title.
+    short_title: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str] = mapped_column(Text, default="")
     date_created: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     center: Mapped[str] = mapped_column(Text)
     keywords: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     photographer: Mapped[str | None] = mapped_column(Text)
+    # Who to credit: the photographer, else NASA's secondary_creator ("NASA/JPL-Caltech/ASU").
+    credit: Mapped[str | None] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str] = mapped_column(Text)
     image_width: Mapped[int | None] = mapped_column(Integer)  # of the image_url rendition
