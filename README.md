@@ -105,8 +105,6 @@ More detail: [docs/ARCHITECTURE.md, section 9](docs/ARCHITECTURE.md#9-the-scene-
 
 ![Demo: search "mars rover", open a result, fly to Mars, then fan out the Kennedy cluster](docs/media/demo.gif)
 
-The scene alone: [docs/media/scene-demo.gif](docs/media/scene-demo.gif).
-
 Open it at http://localhost:3001/scene (or "Space view →" in the header). Try
 `/scene?focus=<image id>` to fly to one image, or `/scene?search=<search id>` to open a stored search on the level with most strong matches.
 
