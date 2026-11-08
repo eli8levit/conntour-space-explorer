@@ -498,8 +498,8 @@ Code: `frontend/src/scene/`. Entry: `frontend/src/pages/ScenePage.tsx`.
 
 | Suite | Command | What it covers |
 |---|---|---|
-| Backend (pytest) | `cd backend && uv run pytest` | 38 tests. API tests through `httpx.ASGITransport` on a real Postgres, in a separate database `space_explorer_test` (dropped and re-seeded on every run). A `FakeEmbedder` (bag-of-words hashing) replaces the model. Also pure tests for scoring, cursors and places. |
-| Frontend (vitest) | `cd frontend && npx vitest run` (or `npm test`) | 103 tests in 14 files: the pure helpers in `src/lib/` (match, display titles, timeline, history, details, formatting, highlighting, ids) and `src/scene/` (clustering, flights, geometry, layout, markers, years). |
+| Backend (pytest) | `cd backend && uv run pytest` | 58 tests. API tests through `httpx.ASGITransport` on a real Postgres, in a separate database `space_explorer_test` (dropped and re-seeded on every run). A `FakeEmbedder` (bag-of-words hashing) replaces the model. Also pure tests for scoring, cursors and places. |
+| Frontend (vitest) | `cd frontend && npx vitest run` (or `npm test`) | 111 tests in 15 files: the pure helpers in `src/lib/` (match, display titles, timeline, history, details, formatting, highlighting, ids) and `src/scene/` (clustering, flights, geometry, layout, markers, years). |
 | Search quality | `docker compose exec backend python scripts/eval_search.py` | P@5, recall, strong recall and off-topic results for keyword, semantic and hybrid. Add `--tune` for the grid search. |
 
 The backend tests need the compose `db` service on port 5433. On this machine the frontend

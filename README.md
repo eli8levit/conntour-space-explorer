@@ -4,6 +4,8 @@ Browse and search 100 NASA images in plain English. Each result has a confidence
 Search is hybrid: Postgres full-text search for exact words, plus a small local text-embedding model for meaning.
 Every search is saved with its results, and a 3D "Where in space" view shows where each photo was taken.
 
+![Space Explorer: search results for "mars rover"](docs/media/a2-results.png)
+
 **Live demo:** https://homework.nightcoding.dev <!-- TODO: confirm the demo is live before sharing -->
 
 ## Quick start
@@ -101,12 +103,12 @@ More detail: [docs/ARCHITECTURE.md, section 9](docs/ARCHITECTURE.md#9-the-scene-
 
 ### Demo
 
-![Where in space: Earth with clusters, orbit rings and the year rail](docs/media/scene-demo.gif)
+![Demo: search "mars rover", open a result, fly to Mars, then fan out the Kennedy cluster](docs/media/demo.gif)
 
-<!-- TODO: re-record docs/media/scene-demo.gif after the design merge -->
+The scene alone: [docs/media/scene-demo.gif](docs/media/scene-demo.gif).
 
 Open it at http://localhost:3001/scene (or "Space view →" in the header). Try
-`/scene?focus=<image id>` to fly to one image.
+`/scene?focus=<image id>` to fly to one image, or `/scene?search=<search id>` to open a stored search on the level with most strong matches.
 
 ## Search quality
 
@@ -128,10 +130,10 @@ Details: [docs/search-eval.md](docs/search-eval.md).
 ## Tests
 
 ```bash
-# Backend: 38 tests. Needs the compose db on port 5433 (uses a separate test database).
+# Backend: 58 tests. Needs the compose db on port 5433 (uses a separate test database).
 cd backend && uv run pytest
 
-# Frontend: 103 unit tests for the pure helpers (matching, titles, timeline, history, scene math).
+# Frontend: 111 unit tests for the pure helpers (matching, titles, timeline, history, scene math).
 cd frontend && npm install && npx vitest run
 
 # Search quality table (inside the running backend container, which has the model).
