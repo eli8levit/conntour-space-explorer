@@ -1,0 +1,124 @@
+"""Search history: each search and a snapshot of the results the user saw.
+
+Not a Repository[T]: history grows without bound, so it has no get_all, only pages.
+"""
+
+from datetime import datetime
+
+from sqlalchemy import delete, select, tuple_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from db.models import SearchModel, SearchResultModel, SourceModel
+from models import Engine, SearchDetail, SearchHit, SearchSummary
+from repositories.source import to_source
+from services.scoring import ScoredHit
+
+PREVIEW_THUMBS = 3
+
+# (created_at, id) of the last row on a page; the next page starts strictly after it.
+HistoryKey = tuple[datetime, int]
+
+
+class HistoryRepository:
+    def __init__(self, session: AsyncSession):
+        self._session = session
+
+    async def create(self, query: str, engine: Engine, hits: list[ScoredHit]) -> int:
+        """Store the search and its results in one transaction; returns the search id."""
+        search = SearchModel(
+            query=query,
+            engine=engine,
+            result_count=len(hits),
+            results=[
+                SearchResultModel(
+                    rank=rank,
+                    source_id=hit.source_id,
+                    confidence=hit.confidence,
+                    keyword_score=hit.keyword_score,
+                    semantic_score=hit.semantic_score,
+                )
+                for rank, hit in enumerate(hits, start=1)
+            ],
+        )
+        self._session.add(search)
+        await self._session.commit()
+        return search.id
+
+    async def get_by_id(self, search_id: int) -> SearchDetail | None:
+        search = await self._session.scalar(
+            select(SearchModel)
+            .where(SearchModel.id == search_id)
+            .options(selectinload(SearchModel.results).selectinload(SearchResultModel.source))
+        )
+        if search is None:
+            return None
+        return SearchDetail(
+            id=search.id,
+            query=search.query,
+            created_at=search.created_at,
+            engine=search.engine,
+            result_count=search.result_count,
+            results=[
+                SearchHit(
+                    source=to_source(result.source),
+                    confidence=result.confidence,
+                    keyword_score=result.keyword_score,
+                    semantic_score=result.semantic_score,
+                    rank=result.rank,
+                )
+                for result in search.results
+            ],
+        )
+
+    async def get_page(
+        self, limit: int, after: HistoryKey | None
+    ) -> tuple[list[SearchSummary], HistoryKey | None]:
+        """Newest first. Keyset, not offset: a page costs the same however deep it is,
+        and deleting a row never shifts later pages (no skipped or repeated items)."""
+        stmt = select(SearchModel).order_by(SearchModel.created_at.desc(), SearchModel.id.desc())
+        if after is not None:
+            # Row comparison matches the (created_at desc, id desc) index.
+            stmt = stmt.where(tuple_(SearchModel.created_at, SearchModel.id) < tuple_(*after))
+        # One extra row tells us whether a next page exists, without a COUNT.
+        rows = list((await self._session.scalars(stmt.limit(limit + 1))).all())
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+
+        thumbs = await self._preview_thumbs([row.id for row in rows])
+        items = [
+            SearchSummary(
+                id=row.id,
+                query=row.query,
+                created_at=row.created_at,
+                result_count=row.result_count,
+                preview_thumbs=thumbs.get(row.id, []),
+            )
+            for row in rows
+        ]
+        next_key = (rows[-1].created_at, rows[-1].id) if has_more else None
+        return items, next_key
+
+    async def _preview_thumbs(self, search_ids: list[int]) -> dict[int, list[str]]:
+        """Top results' thumbnails for a whole page in one query (no N+1)."""
+        if not search_ids:
+            return {}
+        result = await self._session.execute(
+            select(SearchResultModel.search_id, SourceModel.thumb_url)
+            .join(SourceModel, SourceModel.id == SearchResultModel.source_id)
+            .where(
+                SearchResultModel.search_id.in_(search_ids),
+                SearchResultModel.rank <= PREVIEW_THUMBS,
+            )
+            .order_by(SearchResultModel.search_id, SearchResultModel.rank)
+        )
+        thumbs: dict[int, list[str]] = {}
+        for search_id, thumb_url in result.all():
+            thumbs.setdefault(search_id, []).append(thumb_url)
+        return thumbs
+
+    async def delete(self, search_id: int) -> bool:
+        """True when a row was deleted. Its results go with it (ON DELETE CASCADE)."""
+        result = await self._session.execute(delete(SearchModel).where(SearchModel.id == search_id))
+        await self._session.commit()
+        return result.rowcount > 0
