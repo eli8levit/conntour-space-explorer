@@ -17,6 +17,12 @@ from search_types import ScoredHit
 
 PREVIEW_THUMBS = 3
 
+
+def escape_like(text: str) -> str:
+    """Escape LIKE's wildcards, so "50%" finds the text "50%", not everything after "50"."""
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 # (created_at, id) of the last row on a page; the next page starts strictly after it.
 HistoryKey = tuple[datetime, int]
 
@@ -73,13 +79,20 @@ class HistoryRepository:
         )
 
     async def get_page(
-        self, limit: int, after: HistoryKey | None
+        self, limit: int, after: HistoryKey | None, contains: str | None = None
     ) -> tuple[list[SearchSummary], HistoryKey | None, int]:
         """Newest first. Keyset, not offset: a page costs the same however deep it is,
         and deleting a row never shifts later pages (no skipped or repeated items).
 
+        `contains` keeps only searches whose query has it as a substring (any case); the
+        cursor and the total then apply to the filtered list.
+
         Returns (items, key of the last item if there is a next page, total searches).
         """
+        # ILIKE with the user's text as a literal: % and _ in it must not act as wildcards.
+        matches = (
+            [SearchModel.query.ilike(f"%{escape_like(contains)}%", escape="\\")] if contains else []
+        )
         # Per-search stats as a LATERAL subquery: Postgres computes it only for the rows
         # on this page, using the search_results primary key (search_id, rank).
         stats = (
@@ -95,6 +108,7 @@ class HistoryRepository:
         stmt = (
             select(SearchModel, stats.c.strong_count, stats.c.best_confidence)
             .join(stats, true())
+            .where(*matches)
             .order_by(SearchModel.created_at.desc(), SearchModel.id.desc())
         )
         if after is not None:
@@ -125,7 +139,11 @@ class HistoryRepository:
         next_key = (last.created_at, last.id) if has_more and last else None
         # For the "N searches" header. A full count is fine at this size; at millions
         # of rows it would become an estimate (pg_class.reltuples) or a cached counter.
-        total = await self._session.scalar(select(func.count()).select_from(SearchModel))
+        # A substring filter cannot use the btree index; at scale it would get a pg_trgm
+        # GIN index on query. At this size a scan is instant.
+        total = await self._session.scalar(
+            select(func.count()).select_from(SearchModel).where(*matches)
+        )
         return items, next_key, total or 0
 
     async def _previews(self, search_ids: list[int]) -> dict[int, list[SearchPreview]]:

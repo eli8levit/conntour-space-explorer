@@ -87,8 +87,9 @@ export const api = {
 
   getSearch: (id: number) => request<SearchDetail>(`/searches/${id}`),
 
-  listSearches: (cursor: string | null, limit = 20) =>
-    request<CursorPage<SearchSummary>>(`/searches${queryString({ limit, cursor })}`),
+  /** `q` keeps only searches whose query contains it (any case); `total` then counts those. */
+  listSearches: (cursor: string | null, limit = 20, q = "") =>
+    request<CursorPage<SearchSummary>>(`/searches${queryString({ limit, cursor, q })}`),
 
   deleteSearch: (id: number) => request<void>(`/searches/${id}`, { method: "DELETE" }),
 

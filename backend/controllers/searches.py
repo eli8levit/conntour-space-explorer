@@ -30,14 +30,19 @@ async def create_search(
 async def list_searches(
     limit: int = Query(20, ge=1, le=100),
     cursor: str | None = None,
+    q: str | None = Query(None, max_length=200),
     history: HistoryRepository = Depends(get_history),
 ) -> SearchHistoryPage:
-    """History, newest first. Pass `next_cursor` back as `cursor` for the next page."""
+    """History, newest first. Pass `next_cursor` back as `cursor` for the next page.
+
+    `q` keeps only searches whose query contains it (case-insensitive); pass the same `q`
+    with the cursor. `total` counts the filtered searches."""
     try:
         after = decode_cursor(cursor) if cursor else None
     except InvalidCursor:
         raise HTTPException(status_code=400, detail="Invalid cursor") from None
-    items, next_key, total = await history.get_page(limit, after)
+    contains = q.strip() if q else None
+    items, next_key, total = await history.get_page(limit, after, contains or None)
     return SearchHistoryPage(
         items=items, next_cursor=encode_cursor(next_key) if next_key else None, total=total
     )

@@ -1,5 +1,6 @@
 // Data hooks for searches and search history.
 import {
+  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -58,13 +59,18 @@ export function useSearch(id: number | null) {
   });
 }
 
-/** History list, newest first. Keyset pages: each page returns the cursor for the next one. */
-export function useHistory() {
+/**
+ * History list, newest first. Keyset pages: each page returns the cursor for the next one.
+ * `find` filters on the server (a substring of the query), so it searches the whole
+ * history, not only the loaded pages. While a new filter loads, the previous list stays.
+ */
+export function useHistory(find = "") {
   return useInfiniteQuery({
-    queryKey: historyKey,
-    queryFn: ({ pageParam }) => api.listSearches(pageParam, HISTORY_PAGE_SIZE),
+    queryKey: [...historyKey, find],
+    queryFn: ({ pageParam }) => api.listSearches(pageParam, HISTORY_PAGE_SIZE, find),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.next_cursor,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -79,9 +85,10 @@ export function useDeleteSearch() {
 
     onMutate: async (id) => {
       // Stop any history fetch in flight, so it cannot overwrite our optimistic change.
+      // Every cached list: the unfiltered one and any "find" filter.
       await queryClient.cancelQueries({ queryKey: historyKey });
-      const previous = queryClient.getQueryData<HistoryData>(historyKey);
-      queryClient.setQueryData<HistoryData>(historyKey, (data) =>
+      const previous = queryClient.getQueriesData<HistoryData>({ queryKey: historyKey });
+      queryClient.setQueriesData<HistoryData>({ queryKey: historyKey }, (data) =>
         data
           ? {
               ...data,
@@ -96,7 +103,7 @@ export function useDeleteSearch() {
     },
 
     onError: (_error, _id, context) => {
-      if (context?.previous) queryClient.setQueryData(historyKey, context.previous);
+      for (const [key, data] of context?.previous ?? []) queryClient.setQueryData(key, data);
     },
 
     onSuccess: (_data, id) => {

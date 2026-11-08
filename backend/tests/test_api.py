@@ -124,6 +124,39 @@ async def test_history_keyset_pagination_and_delete(client):
     assert [item["id"] for item in next_page["items"]] == list(reversed(ids))[10:20]
 
 
+async def test_history_find_filters_the_whole_history(client):
+    ids = {}
+    for query in ["Mars rover", "launch at night", "mars Base", "saturn", "50% off_topic"]:
+        ids[query] = (await client.post("/api/searches", json={"query": query})).json()["id"]
+    # Older than one page, so a client-side filter of the first page would miss them.
+    for i in range(12):
+        await client.post("/api/searches", json={"query": f"rocket {i}"})
+
+    # Case-insensitive substring, newest first, keyset pages with the same q.
+    seen, cursor = [], None
+    while True:
+        params = {"limit": 1, "q": "MARS", **({"cursor": cursor} if cursor else {})}
+        page = (await client.get("/api/searches", params=params)).json()
+        assert page["total"] == 2
+        seen += [item["id"] for item in page["items"]]
+        cursor = page["next_cursor"]
+        if cursor is None:
+            break
+    assert seen == [ids["mars Base"], ids["Mars rover"]]
+
+    # % and _ are literal characters, not wildcards.
+    percent = (await client.get("/api/searches", params={"q": "50%"})).json()
+    assert [item["id"] for item in percent["items"]] == [ids["50% off_topic"]]
+    assert (await client.get("/api/searches", params={"q": "n_g"})).json()[
+        "total"
+    ] == 0  # "night" if _ were a wildcard
+
+    # Blank q means no filter; no match is an empty page, not an error.
+    assert (await client.get("/api/searches", params={"q": "  "})).json()["total"] == 17
+    nothing = (await client.get("/api/searches", params={"q": "nebula"})).json()
+    assert nothing == {"items": [], "next_cursor": None, "total": 0}
+
+
 async def test_history_summary_matches_the_snapshot(client):
     from config import STRONG_MATCH
 

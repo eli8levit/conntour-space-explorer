@@ -19,12 +19,16 @@ import { UndoToast, useUndoDelete } from "./UndoDelete";
 export function HistoryDrawer() {
   const dialog = useRef<HTMLDialogElement>(null);
   const { close } = useHistoryDrawer();
-  const history = useHistory();
+  const [find, setFind] = useState("");
+  // The server filters the whole history; wait for a pause in typing before asking it.
+  const needle = useDebounced(find.trim(), 250);
+  const history = useHistory(needle);
+  // The unfiltered list (also what the History tab shows): its total heads the drawer.
+  const all = useHistory();
   const archive = useArchive();
   const runSearch = useRunSearch();
   const { pending, requestDelete } = useUndoDelete();
   const openSearchId = parseId(useMatch("/search/:id")?.params.id);
-  const [find, setFind] = useState("");
 
   useEffect(() => {
     const element = dialog.current;
@@ -43,11 +47,16 @@ export function HistoryDrawer() {
 
   // A row waiting for its undo is hidden, and not counted.
   const loaded = (history.data?.pages.flatMap((page) => page.items) ?? []).filter((item) => item.id !== pending?.search.id);
-  const apiTotal = history.data?.pages[0]?.total;
-  const total = apiTotal === undefined ? undefined : apiTotal - (pending ? 1 : 0);
-  // Find filters what is loaded, client-side: the list is short and already here.
-  const needle = find.trim().toLowerCase();
-  const shown = needle ? loaded.filter((item) => item.query.toLowerCase().includes(needle)) : loaded;
+  const minus = (count: number | undefined, hidden: boolean) => (count === undefined ? undefined : count - (hidden ? 1 : 0));
+  const total = minus(all.data?.pages[0]?.total, Boolean(pending));
+  const pendingMatches = Boolean(pending?.search.query.toLowerCase().includes(needle.toLowerCase()));
+  const filteredTotal = minus(history.data?.pages[0]?.total, pendingMatches);
+  // The server filtered by `needle`; the same filter on the client narrows the list at once,
+  // while the server answer for what was just typed is still on its way.
+  const typed = find.trim().toLowerCase();
+  const shown = typed ? loaded.filter((item) => item.query.toLowerCase().includes(typed)) : loaded;
+  const filtering = typed !== "";
+  const settled = !history.isPlaceholderData && needle.toLowerCase() === typed;
   const archiveSize = archive.data?.total ?? 100;
 
   return (
@@ -108,10 +117,10 @@ export function HistoryDrawer() {
         {history.isError && loaded.length === 0 && (
           <ErrorState title="Could not load your history." error={history.error} onRetry={() => void history.refetch()} className="mt-6" />
         )}
-        {history.isSuccess && loaded.length === 0 && (
+        {all.isSuccess && total === 0 && (
           <p className="pt-6 text-[15px] text-muted">No searches yet. Each search you run is saved here with its results.</p>
         )}
-        {needle && loaded.length > 0 && shown.length === 0 && (
+        {filtering && settled && total !== 0 && shown.length === 0 && (
           <p className="pt-6 text-[15px] text-muted">
             No past search contains “{find.trim()}”.{" "}
             <button type="button" onClick={() => setFind("")} className="text-fg underline underline-offset-2">
@@ -137,7 +146,7 @@ export function HistoryDrawer() {
         ))}
       </div>
 
-      {history.isSuccess && loaded.length > 0 && (
+      {history.isSuccess && shown.length > 0 && (
         <div className="flex items-center gap-6 border-t border-line px-6 pb-[18px] pt-4 sm:px-10">
           {history.hasNextPage ? (
             <>
@@ -147,16 +156,18 @@ export function HistoryDrawer() {
                 disabled={history.isFetchingNextPage}
                 className="text-[15px] font-medium underline underline-offset-[3px] hover:text-accent-text disabled:opacity-50"
               >
-                {history.isFetchingNextPage ? "Loading…" : olderLabel(loaded.length, total, HISTORY_PAGE_SIZE)}
+                {history.isFetchingNextPage ? "Loading…" : olderLabel(loaded.length, filteredTotal, HISTORY_PAGE_SIZE)}
               </button>
-              {total !== undefined && (
+              {filteredTotal !== undefined && (
                 <span className="text-sm text-muted">
-                  Showing {loaded.length} of {total}
+                  Showing {loaded.length} of {filteredTotal}
                 </span>
               )}
             </>
           ) : (
-            <span className="text-sm text-muted">That’s every search you’ve made.</span>
+            <span className="text-sm text-muted">
+              {filtering ? findSummary(filteredTotal ?? shown.length, find.trim()) : "That’s every search you’ve made."}
+            </span>
           )}
           {history.isFetchNextPageError && <span className="text-sm text-danger">Could not load more.</span>}
         </div>
@@ -166,6 +177,21 @@ export function HistoryDrawer() {
       <UndoToast drawerOpen />
     </dialog>
   );
+}
+
+/** The footer while filtering: "2 searches contain “mars”." */
+function findSummary(count: number, text: string): string {
+  return `${count} ${count === 1 ? "search contains" : "searches contain"} “${text}”.`;
+}
+
+/** `value`, once it has stopped changing for `delay` ms. */
+function useDebounced<T>(value: T, delay: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettled(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+  return settled;
 }
 
 function RowsSkeleton() {
