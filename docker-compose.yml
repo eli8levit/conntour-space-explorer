@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -22,8 +22,9 @@ services:
     ports:
       - "5001:5001"
     volumes:
+      # The venv lives in /opt/venv and the model in /models (see the Dockerfile),
+      # so this bind mount for hot reload hides neither of them.
       - ./backend:/app
-      - /app/.venv  # Exclude virtual environment from bind mount
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
@@ -31,15 +32,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # The seed is idempotent, so it is safe on every start: it never drops data.
     command: >
-      sh -c "uv run python scripts/seed_db.py && 
-             uv run uvicorn app:app --host 0.0.0.0 --port 5001 --reload"
+      sh -c "python scripts/seed_db.py &&
+             uvicorn app:app --host 0.0.0.0 --port 5001 --reload"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/api/sources')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+      # /api/health returns 503 when the database is unreachable, which urlopen raises on.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   frontend:
     build:
