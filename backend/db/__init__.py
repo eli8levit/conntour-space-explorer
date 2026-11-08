@@ -1,4 +1,5 @@
 from .models import Base
-from .session import engine, get_db
+from .schema import init_schema
+from .session import AsyncSessionLocal, engine, get_db
 
-__all__ = ["Base", "engine", "get_db"]
+__all__ = ["AsyncSessionLocal", "Base", "engine", "get_db", "init_schema"]
