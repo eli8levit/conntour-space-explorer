@@ -21,12 +21,14 @@ RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE
 AS $$ SELECT array_to_string(arr, sep) $$
 """
 
-# Columns added after the first release. create_all creates them on a fresh database;
-# these statements add them to a database created before they existed. Nullable, so
-# adding them never fails on existing rows; the seed fills them right after.
-ADDED_COLUMNS = (
+# Columns and indexes added after the first release. create_all creates them on a fresh
+# database; these statements add them to a database created before they existed. The
+# columns are nullable, so adding them never fails on existing rows; the seed fills them.
+SCHEMA_UPGRADES = (
     "ALTER TABLE sources ADD COLUMN IF NOT EXISTS short_title text",
     "ALTER TABLE sources ADD COLUMN IF NOT EXISTS credit text",
+    # Indexes too: create_all skips indexes of a table that already exists.
+    "CREATE INDEX IF NOT EXISTS ix_search_results_source_id ON search_results (source_id)",
 )
 
 
@@ -35,5 +37,5 @@ async def init_schema(engine: AsyncEngine) -> None:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.execute(text(IMMUTABLE_ARRAY_TO_STRING))
         await conn.run_sync(Base.metadata.create_all)
-        for statement in ADDED_COLUMNS:
+        for statement in SCHEMA_UPGRADES:
             await conn.execute(text(statement))

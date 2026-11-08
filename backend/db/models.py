@@ -123,3 +123,6 @@ class SearchResultModel(Base):
 # Each index matches its list ORDER BY exactly, so a page is an index range scan.
 Index("ix_sources_date_created_id", SourceModel.date_created.desc(), SourceModel.id)
 Index("ix_searches_created_at_id", SearchModel.created_at.desc(), SearchModel.id.desc())
+# Postgres does not index foreign keys by itself. This one serves the join from a result to
+# its source, and keeps deleting or checking a source from scanning every stored result.
+Index("ix_search_results_source_id", SearchResultModel.source_id)
