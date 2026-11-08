@@ -1,0 +1,57 @@
+# Standalone production stack. Run with:
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Needs a .env file next to this file (see .env.example).
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: space_explorer
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # No ports: the database is reachable only on the compose network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d space_explorer"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # No ports: nginx reaches the backend as http://backend:5001.
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/space_explorer
+    depends_on:
+      db:
+        condition: service_healthy
+    # The seed is idempotent, so it is safe on every start: it never drops data.
+    command: >
+      sh -c "python scripts/seed_db.py &&
+             uvicorn app:app --host 0.0.0.0 --port 5001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
