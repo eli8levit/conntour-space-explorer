@@ -21,7 +21,10 @@ export function easeInOutCubic(t: number): number {
  * A small pull-back in the middle (`lift`) shows where you are going.
  */
 export function flyPose(from: Pose, to: Pose, t: number, out: Pose): Pose {
-  out.target.lerpVectors(from.target, to.target, t);
+  const base = new Vector3().lerpVectors(from.target, to.target, t);
+  // The gaze leads the body: we look at the destination early, so a long flight
+  // shows Mars growing ahead of you instead of empty space.
+  out.target.lerpVectors(from.target, to.target, Math.min(1, t * 1.6));
 
   const fromOffset = new Vector3().subVectors(from.position, from.target);
   const toOffset = new Vector3().subVectors(to.position, to.target);
@@ -34,6 +37,6 @@ export function flyPose(from: Pose, to: Pose, t: number, out: Pose): Pose {
   const travels = from.target.distanceTo(to.target) > 0.01;
   const lift = 1 + (travels ? 0.45 : 0.15) * Math.sin(Math.PI * t);
 
-  out.position.copy(out.target).addScaledVector(direction, length * lift);
+  out.position.copy(base).addScaledVector(direction, length * lift);
   return out;
 }

@@ -19,6 +19,13 @@ export interface Label {
   align?: "right" | "center";
 }
 
+/**
+ * Labels farther than this from the camera are hidden. Every level view is closer
+ * than ~7 units, and the levels are ~15 apart, so mid-flight the destination's
+ * names appear only once it is near, not as a smudge of text around a dot.
+ */
+const LABEL_RANGE = 9;
+
 export type FrameListener = (camera: Camera, width: number, height: number) => void;
 
 export function Overlay({ labels, register }: { labels: Label[]; register: MutableRefObject<FrameListener | null> }) {
@@ -33,7 +40,8 @@ export function Overlay({ labels, register }: { labels: Label[]; register: Mutab
         const el = elements.current.get(label.key);
         if (!el) continue;
         const screen = toScreen(label.anchor(point), camera, width, height, label.occluder);
-        el.style.visibility = screen.visible ? "visible" : "hidden";
+        const near = camera.position.distanceTo(point) < LABEL_RANGE;
+        el.style.visibility = screen.visible && near ? "visible" : "hidden";
         const shift = label.align === "center" ? "translate(-50%, -50%)" : "translate(10px, -50%)";
         el.style.transform = `translate(${screen.x.toFixed(1)}px, ${screen.y.toFixed(1)}px) ${shift}`;
       }
