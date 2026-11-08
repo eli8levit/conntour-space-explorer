@@ -29,6 +29,9 @@ SEMANTIC_WEIGHT = 0.5
 KEYWORD_WEIGHT = 0.5
 MIN_CONFIDENCE = 0.25
 MAX_RESULTS = 50
+# Results at or above this are "strong" matches (orange in the UI). The frontend mirrors
+# this value in one place; change both together.
+STRONG_MATCH = 0.5
 # Rows each retriever (keyword, vector) may contribute before scoring. At 100 rows
 # this is "all of them"; at scale it keeps the scoring step small.
 CANDIDATE_POOL = 200

@@ -33,6 +33,8 @@ def to_source(row: SourceModel) -> Source:
         photographer=row.photographer,
         location=row.location,
         image_url=row.image_url,
+        width=row.image_width,
+        height=row.image_height,
         thumb_url=row.thumb_url,
         place=to_place(row),
     )

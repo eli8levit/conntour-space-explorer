@@ -48,6 +48,8 @@ class SourceModel(Base):
     photographer: Mapped[str | None] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str] = mapped_column(Text)
+    image_width: Mapped[int | None] = mapped_column(Integer)  # of the image_url rendition
+    image_height: Mapped[int | None] = mapped_column(Integer)
     thumb_url: Mapped[str] = mapped_column(Text)
 
     # Place columns are flat (not a separate table): each image has exactly one place.

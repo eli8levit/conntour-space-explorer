@@ -37,8 +37,10 @@ async def list_searches(
         after = decode_cursor(cursor) if cursor else None
     except InvalidCursor:
         raise HTTPException(status_code=400, detail="Invalid cursor") from None
-    items, next_key = await history.get_page(limit, after)
-    return SearchHistoryPage(items=items, next_cursor=encode_cursor(next_key) if next_key else None)
+    items, next_key, total = await history.get_page(limit, after)
+    return SearchHistoryPage(
+        items=items, next_cursor=encode_cursor(next_key) if next_key else None, total=total
+    )
 
 
 @router.get("/{search_id}", response_model=SearchDetail)
