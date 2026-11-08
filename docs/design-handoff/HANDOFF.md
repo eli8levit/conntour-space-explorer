@@ -13,7 +13,7 @@ For the Claude Code session building `conntour-space-explorer`. This is the desi
 | `screens/*.annotated.jpg` | The same renders with numbered cyan callouts. Each number maps to a numbered note in §5–§8 (e.g. **A2·9** = screen A2, callout 9) |
 | `reference/A1-browse.dc.html` … `A4-history.dc.html` | The design source: plain HTML with inline styles. Open it to read exact sizes and colors. Image URLs inside (`/_blob/…`) are design-tool placeholders and will not load, so use `thumb_url`/`image_url` from the API |
 
-> **The numbers in the mockups are not the backend's numbers.** The mockups were scored with a simple keyword formula (title 100% / keywords 80% / description 50%, averaged per word). The real backend uses the hybrid score in `services/scoring.py` (65% meaning + 35% words, min 0.35). Build every percentage, count and "why it matched" line from the API, never from the mockups. The **layout rules** are the spec, not the values.
+> **The numbers in the mockups are not the backend's numbers.** The mockups were scored with a simple keyword formula (title 100% / keywords 80% / description 50%, averaged per word). The real backend uses the hybrid score in `services/scoring.py` (65% meaning + 35% words, min 0.35; **superseded**: the final backend uses 80% meaning + 20% words with a minimum of 0.20, see `backend/config.py` and `docs/search-eval.md`). Build every percentage, count and "why it matched" line from the API, never from the mockups. The **layout rules** are the spec, not the values.
 
 > **Some thumbnails in the mockups are stand-ins** (e.g. "Curiosity Rover's First Anniversary" shows a Parker Solar Probe photo) because the design tool couldn't download every NASA image. Ignore which photo appears where.
 
@@ -209,7 +209,7 @@ function rankSpan(rank: number): [cols: number, rows: number] {
 
    Hover or focus on a row highlights the frame in the grid (the A1·5 bracket treatment), and vice versa. Click opens A3.
 9. **Faint divider.** When the first faint result appears, insert "Faint matches, under 50%." (12px, `muted`). Faint rows have no why-line, their rank is `faint`, their bar is `bar-faint`, and their % is `fg`.
-10. **Scoring note** (bottom of the rail, 12px, `muted`). Replace the mockup's text, which describes the old formula, with: **"Confidence blends meaning (65%) and matching words (35%). Hover a result for the breakdown."** On hover of a rail row or a frame, show the existing `scoreBreakdown()` ("Meaning 82% · Words 40%") as a tooltip.
+10. **Scoring note** (bottom of the rail, 12px, `muted`). *Superseded: the final backend uses 80% meaning + 20% words with a minimum of 0.20, so the shipped note says "meaning (80%) and matching words (20%)". The 65/35 numbers below are from the first version.* Replace the mockup's text, which describes the old formula, with: **"Confidence blends meaning (65%) and matching words (35%). Hover a result for the breakdown."** On hover of a rail row or a frame, show the existing `scoreBreakdown()` ("Meaning 82% · Words 40%") as a tooltip.
 11. **Timeline header** (§6.4).
 12. **Range handles** (§6.4).
 13. **"1950 to 2024" + "Reset years".** The current range and a reset link (12px, `muted`, underlined). Hide "Reset years" when the range is the full span.
