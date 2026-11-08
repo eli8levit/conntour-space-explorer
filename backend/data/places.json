@@ -1,0 +1,802 @@
+[
+  {
+    "nasa_id": "PIA22505",
+    "body": "mars",
+    "lat": -5.20235,
+    "lon": 138.126,
+    "label": "Gale Crater",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-04pd1644",
+    "body": "earth",
+    "lat": 28.5729,
+    "lon": -80.649,
+    "label": "Kennedy Space Center",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "KSC-07pd3126",
+    "body": "earth",
+    "lat": 28.515,
+    "lon": -80.627,
+    "label": "NASA Causeway",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "05pd1505",
+    "body": "earth",
+    "lat": 28.6272,
+    "lon": -80.6208,
+    "label": "Launch Pad 39B",
+    "provenance": "manual"
+  },
+  {
+    "nasa_id": "NHQ202002060027",
+    "body": "earth",
+    "lat": 47.7833,
+    "lon": 67.7667,
+    "label": "Zhezkazgan",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "PIA05528",
+    "body": "mars",
+    "lat": 44.0,
+    "lon": 175.0,
+    "label": "Propontis",
+    "provenance": "manual"
+  },
+  {
+    "nasa_id": "ARC-2011-ACD11-0035-024",
+    "body": "earth",
+    "lat": 37.4089,
+    "lon": -122.0644,
+    "label": "Ames Research Center",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "jsc2013e088075",
+    "body": "earth",
+    "lat": 29.6094,
+    "lon": -95.136,
+    "label": "Neutral Buoyancy Laboratory",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "iss063e020483",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "2010-4372",
+    "body": "earth",
+    "lat": 28.5729,
+    "lon": -80.649,
+    "label": "Kennedy Space Center",
+    "provenance": "NASA center (approx.)"
+  },
+  {
+    "nasa_id": "PIA14732",
+    "body": "deep_space",
+    "lat": null,
+    "lon": null,
+    "label": "Asteroids",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-2010-5251",
+    "body": "earth",
+    "lat": 28.6272,
+    "lon": -80.6208,
+    "label": "Launch Pad 39B",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "05pd0630",
+    "body": "earth",
+    "lat": 28.6272,
+    "lon": -80.6208,
+    "label": "Launch Pad 39B",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-00pp1156",
+    "body": "earth",
+    "lat": 28.5729,
+    "lon": -80.649,
+    "label": "Kennedy Space Center",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "jsc2022e044009",
+    "body": "earth",
+    "lat": 28.5225,
+    "lon": -80.6466,
+    "label": "Operations and Checkout Building",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "jsc2018e025510",
+    "body": "earth",
+    "lat": 45.965,
+    "lon": 63.305,
+    "label": "Baikonur Cosmodrome",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "S67-15795",
+    "body": "earth",
+    "lat": 29.5593,
+    "lon": -95.09,
+    "label": "Johnson Space Center",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-20220815-PH-KLS01_0016_",
+    "body": "earth",
+    "lat": 28.5862,
+    "lon": -80.6509,
+    "label": "Vehicle Assembly Building",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "iss034e031142",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-20180523-PH_LCH01_0055",
+    "body": "earth",
+    "lat": 28.516,
+    "lon": -80.809,
+    "label": "Astrotech, Titusville",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "iss034e010621",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-03pd2378",
+    "body": "earth",
+    "lat": 28.5822,
+    "lon": -80.6467,
+    "label": "LC-39 Turn Basin",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "S113E05187",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "201108040004HQ",
+    "body": "earth",
+    "lat": 38.883,
+    "lon": -77.0163,
+    "label": "NASA Headquarters",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "sts064-311-031",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "Space Shuttle Discovery",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-08pd2249",
+    "body": "earth",
+    "lat": 28.5866,
+    "lon": -80.6626,
+    "label": "Orbiter Processing Facility",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "jsc2020e016992",
+    "body": "earth",
+    "lat": 45.965,
+    "lon": 63.305,
+    "label": "Baikonur Cosmodrome",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-2009-6741",
+    "body": "earth",
+    "lat": 28.5866,
+    "lon": -80.6626,
+    "label": "Orbiter Processing Facility",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-2011-8270",
+    "body": "earth",
+    "lat": 28.5822,
+    "lon": -80.6467,
+    "label": "LC-39 Turn Basin",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "iss020e031128",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "ARC-2002-ACD02-0198-001",
+    "body": "earth",
+    "lat": 37.4089,
+    "lon": -122.0644,
+    "label": "Ames Research Center",
+    "provenance": "NASA center (approx.)"
+  },
+  {
+    "nasa_id": "s131e006074",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "Space Shuttle Discovery",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "MSFC-202000407",
+    "body": "earth",
+    "lat": 34.6466,
+    "lon": -86.6745,
+    "label": "Marshall Space Flight Center (Bldg 4493)",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "PIA13637",
+    "body": "mars",
+    "lat": -7.9,
+    "lon": -48.0,
+    "label": "Ganges Chasma",
+    "provenance": "manual"
+  },
+  {
+    "nasa_id": "GRC-2019-C-09848",
+    "body": "earth",
+    "lat": 41.4131,
+    "lon": -81.8615,
+    "label": "Glenn Research Center",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "KSC-98pc1682",
+    "body": "earth",
+    "lat": 28.5866,
+    "lon": -80.6626,
+    "label": "Orbiter Processing Facility",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-2014-3162",
+    "body": "earth",
+    "lat": 34.742,
+    "lon": -120.5724,
+    "label": "Vandenberg AFB",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "201308060007HQ",
+    "body": "earth",
+    "lat": 38.883,
+    "lon": -77.0163,
+    "label": "NASA Headquarters",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "NHQ202201080019",
+    "body": "earth",
+    "lat": 39.3328,
+    "lon": -76.6233,
+    "label": "Space Telescope Science Institute",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "KSC-06pd1255",
+    "body": "earth",
+    "lat": 28.5225,
+    "lon": -80.6466,
+    "label": "Operations and Checkout Building",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "NHQ202312120022",
+    "body": "earth",
+    "lat": 38.883,
+    "lon": -77.0163,
+    "label": "NASA Headquarters",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "2010-1822",
+    "body": "earth",
+    "lat": 28.615,
+    "lon": -80.6945,
+    "label": "Shuttle Landing Facility",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "jsc2011e060425",
+    "body": "earth",
+    "lat": 29.5593,
+    "lon": -95.09,
+    "label": "Johnson Space Center",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "jsc2011e050068",
+    "body": "earth",
+    "lat": 29.5593,
+    "lon": -95.09,
+    "label": "Johnson Space Center",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "MAF_20240828_ES4toPegasus-09",
+    "body": "earth",
+    "lat": 30.0286,
+    "lon": -89.9176,
+    "label": "Michoud Assembly Facility",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "jsc2010e187206",
+    "body": "earth",
+    "lat": 29.6094,
+    "lon": -95.136,
+    "label": "Neutral Buoyancy Laboratory",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-82PC-0331",
+    "body": "earth",
+    "lat": 28.5797,
+    "lon": -80.644,
+    "label": "LC-39 Press Site",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-2009-4852",
+    "body": "earth",
+    "lat": 34.742,
+    "lon": -120.5724,
+    "label": "Vandenberg AFB",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "jsc2010e052582",
+    "body": "earth",
+    "lat": 29.5593,
+    "lon": -95.09,
+    "label": "Johnson Space Center (Bldg 7)",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "2010-3658",
+    "body": "earth",
+    "lat": 28.5247,
+    "lon": -80.785,
+    "label": "Astronaut Hall of Fame, Titusville",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "s124e005902",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "01pp1504",
+    "body": "earth",
+    "lat": 28.615,
+    "lon": -80.6945,
+    "label": "Shuttle Landing Facility",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "GSFC-2014-10276-033",
+    "body": "earth",
+    "lat": 38.8882,
+    "lon": -77.0199,
+    "label": "National Air and Space Museum",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "PIA05956",
+    "body": "mars",
+    "lat": -4.0,
+    "lon": -72.5,
+    "label": "Ophir Chasma",
+    "provenance": "manual"
+  },
+  {
+    "nasa_id": "s129e006216",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "Space Shuttle Atlantis",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-99pp0367",
+    "body": "earth",
+    "lat": 28.5729,
+    "lon": -80.649,
+    "label": "Kennedy Space Center",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "jsc2017e135207",
+    "body": "earth",
+    "lat": 55.878,
+    "lon": 38.108,
+    "label": "Gagarin Cosmonaut Training Center, Star City",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "GRC-2019-C-12276",
+    "body": "earth",
+    "lat": 40.8214,
+    "lon": -82.5166,
+    "label": "Mansfield Lahm Airport",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "iss067e359856",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "1100173",
+    "body": "earth",
+    "lat": 34.6466,
+    "lon": -86.6745,
+    "label": "SciQuest, Huntsville (approx.)",
+    "provenance": "NASA center (approx.)"
+  },
+  {
+    "nasa_id": "PIA03574",
+    "body": "mars",
+    "lat": 24.6,
+    "lon": -141.0,
+    "label": "Lycus Sulci",
+    "provenance": "manual"
+  },
+  {
+    "nasa_id": "20030506_exp6pconf_01",
+    "body": "earth",
+    "lat": 55.878,
+    "lon": 38.108,
+    "label": "Star City",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "iss059e001429",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "iss003e6264",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-2012-5457",
+    "body": "earth",
+    "lat": 28.615,
+    "lon": -80.6945,
+    "label": "Shuttle Landing Facility",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "61c-s-047",
+    "body": "earth",
+    "lat": 28.6084,
+    "lon": -80.6043,
+    "label": "Launch Pad 39A",
+    "provenance": "manual"
+  },
+  {
+    "nasa_id": "KSC-20190710-PH_GEB01_0245",
+    "body": "earth",
+    "lat": 28.5225,
+    "lon": -80.6466,
+    "label": "Operations and Checkout Building",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-98pc387",
+    "body": "earth",
+    "lat": 28.5862,
+    "lon": -80.6509,
+    "label": "Vehicle Assembly Building",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "s134e006395",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "Space Shuttle Endeavour",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "NHQ201710050005",
+    "body": "earth",
+    "lat": 38.9111,
+    "lon": -77.4441,
+    "label": "Udvar-Hazy Center",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "KSC-2012-1403",
+    "body": "earth",
+    "lat": 28.5729,
+    "lon": -80.649,
+    "label": "Kennedy Space Center",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "KSC-20210602-PH-KLS01_0004",
+    "body": "earth",
+    "lat": 28.5244,
+    "lon": -80.6508,
+    "label": "KSC Industrial Area",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "KSC-2014-1692",
+    "body": "earth",
+    "lat": 28.515,
+    "lon": -80.627,
+    "label": "NASA Causeway",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "LRC-1965-B701_P-04828",
+    "body": "earth",
+    "lat": 37.0855,
+    "lon": -76.3804,
+    "label": "Langley Research Center",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "MAF_071424_Victor Glover Visits Pegasus-BH-7",
+    "body": "earth",
+    "lat": 30.0286,
+    "lon": -89.9176,
+    "label": "Michoud Assembly Facility",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "KSC-20221130-PH-CSH01_0098",
+    "body": "earth",
+    "lat": 28.5244,
+    "lon": -80.6508,
+    "label": "KSC Industrial Area",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "KSC-07pd1929",
+    "body": "earth",
+    "lat": 28.5729,
+    "lon": -80.649,
+    "label": "Kennedy Space Center",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "KSC-98pc637",
+    "body": "earth",
+    "lat": 28.6084,
+    "lon": -80.6043,
+    "label": "Launch Pad 39A",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "iss020e042187",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "iss071e608493",
+    "body": "orbit",
+    "lat": null,
+    "lon": null,
+    "label": "ISS",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-03pd2732",
+    "body": "earth",
+    "lat": 28.5866,
+    "lon": -80.6626,
+    "label": "Orbiter Processing Facility",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "PIA13962",
+    "body": "earth",
+    "lat": 36.77,
+    "lon": 8.31,
+    "label": "El Tarf, Algeria",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "201405280008HQ",
+    "body": "earth",
+    "lat": 45.623,
+    "lon": 63.314,
+    "label": "Cosmonaut Hotel, Baikonur",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "NHQ201904020018",
+    "body": "earth",
+    "lat": 38.8867,
+    "lon": -77.0109,
+    "label": "Rayburn House Office Building",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "NHQ201909240001",
+    "body": "earth",
+    "lat": 45.965,
+    "lon": 63.305,
+    "label": "Baikonur Cosmodrome",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "KSC-20180221-PH_KLS01_0216",
+    "body": "earth",
+    "lat": 28.5251,
+    "lon": -80.6447,
+    "label": "Space Station Processing Facility",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "GSFC_20171208_Archive_e001170",
+    "body": "earth",
+    "lat": 42.0,
+    "lon": -69.0,
+    "label": "Off the New England coast",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "2011-7291",
+    "body": "earth",
+    "lat": 28.5729,
+    "lon": -80.649,
+    "label": "Kennedy Space Center",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "NHQ202102170001",
+    "body": "earth",
+    "lat": 34.2013,
+    "lon": -118.1714,
+    "label": "Jet Propulsion Laboratory",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "sts129-s-077",
+    "body": "earth",
+    "lat": 28.6084,
+    "lon": -80.6043,
+    "label": "Launch Pad 39A",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-03pd0079",
+    "body": "earth",
+    "lat": 28.5729,
+    "lon": -80.649,
+    "label": "Kennedy Space Center",
+    "provenance": "location field"
+  },
+  {
+    "nasa_id": "PIA17654",
+    "body": "deep_space",
+    "lat": null,
+    "lon": null,
+    "label": "Saturn",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "PIA05475",
+    "body": "mars",
+    "lat": -1.95,
+    "lon": -5.53,
+    "label": "El Capitan, Meridiani Planum",
+    "provenance": "manual"
+  },
+  {
+    "nasa_id": "KSC-2010-1278",
+    "body": "earth",
+    "lat": 28.615,
+    "lon": -80.6945,
+    "label": "Shuttle Landing Facility",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "jsc2015e104060",
+    "body": "earth",
+    "lat": 55.878,
+    "lon": 38.108,
+    "label": "Gagarin Cosmonaut Training Center, Star City",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-2011-1022",
+    "body": "earth",
+    "lat": 28.615,
+    "lon": -80.6945,
+    "label": "Shuttle Landing Facility",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "KSC-07pd3139",
+    "body": "earth",
+    "lat": 28.6272,
+    "lon": -80.6208,
+    "label": "Launch Pad 39B",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "7120051",
+    "body": "earth",
+    "lat": 34.6466,
+    "lon": -86.6745,
+    "label": "Marshall Space Flight Center",
+    "provenance": "NASA center (approx.)"
+  },
+  {
+    "nasa_id": "KSC-2014-4176",
+    "body": "earth",
+    "lat": 28.5319,
+    "lon": -80.566,
+    "label": "Space Launch Complex 37",
+    "provenance": "caption"
+  },
+  {
+    "nasa_id": "ARC-1950-A-15464",
+    "body": "earth",
+    "lat": 37.4089,
+    "lon": -122.0644,
+    "label": "Ames Research Center",
+    "provenance": "NASA center (approx.)"
+  }
+]
