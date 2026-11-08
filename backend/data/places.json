@@ -74,10 +74,10 @@
   {
     "nasa_id": "2010-4372",
     "body": "earth",
-    "lat": 28.5729,
-    "lon": -80.649,
-    "label": "Kennedy Space Center",
-    "provenance": "NASA center (approx.)"
+    "lat": 28.5862,
+    "lon": -80.6509,
+    "label": "Vehicle Assembly Building",
+    "provenance": "manual"
   },
   {
     "nasa_id": "PIA14732",
@@ -770,9 +770,9 @@
   {
     "nasa_id": "KSC-07pd3139",
     "body": "earth",
-    "lat": 28.6272,
-    "lon": -80.6208,
-    "label": "Launch Pad 39B",
+    "lat": 28.5822,
+    "lon": -80.6467,
+    "label": "LC-39 Turn Basin",
     "provenance": "caption"
   },
   {

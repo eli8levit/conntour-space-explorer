@@ -43,12 +43,12 @@ IMAGE_PREFERENCE = ("~medium.jpg", "~large.jpg", "~orig.jpg", "~small.jpg", "~th
 THUMB_PREFERENCE = ("~small.jpg", "~thumb.jpg")
 
 
-def pick_link(hrefs: list[str], preference: tuple[str, ...]) -> str:
+def pick_link(links: list[dict[str, Any]], preference: tuple[str, ...]) -> dict[str, Any]:
     for suffix in preference:
-        for href in hrefs:
-            if href.endswith(suffix):
-                return href
-    return hrefs[0]
+        for link in links:
+            if link["href"].endswith(suffix):
+                return link
+    return links[0]
 
 
 def split_keywords(raw: list[str] | None) -> list[str]:
@@ -63,7 +63,8 @@ def clean_text(raw: str) -> str:
 
 def parse_item(item: dict[str, Any]) -> dict[str, Any]:
     data = item["data"][0]
-    hrefs = [link["href"] for link in item.get("links", []) if link.get("render") == "image"]
+    links = [link for link in item.get("links", []) if link.get("render") == "image"]
+    image = pick_link(links, IMAGE_PREFERENCE)
     return {
         "nasa_id": data["nasa_id"].strip(),
         "title": clean_text(data.get("title", "")) or data["nasa_id"],
@@ -73,8 +74,11 @@ def parse_item(item: dict[str, Any]) -> dict[str, Any]:
         "keywords": split_keywords(data.get("keywords")),
         "photographer": data.get("photographer"),
         "location": (data.get("location") or "").strip() or None,
-        "image_url": pick_link(hrefs, IMAGE_PREFERENCE),
-        "thumb_url": pick_link(hrefs, THUMB_PREFERENCE),
+        "image_url": image["href"],
+        # NASA lists pixel sizes for most renditions; missing ones stay NULL.
+        "image_width": image.get("width"),
+        "image_height": image.get("height"),
+        "thumb_url": pick_link(links, THUMB_PREFERENCE)["href"],
     }
 
 

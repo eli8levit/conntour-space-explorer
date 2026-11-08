@@ -1,0 +1,12 @@
+{
+  "name": "homework-worker",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "deploy": "npx wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251001.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -10,7 +10,9 @@ Metrics, per mode:
 - P@5: relevant results in the top 5, divided by min(5, number of relevant images), so a
   query with 2 relevant images can still score 1.0.
 - Recall: relevant images returned at all (above the confidence threshold).
-- Noise: results returned for queries whose topic is not in the data (should be ~0).
+- Strong: relevant images returned with confidence >= STRONG_MATCH (shown orange in the UI).
+- Noise: results returned for queries whose topic is not in the data (should be ~0),
+  and how many of those were "strong" (should be 0).
 Nothing is stored: this calls the retrieval and scoring code directly, not the API.
 `--tune` grid-searches the constants in config.py.
 """
@@ -24,7 +26,7 @@ from dataclasses import dataclass
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import CANDIDATE_POOL  # noqa: E402
+from config import CANDIDATE_POOL, STRONG_MATCH  # noqa: E402
 from db import AsyncSessionLocal, engine  # noqa: E402
 from repositories import SearchIndexRepository, SourceRepository  # noqa: E402
 from services.embedding import load_embedder  # noqa: E402
@@ -84,6 +86,7 @@ MODES: list[Mode] = ["keyword", "semantic", "hybrid"]
 class Row:
     p_at_5: float
     recall: float
+    strong_recall: float
 
 
 Candidates = dict[str, list[Candidate]]
@@ -112,15 +115,19 @@ def evaluate(
     modes: list[Mode] = MODES,
 ):
     results: dict[Mode, list[Row]] = {mode: [] for mode in modes}
-    noise: dict[Mode, int] = {mode: 0 for mode in modes}
+    noise: dict[Mode, tuple[int, int]] = {}
     for mode in modes:
         for query, relevant in LABELS.items():
-            returned = [nasa_id[hit.source_id] for hit in score(candidates[query], mode, params)]
-            top5 = sum(1 for n in returned[:5] if n in relevant)
-            found = sum(1 for n in returned if n in relevant)
-            results[mode].append(Row(top5 / min(5, len(relevant)), found / len(relevant)))
-        for query in NEGATIVES:
-            noise[mode] += len(score(candidates[query], mode, params))
+            hits = [
+                (nasa_id[h.source_id], h.confidence) for h in score(candidates[query], mode, params)
+            ]
+            top5 = sum(1 for n, _ in hits[:5] if n in relevant)
+            found = sum(1 for n, _ in hits if n in relevant)
+            strong = sum(1 for n, c in hits if n in relevant and c >= STRONG_MATCH)
+            k = len(relevant)
+            results[mode].append(Row(top5 / min(5, k), found / k, strong / k))
+        off_topic = [hit for q in NEGATIVES for hit in score(candidates[q], mode, params)]
+        noise[mode] = (len(off_topic), sum(1 for h in off_topic if h.confidence >= STRONG_MATCH))
     return results, noise
 
 
@@ -130,26 +137,30 @@ def mean(rows: list[Row], field: str) -> float:
 
 def tune(candidates: Candidates, nasa_id: dict[int, str]) -> None:
     """Grid search for the hybrid constants. The objective favours a good top 5, then
-    recall, and charges for every off-topic result. With 14 queries this is a sanity
-    check against bad constants, not a claim of optimality."""
+    recall and relevant results that reach "strong", and charges for every off-topic
+    result (more for a strong one). With 14 queries this is a sanity check against bad
+    constants, not a claim of optimality."""
     scored = []
     for floor, ceil, w_sem, threshold in itertools.product(
         [0.05 * i for i in range(1, 15)],  # semantic floor 0.05 .. 0.60
         [0.05 * i for i in range(6, 19)],  # semantic ceil 0.30 .. 0.90
-        [0.5, 0.6, 0.7, 0.8],  # semantic weight
-        [0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55],  # min confidence
+        [0.5, 0.6, 0.7, 0.8, 0.9],  # semantic weight
+        [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5],  # min confidence
     ):
         if ceil - floor < 0.1:
             continue
         params = ScoringParams(floor, ceil, w_sem, 1 - w_sem, threshold)
         results, noise = evaluate(candidates, nasa_id, params, ["hybrid"])
         hybrid = results["hybrid"]
-        objective = mean(hybrid, "p_at_5") + 0.5 * mean(hybrid, "recall") - 0.02 * noise["hybrid"]
-        scored.append((objective, params, mean(hybrid, "p_at_5"), mean(hybrid, "recall"), noise))
+        p5, recall, strong = (mean(hybrid, f) for f in ("p_at_5", "recall", "strong_recall"))
+        off_topic, strong_off_topic = noise["hybrid"]
+        objective = p5 + 0.5 * recall + 0.5 * strong - 0.02 * off_topic - 0.1 * strong_off_topic
+        scored.append((objective, params, p5, recall, strong, off_topic))
     scored.sort(key=lambda item: -item[0])
-    for objective, params, p5, recall, noise in scored[:10]:
+    for objective, params, p5, recall, strong, off_topic in scored[:10]:
         print(
-            f"obj={objective:.3f} P@5={p5:.2f} R={recall:.2f} noise={noise['hybrid']:2d}  "
+            f"obj={objective:.3f} P@5={p5:.2f} R={recall:.2f} strong={strong:.2f} "
+            f"noise={off_topic:2d}  "
             f"floor={params.semantic_floor:.2f} ceil={params.semantic_ceil:.2f} "
             f"w_sem={params.semantic_weight} "
             f"min={params.min_confidence}"
@@ -168,7 +179,14 @@ def print_table(results, noise) -> None:
         f"{mean(results[m], 'p_at_5'):>13.2f}/{mean(results[m], 'recall'):.2f}" for m in MODES
     )
     print(f"{'mean':30s}{means}")
-    print(f"{'off-topic results':30s}" + "".join(f"{noise[m]:>18d}" for m in MODES))
+    print(
+        f"{'relevant and strong':30s}"
+        + "".join(f"{mean(results[m], 'strong_recall'):>18.2f}" for m in MODES)
+    )
+    print(
+        f"{'off-topic results (strong)':30s}"
+        + "".join(f"{f'{noise[m][0]} ({noise[m][1]})':>18s}" for m in MODES)
+    )
 
 
 async def main() -> None:

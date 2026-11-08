@@ -33,6 +33,8 @@ class Source(BaseModel):
     photographer: str | None
     location: str | None
     image_url: str
+    width: int | None  # pixel size of image_url, when NASA lists it
+    height: int | None
     thumb_url: str
     place: Place | None
 
@@ -78,17 +80,26 @@ class SearchDetail(BaseModel):
     results: list[SearchHit]
 
 
+class SearchPreview(BaseModel):
+    thumb_url: str
+    confidence: float
+
+
 class SearchSummary(BaseModel):
     id: int
     query: str
     created_at: datetime
     result_count: int
-    preview_thumbs: list[str]
+    strong_count: int  # results with confidence >= config.STRONG_MATCH
+    best_confidence: float | None  # None when the search found nothing
+    previews: list[SearchPreview]  # top 3 by rank
+    preview_thumbs: list[str]  # deprecated: same as previews[].thumb_url, to be removed
 
 
 class SearchHistoryPage(BaseModel):
     items: list[SearchSummary]
     next_cursor: str | None
+    total: int  # all searches in the history, not just this page
 
 
 class PlacePin(BaseModel):

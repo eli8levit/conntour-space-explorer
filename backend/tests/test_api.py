@@ -41,6 +41,10 @@ async def test_source_detail_and_404(client):
     detail = (await client.get(f"/api/sources/{first['id']}")).json()
     assert detail == first
     assert set(detail["place"]) == {"body", "lat", "lon", "label", "provenance"}
+    # Gale Crater's ~medium rendition is listed as 660 x 1280 in the NASA record.
+    gale = (await client.get("/api/sources", params={"body": "mars", "limit": 100})).json()
+    gale = next(item for item in gale["items"] if item["nasa_id"] == "PIA22505")
+    assert (gale["width"], gale["height"]) == (660, 1280)
     assert (await client.get("/api/sources/999999")).status_code == 404
 
 
@@ -99,7 +103,8 @@ async def test_history_keyset_pagination_and_delete(client):
         params = {"limit": 10, **({"cursor": cursor} if cursor else {})}
         page = (await client.get("/api/searches", params=params)).json()
         seen += [item["id"] for item in page["items"]]
-        assert all(len(item["preview_thumbs"]) <= 3 for item in page["items"])
+        assert page["total"] == 25
+        assert all(len(item["previews"]) <= 3 for item in page["items"])
         cursor = page["next_cursor"]
         if cursor is None:
             break
@@ -110,12 +115,37 @@ async def test_history_keyset_pagination_and_delete(client):
     assert (await client.delete(f"/api/searches/{victim}")).status_code == 204
     assert (await client.delete(f"/api/searches/{victim}")).status_code == 404
     assert (await client.get(f"/api/searches/{victim}")).status_code == 404
+    assert (await client.get("/api/searches")).json()["total"] == 24
 
     # The cursor from before the delete still continues exactly where it left off.
     next_page = (
         await client.get("/api/searches", params={"limit": 10, "cursor": first_page["next_cursor"]})
     ).json()
     assert [item["id"] for item in next_page["items"]] == list(reversed(ids))[10:20]
+
+
+async def test_history_summary_matches_the_snapshot(client):
+    from config import STRONG_MATCH
+
+    search = (await client.post("/api/searches", json={"query": "STS-135 crew"})).json()
+    empty = (await client.post("/api/searches", json={"query": "qwxzv"})).json()  # no match
+    page = (await client.get("/api/searches")).json()
+    summary = next(item for item in page["items"] if item["id"] == search["id"])
+    confidences = [hit["confidence"] for hit in search["results"]]
+
+    assert summary["result_count"] == len(confidences)
+    assert summary["strong_count"] == sum(c >= STRONG_MATCH for c in confidences)
+    assert summary["best_confidence"] == pytest.approx(max(confidences))
+    assert summary["previews"] == [
+        {"thumb_url": hit["source"]["thumb_url"], "confidence": hit["confidence"]}
+        for hit in search["results"][:3]
+    ]
+    assert summary["preview_thumbs"] == [p["thumb_url"] for p in summary["previews"]]
+
+    no_results = next(item for item in page["items"] if item["id"] == empty["id"])
+    assert no_results["result_count"] == 0
+    assert (no_results["strong_count"], no_results["best_confidence"]) == (0, None)
+    assert no_results["previews"] == []
 
 
 async def test_history_rejects_bad_cursor(client):

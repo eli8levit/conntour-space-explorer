@@ -5,12 +5,13 @@ Not a Repository[T]: history grows without bound, so it has no get_all, only pag
 
 from datetime import datetime
 
-from sqlalchemy import delete, select, tuple_
+from sqlalchemy import delete, func, select, true, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from config import STRONG_MATCH
 from db.models import SearchModel, SearchResultModel, SourceModel
-from models import Engine, SearchDetail, SearchHit, SearchSummary
+from models import Engine, SearchDetail, SearchHit, SearchPreview, SearchSummary
 from repositories.source import to_source
 from services.scoring import ScoredHit
 
@@ -73,38 +74,66 @@ class HistoryRepository:
 
     async def get_page(
         self, limit: int, after: HistoryKey | None
-    ) -> tuple[list[SearchSummary], HistoryKey | None]:
+    ) -> tuple[list[SearchSummary], HistoryKey | None, int]:
         """Newest first. Keyset, not offset: a page costs the same however deep it is,
-        and deleting a row never shifts later pages (no skipped or repeated items)."""
-        stmt = select(SearchModel).order_by(SearchModel.created_at.desc(), SearchModel.id.desc())
+        and deleting a row never shifts later pages (no skipped or repeated items).
+
+        Returns (items, key of the last item if there is a next page, total searches).
+        """
+        # Per-search stats as a LATERAL subquery: Postgres computes it only for the rows
+        # on this page, using the search_results primary key (search_id, rank).
+        stats = (
+            select(
+                func.count()
+                .filter(SearchResultModel.confidence >= STRONG_MATCH)
+                .label("strong_count"),
+                func.max(SearchResultModel.confidence).label("best_confidence"),
+            )
+            .where(SearchResultModel.search_id == SearchModel.id)
+            .lateral("stats")
+        )
+        stmt = (
+            select(SearchModel, stats.c.strong_count, stats.c.best_confidence)
+            .join(stats, true())
+            .order_by(SearchModel.created_at.desc(), SearchModel.id.desc())
+        )
         if after is not None:
             # Row comparison matches the (created_at desc, id desc) index.
             stmt = stmt.where(tuple_(SearchModel.created_at, SearchModel.id) < tuple_(*after))
-        # One extra row tells us whether a next page exists, without a COUNT.
-        rows = list((await self._session.scalars(stmt.limit(limit + 1))).all())
+        # One extra row tells us whether a next page exists.
+        rows = list((await self._session.execute(stmt.limit(limit + 1))).all())
         has_more = len(rows) > limit
         rows = rows[:limit]
 
-        thumbs = await self._preview_thumbs([row.id for row in rows])
-        items = [
-            SearchSummary(
-                id=row.id,
-                query=row.query,
-                created_at=row.created_at,
-                result_count=row.result_count,
-                preview_thumbs=thumbs.get(row.id, []),
+        previews = await self._previews([row.SearchModel.id for row in rows])
+        items = []
+        for search, strong_count, best_confidence in rows:
+            top = previews.get(search.id, [])
+            items.append(
+                SearchSummary(
+                    id=search.id,
+                    query=search.query,
+                    created_at=search.created_at,
+                    result_count=search.result_count,
+                    strong_count=strong_count,
+                    best_confidence=best_confidence,
+                    previews=top,
+                    preview_thumbs=[preview.thumb_url for preview in top],
+                )
             )
-            for row in rows
-        ]
-        next_key = (rows[-1].created_at, rows[-1].id) if has_more else None
-        return items, next_key
+        last = rows[-1].SearchModel if rows else None
+        next_key = (last.created_at, last.id) if has_more and last else None
+        # For the "N searches" header. A full count is fine at this size; at millions
+        # of rows it would become an estimate (pg_class.reltuples) or a cached counter.
+        total = await self._session.scalar(select(func.count()).select_from(SearchModel))
+        return items, next_key, total or 0
 
-    async def _preview_thumbs(self, search_ids: list[int]) -> dict[int, list[str]]:
+    async def _previews(self, search_ids: list[int]) -> dict[int, list[SearchPreview]]:
         """Top results' thumbnails for a whole page in one query (no N+1)."""
         if not search_ids:
             return {}
         result = await self._session.execute(
-            select(SearchResultModel.search_id, SourceModel.thumb_url)
+            select(SearchResultModel.search_id, SourceModel.thumb_url, SearchResultModel.confidence)
             .join(SourceModel, SourceModel.id == SearchResultModel.source_id)
             .where(
                 SearchResultModel.search_id.in_(search_ids),
@@ -112,10 +141,12 @@ class HistoryRepository:
             )
             .order_by(SearchResultModel.search_id, SearchResultModel.rank)
         )
-        thumbs: dict[int, list[str]] = {}
-        for search_id, thumb_url in result.all():
-            thumbs.setdefault(search_id, []).append(thumb_url)
-        return thumbs
+        previews: dict[int, list[SearchPreview]] = {}
+        for search_id, thumb_url, confidence in result.all():
+            previews.setdefault(search_id, []).append(
+                SearchPreview(thumb_url=thumb_url, confidence=confidence)
+            )
+        return previews
 
     async def delete(self, search_id: int) -> bool:
         """True when a row was deleted. Its results go with it (ON DELETE CASCADE)."""

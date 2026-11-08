@@ -1,0 +1,26 @@
+# homework.nightcoding.dev: a Worker that forwards every request to the Docker origin.
+# Same custom-domain shape as iss-now (spacetravel).
+#
+#   cd deploy/worker && npm install && volta run --node 22 npx wrangler deploy
+name = "homework"
+compatibility_date = "2026-10-01"
+main = "src/index.ts"
+workers_dev = true
+
+[vars]
+# Replace with the origin hostname. Workers cannot fetch bare IPs, so use sslip.io.
+# Example: ORIGIN = "http://34-123-45-67.sslip.io:80"
+ORIGIN = "http://REPLACE-ME.sslip.io:80"
+
+# Per-IP limit for POST/DELETE on /api/searches (Workers Rate Limiting binding).
+# 10 requests per 60 seconds for each client IP. The code skips the check if the binding is missing.
+[[unsafe.bindings]]
+name = "SEARCH_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
+# A custom domain creates its own DNS record in the nightcoding.dev zone.
+[[routes]]
+pattern = "homework.nightcoding.dev"
+custom_domain = true
