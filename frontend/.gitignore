@@ -1,0 +1,3 @@
+# The root .gitignore ignores every "lib/" folder (a Python packaging rule).
+# Our pure helpers live in src/lib, so we include that folder again here.
+!/src/lib/

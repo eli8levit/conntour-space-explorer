@@ -1,21 +1,16 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-slim
+FROM node:22-slim
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci
 
-# Copy source code
 COPY . .
 
 EXPOSE 3001
 
-ENV PORT=3001
-
-# Start development server
-CMD ["npm", "start"]
+# --host 0.0.0.0 so the server is reachable from outside the container.
+# The proxy target comes from REACT_APP_API_URL in docker-compose.dev.yml.
+CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "3001"]
