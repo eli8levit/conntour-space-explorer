@@ -78,6 +78,19 @@ def test_equal_scores_keep_a_stable_order():
         ("PIA22505", ["PIA22505"]),
         ("61", ["61"]),
         ("red planet", []),
+        # A year is a date, not an ID...
+        ("launch in 2011", []),
+        ("2011", []),
+        ("In 2011", []),
+        ("June 2011 launch", []),
+        ("Fiscal Year 2020", []),
+        ("STS-135 2011", ["STS-135"]),
+        # ...unless a capitalized name owns it, the way "Expedition 61" is.
+        ("SSME 2058", ["SSME 2058"]),
+        ("Mars 2020", ["Mars 2020"]),
+        # Not a year: 4 digits outside 1900-2099, or a year inside a word.
+        ("Expedition 1844", ["Expedition 1844"]),
+        ("KSC-2011-4910", ["KSC-2011-4910"]),
     ],
 )
 def test_query_ids(query, expected):

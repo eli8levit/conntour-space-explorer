@@ -182,6 +182,10 @@ images without it cannot be.
 
 - An ID is a word that contains a digit (STS-135, PIA22505, MS-13). A bare number keeps
   the word before it: "Expedition 61", not "61".
+- A year (1900–2099) is a date, not an ID: "launch in 2011" names no ID. Before this
+  rule, it raised five images that contain "2011" to 0.50 and halved the rest. A year is
+  an ID only after a capitalized name ("SSME 2058" is an engine). Months, "Year" and
+  small words like "in" do not count as names.
 - SQL checks each ID as a phrase. "STS-135" is the lexemes `sts` and `-135` next to each
   other, so a caption that has "STS" and "135" far apart does not count.
 - Images with the ID are raised to at least 0.5. Images without it get half their score.
