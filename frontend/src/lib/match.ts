@@ -86,13 +86,30 @@ export function matchedTerms(
     ["keywords", source.keywords.join(" ")],
     ["description", source.description],
   ];
-  // Stem each field once, not once per query word.
-  const fieldTerms = fields.map(([field, text]) => [field, new Set(queryTerms(text))] as const);
+  // Stem each field once, not once per query word. Postgres also indexes the parts of a
+  // hyphenated word ("STS-129" -> sts, 129), so the field keeps those parts too.
+  const fieldTerms = fields.map(([field, text]) => [field, new Set(queryTerms(text).flatMap(withParts))] as const);
   return queryWords(query).flatMap(({ word, term }) => {
-    const hit = fieldTerms.find(([, terms]) => terms.has(term));
+    const find = (candidate: string) => fieldTerms.find(([, terms]) => terms.has(candidate));
     // Report the word as the user typed it ("mars"), not its stem ("mar").
-    return hit ? [{ term: word, field: hit[0] }] : [];
+    const hit = find(term);
+    if (hit) return [{ term: word, field: hit[0] }];
+    // "STS-135" is not in the row, but its part "sts" may be (a halved STS-129).
+    return hyphenParts(term).flatMap((part) => {
+      const partHit = find(part);
+      return partHit ? [{ term: part, field: partHit[0] }] : [];
+    });
   });
+}
+
+/** The parts of a hyphenated word ("sts-135" -> sts, 135); nothing for a plain word. */
+function hyphenParts(term: string): string[] {
+  const parts = term.split("-").filter(Boolean);
+  return parts.length > 1 ? parts : [];
+}
+
+function withParts(term: string): string[] {
+  return [term, ...hyphenParts(term)];
 }
 
 const FIELD_PHRASE: Record<MatchField, string> = {

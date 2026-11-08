@@ -69,6 +69,26 @@ describe("matchedTerms", () => {
   it("returns nothing for a pure meaning match", () => {
     expect(matchedTerms("red planet", marsBriefing)).toEqual([]);
   });
+
+  it("matches the whole hyphenated word first", () => {
+    const sts135 = { title: "STS-135 crew", keywords: [], description: "" };
+    expect(matchedTerms("STS-135", sts135)).toEqual([{ term: "sts-135", field: "title" }]);
+  });
+
+  it("tries the hyphen-split parts, like Postgres does (halved STS-129)", () => {
+    const sts129 = { title: "STS-129 Atlantis", keywords: [], description: "" };
+    expect(matchedTerms("STS-135", sts129)).toEqual([{ term: "sts", field: "title" }]);
+    expect(whyLine(matchedTerms("STS-135", sts129), 0.6)).toBe("Matched sts in the title");
+  });
+
+  it("still says similar in meaning when no part is there", () => {
+    expect(matchedTerms("STS-135", marsBriefing)).toEqual([]);
+  });
+
+  it("keeps Mars and Marshall as different whole words", () => {
+    const marshall = { title: "Marshall Space Flight Center", keywords: [], description: "" };
+    expect(matchedTerms("Mars", marshall)).toEqual([]);
+  });
 });
 
 describe("whyLine", () => {
