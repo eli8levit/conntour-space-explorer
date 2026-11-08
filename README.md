@@ -182,6 +182,7 @@ One VM runs `docker-compose.prod.yml`, and a Cloudflare Worker gives HTTPS and a
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): diagrams, data model, search, history, scene, decisions, scale.
 - [docs/QA.md](docs/QA.md): short answers to likely questions.
+- [docs/DEMO.md](docs/DEMO.md): the presentation script, with live numbers, risky queries and hard questions.
 - [docs/search-eval.md](docs/search-eval.md): how the search was measured and tuned.
 - [docs/PLAN.md](docs/PLAN.md): the original plan (some parts changed; the code is the source of truth).
 - [docs/design-handoff/HANDOFF.md](docs/design-handoff/HANDOFF.md): the visual design spec.
