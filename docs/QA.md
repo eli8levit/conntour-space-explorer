@@ -14,8 +14,8 @@ in the React Query cache and navigates to `/search/:id` inside a View Transition
 
 **2. Why hybrid search?**
 Each half misses what the other finds. Full-text finds exact IDs like "STS-135" but not "red
-planet" or "animals", and vectors find meaning but give a noisier top 5. Hybrid P@5 is 0.82,
-keyword-only is 0.57, and semantic-only is 0.64 (`docs/search-eval.md`).
+planet" or "animals", and vectors find meaning but give a noisier top 5. Hybrid P@5 is 0.83,
+keyword-only is 0.60, and semantic-only is 0.69 (`docs/search-eval.md`).
 
 **3. How is confidence calculated?**
 `confidence = 0.8 × meaning + 0.2 × words`. Meaning is the cosine stretched from 0.20–0.50 to
@@ -34,8 +34,9 @@ No. It is a calibrated score from 0 to 1. The constants were tuned so that relev
 **6. Why is "red planet" only a faint match?**
 MiniLM gives "red planet" → Lycus Sulci (Mars) a cosine of 0.359. This is the same as "solar
 flares" → Parker Solar Probe, which is off-topic. Any calibration that makes the Mars images strong
-also makes Parker strong, so I kept Mars faint (best 0.42) but in the right order. The fixes are a
-bigger model, query expansion, or a re-ranker (`docs/search-eval.md`, "The remaining limit").
+also makes Parker strong, so I kept Mars faint (best 0.42). The order is not clean either: ranks
+1, 2, 5 and 7 are Mars images, but ranks 3 and 4 are an infrared asteroid chart and the WISE logo.
+The fixes are a bigger model, query expansion, or a re-ranker (`docs/search-eval.md`, "The remaining limit").
 
 **7. Why an OR query, not AND?**
 `plainto_tsquery` ANDs the words, so "images of Mars rovers" would need all four. The SQL replaces
@@ -54,7 +55,7 @@ caption (C). The column is generated, so Postgres keeps it up to date (`SEARCH_V
 
 **10. Why MiniLM and not bge-small, as in the plan?**
 I measured nine models with their own tuned constants. all-MiniLM-L6-v2 had the best P@5 (0.82 vs
-0.68 for bge-small), is small (87 MB) and fast (0.7 ms per query) (`docs/search-eval.md`, "Choice 2").
+0.68 for bge-small, measured before the guard rules), is small (87 MB) and fast (0.7 ms per query) (`docs/search-eval.md`, "Choice 2").
 
 **11. Why not CLIP?**
 The captions are rich, and many images are press photos of people, rooms and ceremonies. CLIP
@@ -78,24 +79,28 @@ gets the candidates once per query and then re-scores thousands of constant sets
 (`--tune` in `backend/scripts/eval_search.py`). The cost is small: at most 400 candidates per query.
 
 **15. How do you test search quality?**
-`backend/scripts/eval_search.py` has 14 queries with hand-labeled relevant images and 3 off-topic
-queries. It prints P@5, recall, "relevant and strong" and off-topic results for keyword, semantic
+`backend/scripts/eval_search.py` has 15 queries with hand-labeled relevant images, 3 off-topic
+queries and 3 gibberish queries. It prints P@5, recall, "relevant and strong" and off-topic results for keyword, semantic
 and hybrid, and `--tune` grid-searches the constants. Run it with
 `docker compose exec backend python scripts/eval_search.py`.
 
-**16. Isn't the tuning overfit to 14 queries?**
+**16. Isn't the tuning overfit to 15 queries?**
 Yes, partly. It is a sanity check against bad constants, not a proof (the docstring of `tune` says
 this). With more time I would add more queries and keep a held-out set that the tuning never sees.
 
-**17. Why does "STS-135" also show other STS missions as strong?**
+**17. Why is STS-129 at 43% for "STS-135", when it shows "Meaning 100%"?**
 Many STS captions have a cosine of 0.50 or more with "STS-135", so their meaning score is the full
-1.0. The
-20% word score puts the real STS-135 photos first, but the neighbours still score high. A re-ranker
-would fix this.
+1.0, and they used to be strong. The ID rule fixes that: when the query names an ID, images with the
+exact ID are raised to at least 0.5, and the others get half their score, so they can never be
+strong (`score` in `backend/services/scoring.py`). Each hit then carries `id_rule` (`"raised"`,
+`"halved"` or `null`), stored in the snapshot, so the breakdown can say why the numbers do not add
+up: "Meaning 100% · Words 27% · halved: “STS-135” is not in this image". A bare year is not an ID,
+so "launch in 2011" is not affected.
 
 **18. Why search on submit, not on each keystroke?**
 Each run is a history entry. Typing "m", "ma", "mar" must not create three entries
-(`frontend/src/components/SearchDock.tsx`).
+(`frontend/src/components/SearchDock.tsx`). For the same reason, a ref blocks a second submit while
+one is in flight (three fast Enter presses save one search), and a held Enter is ignored.
 
 ## History
 
@@ -205,7 +210,7 @@ pages, so it glides from the archive canvas to its ranked size and place.
 
 **38. Why is the scene lazy-loaded?**
 three.js is large. With `React.lazy` (`frontend/src/App.tsx`) the scene is its own chunk: 916 kB
-(254 kB gzip), against 266 kB (84 kB gzip) for the rest of the app. The archive, the results and
+(254 kB gzip), against 268 kB (85 kB gzip) for the rest of the app. The archive, the results and
 the history never download it.
 
 ## The scene
@@ -256,7 +261,9 @@ The GIN and HNSW indexes are already there.
 **46. What are the security concerns of the public demo?**
 - There is no auth, so anyone can read or delete any search.
 - The Worker limits `POST` and `DELETE` on `/api/searches` to 10 per minute per IP (`deploy/worker/src/index.ts`). But the VM's port 80 is open, so a client can skip the Worker. A Cloudflare Tunnel or a firewall that allows only Cloudflare would close this.
-- CORS allows every origin (`backend/app.py`, from the scaffold). It is not needed, because the app is same-origin.
+- CORS allows only the local dev origins in `CORS_ORIGINS` (`backend/config.py`), without credentials. The app itself is same-origin, so it does not need CORS.
+- Ids in URL paths are bounded to the int32 column range, so `/api/searches/9999999999` is a 422, not a 500.
+- nginx hides its version and sends `nosniff`, `X-Frame-Options: DENY` and a strict `Referrer-Policy` (`frontend/nginx.conf`).
 - Queries are 1–200 characters and SQL parameters are bound.
 - React escapes all text. The seed strips HTML from captions.
 - The production database has no host port (`docker-compose.prod.yml`).

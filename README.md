@@ -6,7 +6,7 @@ Every search is saved with its results, and a 3D "Where in space" view shows whe
 
 ![Space Explorer: search results for "mars rover"](docs/media/a2-results.png)
 
-**Live demo:** https://homework.nightcoding.dev <!-- TODO: confirm the demo is live before sharing -->
+**Live demo:** https://homework.nightcoding.dev
 
 ## Quick start
 
@@ -35,7 +35,7 @@ After a schema change, the old database volume needs a reset once: `docker compo
 | Requirement | How it works |
 |---|---|
 | 1. Browse images | The whole archive on one dark canvas: all 100 photos at once, oldest first, each with a plate number. The canvas drifts slowly, and you can drag it. Click a photo for the details: the full image, the NASA description, date, center, keywords, photographer, location, and where in space it was taken. The details open with `?image=<id>`, so they can be linked, and Back closes them. ←/→ move to the previous or next image. |
-| 2. Natural-language search | Hybrid search: full-text (exact words, IDs like "STS-135") plus vector search (meaning: "animals" finds the manatees and the heron). Each result has a confidence score, with a breakdown of meaning and words, and a "why it matched" line. The canvas reflows by rank: rank 1 is the biggest frame, and images that did not match are set aside in grey. Results at 50% or more are "strong" (orange). |
+| 2. Natural-language search | Hybrid search: full-text (exact words, IDs like "STS-135") plus vector search (meaning: "animals" finds the manatees and the heron). Each result has a confidence score, with a breakdown of meaning and words, and a "why it matched" line. When the query names an ID, the breakdown also says if the ID rule raised or halved the score ("halved: “STS-135” is not in this image"). The canvas reflows by rank: rank 1 is the biggest frame, and images that did not match are set aside in grey. Results at 50% or more are "strong" (orange). |
 | 3. Search history | Each search is stored with a snapshot of its results. The History drawer (left edge, `?history=1`) lists past searches, newest first, grouped by day, with "N images, K strong, best X%" and the top 3 thumbnails. Reopen a search and you see exactly what you saw. Delete one entry, with 6 seconds to undo. The list uses keyset (cursor) pagination, 10 at a time ("Show 10 older searches"). |
 | 4. Special feature | "Where in space", a 3D map of where every photo was taken. See below. |
 
@@ -48,7 +48,8 @@ Bonus items:
 - **Fallback:** if the model cannot load, search continues keyword-only.
 - **Keyboard:** `/` focuses search, Enter runs it, ↑/↓ step through results, ←/→ in the details, Esc closes the top layer.
 
-Coming soon: short display titles, hand-curated like the places, and an image credit field.
+Display titles are short, hand-written titles (`backend/data/titles.json`), because many NASA
+titles are raw IDs. The details also show an image credit.
 
 ## Special feature
 
@@ -110,28 +111,31 @@ Open it at http://localhost:3001/scene (or "Space view →" in the header). Try
 
 ## Search quality
 
-The search was measured, not guessed. `backend/scripts/eval_search.py` has 14 queries with
-hand-labeled relevant images and 3 off-topic queries.
+The search was measured, not guessed. `backend/scripts/eval_search.py` has 15 queries with
+hand-labeled relevant images, 3 off-topic queries and 3 gibberish queries.
 
 | Mode | P@5 | Recall |
 |---|---|---|
-| Keyword only | 0.57 | 0.65 |
-| Meaning only | 0.64 | 0.96 |
-| **Hybrid (used)** | **0.82** | **0.96** |
+| Keyword only | 0.60 | 0.67 |
+| Meaning only | 0.69 | 0.97 |
+| **Hybrid (used)** | **0.83** | **0.97** |
 
 - Confidence = 80% meaning + 20% matching words. Five formulas and nine embedding models were
   compared. all-MiniLM-L6-v2 won.
-- Known limit: "red planet" finds the Mars images in the right order, but only as faint matches.
+- Two guard rules: gibberish ("zzqx") returns nothing, and an ID in the query ("STS-135") decides
+  which results can be strong. A bare year ("launch in 2011") is not an ID.
+- Known limit: "red planet" finds only faint matches, and the order is not clean. Ranks 1, 2, 5
+  and 7 are Mars images, but ranks 3 and 4 are an infrared asteroid chart and the WISE mission logo.
 
 Details: [docs/search-eval.md](docs/search-eval.md).
 
 ## Tests
 
 ```bash
-# Backend: 58 tests. Needs the compose db on port 5433 (uses a separate test database).
+# Backend: 81 tests. Needs the compose db on port 5433 (uses a separate test database).
 cd backend && uv run pytest
 
-# Frontend: 111 unit tests for the pure helpers (matching, titles, timeline, history, scene math).
+# Frontend: 116 unit tests for the pure helpers (matching, titles, timeline, history, scene math).
 cd frontend && npm install && npx vitest run
 
 # Search quality table (inside the running backend container, which has the model).

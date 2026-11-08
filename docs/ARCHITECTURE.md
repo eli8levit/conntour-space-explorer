@@ -66,7 +66,8 @@ sequenceDiagram
 The code path:
 
 1. `frontend/src/components/SearchDock.tsx` runs the search on submit only, not on each key.
-   Every run is a history entry, so typing "m", "ma", "mar" must not create three entries.
+   Every run is a history entry, so typing "m", "ma", "mar" must not create three entries. For the
+   same reason a ref blocks a second submit while one is in flight, and a held Enter is ignored.
 2. `useRunSearch` in `frontend/src/hooks/searches.ts` calls `api.runSearch`.
 3. `backend/controllers/searches.py` (`create_search`) validates the body with
    `SearchRequest` in `backend/models.py`.
@@ -124,6 +125,7 @@ erDiagram
         float confidence
         float keyword_score
         float semantic_score
+        text id_rule "raised, halved or null"
     }
 ```
 
@@ -137,7 +139,9 @@ Key choices:
   the long caption. A generated column needs an IMMUTABLE expression, and `array_to_string` is
   only STABLE. So `backend/db/schema.py` creates a small `immutable_array_to_string` wrapper.
 - **`embedding` is NULL** until the seed embeds the row. Search then treats that row as keyword-only.
-- **`search_results` is a snapshot.** It stores the rank and the three scores as the user saw them.
+- **`search_results` is a snapshot.** It stores the rank, the three scores and `id_rule` as the user
+  saw them. `id_rule` came later, so `backend/db/schema.py` adds it with
+  `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (old rows keep NULL), like `short_title` and `credit`.
   The primary key is `(search_id, rank)`.
 
 Indexes and why each one exists:
@@ -234,13 +238,32 @@ The constants (all in `backend/config.py`):
 | `MAX_RESULTS` | 50 | At most 50 results per search |
 | `CANDIDATE_POOL` | 200 | Rows each retriever may give before scoring |
 | `MAX_QUERY_LENGTH` | 200 | Longer queries get 422 |
+| `ID_MISMATCH_FACTOR` | 0.5 | The ID rule: a result without the queried ID gets half its score |
+
+**Two guard rules** come after the formula (`score` in `backend/services/scoring.py`; the
+measurements are in [search-eval.md](search-eval.md), "Choice 3"):
+
+1. **Gibberish.** If the model knows none of the query's words ("zzqx"), only results that contain
+   one of the words can appear.
+2. **IDs.** If the query names an ID ("STS-135", "Expedition 61", "PIA22505"), images with that
+   exact ID are raised to at least 0.5, and images without it get half their score, which is always
+   under 0.5. `query_ids` finds the IDs: a word with a digit, or a bare number with the word before
+   it. A year (1900–2099) is a date, not an ID ("launch in 2011"), unless a capitalized name comes
+   before it ("SSME 2058").
+
+The ID rule changes the confidence after the blend, so "Meaning 100% · Words 27%" no longer adds
+up to the 43% on screen. So each hit carries `id_rule` (`"raised"`, `"halved"` or `null` when the
+rule changed nothing). The history snapshot stores it, and the UI ends the breakdown and the
+"why it matched" line with "halved: “STS-135” is not in this image" or "raised: it has “STS-135”"
+(`idRuleNote` in `frontend/src/lib/format.ts`).
 
 **Why 80/20.** `backend/scripts/eval_search.py` compared five formulas, each with its own tuned
 constants. The first version was 50/50. With 50/50 a match on meaning alone could never score
 above 0.5, so it could never be strong. Noisy-OR and `max()` lost the order for "STS-135": every
 STS-* caption gets the full meaning score, so the words could not lift the real STS-135 photos
 above the other missions. 80/20 had the best P@5 (0.82) and recall (0.96), kept exact hits first,
-and is a one-sentence rule.
+and is a one-sentence rule. (These are the formula-comparison numbers, before the guard rules.
+With the rules, hybrid is 0.83 and 0.97.)
 
 **Why calibration is in Python, not SQL.** The original plan did it in SQL. In Python the
 formula is a set of pure functions with unit tests (`backend/tests/test_scoring.py`). The eval
@@ -248,13 +271,14 @@ script gets the candidates once per query and then re-scores thousands of consta
 memory (`--tune`). The cost is small: at most 400 candidate rows per query.
 
 **Why MiniLM and not bge-small.** The plan said bge-small-en-v1.5. The model sweep in
-[search-eval.md](search-eval.md) measured nine models. all-MiniLM-L6-v2 had the best P@5 (0.82)
+[search-eval.md](search-eval.md) measured nine models (before the guard rules). all-MiniLM-L6-v2 had the best P@5 (0.82)
 and is one of the smallest and fastest (0.7 ms per query on a laptop CPU).
 
 **The known limit.** MiniLM gives "red planet" → Lycus Sulci (Mars) the same cosine (0.359) as
 "solar flares" → Parker Solar Probe (a Sun mission). Any calibration that makes the Mars images
-strong also makes Parker strong. So "red planet" finds the right images in the right order,
-but shows them as faint matches (best 0.42).
+strong also makes Parker strong. So "red planet" shows only faint matches (best 0.42), and the
+order is not clean: ranks 1, 2, 5 and 7 are Mars images, but ranks 3 and 4 are an infrared
+asteroid chart and the WISE mission logo.
 
 Full numbers, the formula comparison and the model sweep: [search-eval.md](search-eval.md).
 
@@ -365,7 +389,8 @@ undo toast.
   modal was opened inside the app, closing it is the same as Back. If it was opened from a pasted
   link, closing it removes the parameter. Prev/next inside the modal use `replace`.
 - `?history=1` on any page opens the history drawer (`frontend/src/hooks/useHistoryDrawer.ts`).
-  The page behind it stays mounted.
+  The page behind it stays mounted. One overlay at a time: with both `?image=` and `?history=1` in
+  the URL, `Layout.tsx` shows only the drawer.
 - `?from=&to=` on a results page narrows the results to those years
   (`frontend/src/hooks/useResultView.ts`). The ranks keep their numbers. Changes use `replace`,
   so dragging a handle does not fill the Back button.
@@ -377,7 +402,7 @@ The header, the results page and the image modal all call it, so they always sho
 numbers (React Query dedupes the requests).
 
 **Lazy scene.** `ScenePage` loads with `React.lazy`, so three.js is in its own chunk. In the
-current build the main bundle is 266 kB (84 kB gzip) and the scene chunk is 916 kB (254 kB gzip).
+current build the main bundle is 268 kB (85 kB gzip) and the scene chunk is 916 kB (254 kB gzip).
 The archive, the results and the history never download the scene code.
 
 **Pure helpers** in `frontend/src/lib/`, each with unit tests where there is logic:
@@ -389,11 +414,12 @@ The archive, the results and the history never download the scene code.
 | `timeline.ts` | The year timeline: one square per image, stacked by year, and `?from=&to=` parsing |
 | `history.ts` | Day groups ("Today", "Yesterday", weekday, month) and the one-line row summary |
 | `canvas.ts` | Archive frame sizes from a stable hash of the id, date order, plate numbers |
-| `details.ts`, `format.ts`, `highlight.ts`, `ids.ts` | Metadata formatting, query-word highlighting (display only; the backend does the real matching), URL id parsing |
+| `details.ts`, `format.ts`, `highlight.ts`, `ids.ts` | Metadata formatting, the score breakdown with the ID rule's note, query-word highlighting (display only; the backend does the real matching), URL id parsing |
 | `viewTransition.ts` | Wraps a navigation in `document.startViewTransition` when the browser has it and the user does not ask for reduced motion |
 
-Coming soon: a `short_title` field (short display titles, hand-curated like `places.json`) and a
-`credit` field from the backend.
+Display titles: the backend sends `short_title` (hand-written, `backend/data/titles.json`) and
+`credit` (the photographer, else NASA's secondary creator). `displayTitle.ts` falls back to the
+caption only when an image has no short title.
 
 **Tokens.** Colors are CSS variables in `frontend/src/index.css`, mapped to Tailwind names in
 `frontend/tailwind.config.ts`. One accent color (orange) means only "strong match / active". The
@@ -485,15 +511,17 @@ Code: `frontend/src/scene/`. Entry: `frontend/src/pages/ScenePage.tsx`.
 - **Health check.** The compose health check calls `/api/health`, which returns 503 only when the
   database is down. Keyword-only mode is "degraded" but still healthy.
 - **nginx** (`frontend/nginx.conf`) serves the built files, falls back to `index.html` for SPA
-  routes, proxies `/api/`, and caches static assets for a year (Vite file names have hashes).
+  routes, proxies `/api/`, and caches static assets for a year (Vite file names have hashes). It
+  hides its version (`server_tokens off`) and sends `X-Content-Type-Options`, `X-Frame-Options` and
+  `Referrer-Policy` on every response.
 - The deploy runbook is [deploy/README.md](../deploy/README.md).
 
 ## 11. Testing
 
 | Suite | Command | What it covers |
 |---|---|---|
-| Backend (pytest) | `cd backend && uv run pytest` | 58 tests. API tests through `httpx.ASGITransport` on a real Postgres, in a separate database `space_explorer_test` (dropped and re-seeded on every run). A `FakeEmbedder` (bag-of-words hashing) replaces the model. Also pure tests for scoring, cursors and places. |
-| Frontend (vitest) | `cd frontend && npx vitest run` (or `npm test`) | 111 tests in 15 files: the pure helpers in `src/lib/` (match, display titles, timeline, history, details, formatting, highlighting, ids) and `src/scene/` (clustering, flights, geometry, layout, markers, years). |
+| Backend (pytest) | `cd backend && uv run pytest` | 81 tests. API tests through `httpx.ASGITransport` on a real Postgres, in a separate database `space_explorer_test` (dropped and re-seeded on every run). A `FakeEmbedder` (bag-of-words hashing) replaces the model. Also pure tests for scoring, cursors, places, titles and the schema upgrade. |
+| Frontend (vitest) | `cd frontend && npx vitest run` (or `npm test`) | 116 tests in 15 files: the pure helpers in `src/lib/` (match, display titles, timeline, history, details, formatting, highlighting, ids) and `src/scene/` (clustering, flights, geometry, layout, markers, years). |
 | Search quality | `docker compose exec backend python scripts/eval_search.py` | P@5, recall, strong recall and off-topic results for keyword, semantic and hybrid. Add `--tune` for the grid search. |
 
 The backend tests need the compose `db` service on port 5433. On this machine the frontend
@@ -506,7 +534,7 @@ command runs as `volta run --node 22 npx vitest run`.
 | Hybrid search (full-text + vectors) in one SQL query | Each half fixes the other's misses. Postgres already holds the data, so there is no extra search service. | A dedicated engine (Elasticsearch, a vector DB) would give more ranking features. |
 | A text model, not CLIP | The captions are rich. Many images are press photos of people and rooms, where image scores are noisy and hard to calibrate. A text model is small, offline and deterministic. | It cannot find things that are only in the pixels and not in the text. |
 | all-MiniLM-L6-v2 | Best P@5 in a sweep of nine models, small (87 MB), fast (0.7 ms). | "red planet" stays a faint match. A larger model fixes that but is over the size budget. |
-| 80% meaning + 20% words | Best measured numbers, exact IDs stay first, one-sentence rule. | Tuned on 14 queries, so it is a sanity check, not a proof. |
+| 80% meaning + 20% words | Best measured numbers, exact IDs stay first, one-sentence rule. | Tuned on 15 queries, so it is a sanity check, not a proof. |
 | Calibration in Python | Pure, unit-tested, and the eval re-scores in memory. | Scoring cannot happen inside SQL with a final `LIMIT`, so the candidate pool must be large enough. |
 | Snapshot of results in history | History shows what the user saw. Reopening is a fast read. | Storage: up to 50 rows per search. Old searches do not get better rankings. |
 | Keyset pagination for history | Same cost at any depth, no shifted rows after a delete. | No "jump to page 7". The cursor only goes forward. |
@@ -541,7 +569,6 @@ command runs as `volta run --node 22 npx vitest run`.
 - **Observability**: structured logs, request and search latency metrics, the share of
   keyword-only searches, and the "no strong match" rate as a search-quality signal.
 - **Scale the read paths**: the archive UI loads all images at once today, so it would move to
-  pages or viewport tiles with keyset pagination. Also an estimated history total,
-  and an index on `search_results.source_id`.
+  pages or viewport tiles with keyset pagination, and an estimated history total.
 - **Scale the scene**: `/api/places` returns every row today. At a large scale it would return
   server-side clusters for the visible area.

@@ -144,8 +144,9 @@ Notes on the sweep:
 - bge, snowflake and nomic were run with their recommended query prefixes ("Represent
   this sentence for searching relevant passages: ", "search_query: " / "search_document: ").
 - The sweep took the keyword scores from the live database (read only) and computed the
-  meaning scores in memory for each model. Its MiniLM row matches the eval table above
-  exactly, which shows that the setup is the same.
+  meaning scores in memory for each model. Its MiniLM row matched the eval table of that
+  time exactly, which shows that the setup is the same. The sweep ran before the guard
+  rules, which is why it says 0.82 / 0.96 and the final table says 0.83 / 0.97.
 
 **Decision: keep all-MiniLM-L6-v2.**
 
@@ -222,8 +223,9 @@ constants (floor 0.20, ceil 0.50, 80/20, min 0.20).
 - **The problem:** MiniLM gives "red planet" → Lycus Sulci (a Mars image) about the same
   cosine as "solar flares" → Parker Solar Probe (a Sun mission, not about flares).
 - **The consequence:** any calibration that makes the Mars images strong also makes Parker
-  strong. So "red planet" finds the right images in the right order, but it shows them as
-  faint matches (up to 0.42).
+  strong. So "red planet" shows only faint matches (up to 0.42), and the order is not clean:
+  ranks 1, 2, 5 and 7 are Mars images, but ranks 3 and 4 are an infrared asteroid chart and
+  the WISE mission logo (its P@5 is 0.60).
 - **Next steps:**
   - Use a larger model, as arctic-embed-m shows, when the budget allows.
   - Use a query-expansion step ("red planet" → "Mars").
