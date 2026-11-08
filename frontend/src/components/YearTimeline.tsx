@@ -46,11 +46,31 @@ export function YearTimeline({ sources, confidenceById, extent, range, onRangeCh
     return extent.from + Math.min(span - 1, Math.max(0, column));
   }
 
+  // The URL update lands a moment later, so quick key repeats read the range from here, not from props.
+  // While our own change is on its way, the props can still show an older range; ignore those.
+  // Once the props catch up (or nothing is in flight), the props are the truth again.
+  const latest = useRef(range);
+  const inFlight = useRef(false);
+  const caughtUp = range.from === latest.current.from && range.to === latest.current.to;
+  if (caughtUp) inFlight.current = false;
+  else if (!inFlight.current) latest.current = range; // changed from outside: Reset years, Back
+
   function setEdge(edge: "from" | "to", year: number) {
+    const current = latest.current;
+    const clamped = Math.min(extent.to, Math.max(extent.from, year));
     // The two handles cannot cross: "from" stays at or before "to".
-    const next = edge === "from" ? { from: Math.min(year, range.to), to: range.to } : { from: range.from, to: Math.max(year, range.from) };
-    if (next.from !== range.from || next.to !== range.to) onRangeChange(next);
+    const next =
+      edge === "from"
+        ? { from: Math.min(clamped, current.to), to: current.to }
+        : { from: current.from, to: Math.max(clamped, current.from) };
+    if (next.from === current.from && next.to === current.to) return;
+    latest.current = next;
+    inFlight.current = true;
+    onRangeChange(next);
   }
+
+  /** ←/→ on a handle: one year from wherever that handle is now. */
+  const stepEdge = (edge: "from" | "to", step: number) => setEdge(edge, latest.current[edge] + step);
 
   const lit = squares.filter((square) => square.kind !== "none");
   const strongYears = [...new Set(lit.filter((square) => square.kind === "strong").map((square) => square.year))].sort();
@@ -103,8 +123,8 @@ export function YearTimeline({ sources, confidenceById, extent, range, onRangeCh
           })}
         </div>
 
-        <Handle edge="from" year={range.from} position={left(range.from)} extent={extent} onMove={setEdge} yearAt={yearAt} />
-        <Handle edge="to" year={range.to} position={left(range.to + 1)} extent={extent} onMove={setEdge} yearAt={yearAt} />
+        <Handle edge="from" year={range.from} position={left(range.from)} extent={extent} onMove={setEdge} onStep={stepEdge} yearAt={yearAt} />
+        <Handle edge="to" year={range.to} position={left(range.to + 1)} extent={extent} onMove={setEdge} onStep={stepEdge} yearAt={yearAt} />
 
         {hover && hoverSource && (
           <span
@@ -143,6 +163,7 @@ interface HandleProps {
   position: string;
   extent: YearRange;
   onMove: (edge: "from" | "to", year: number) => void;
+  onStep: (edge: "from" | "to", step: number) => void;
   yearAt: (clientX: number) => number;
 }
 
@@ -150,7 +171,7 @@ interface HandleProps {
  * A range handle: a 2px line with a 12×22 grab knob. It is a real slider for
  * keyboards and screen readers (←/→ move one year); drag snaps to whole years.
  */
-function Handle({ edge, year, position, extent, onMove, yearAt }: HandleProps) {
+function Handle({ edge, year, position, extent, onMove, onStep, yearAt }: HandleProps) {
   const dragging = useRef(false);
 
   function onPointerDown(event: PointerEvent<HTMLSpanElement>) {
@@ -165,7 +186,7 @@ function Handle({ edge, year, position, extent, onMove, yearAt }: HandleProps) {
     if (step === undefined) return;
     event.preventDefault(); // keep ↑/↓ from also stepping through the results
     event.stopPropagation();
-    onMove(edge, Math.min(extent.to, Math.max(extent.from, year + step)));
+    onStep(edge, step);
   }
 
   return (
