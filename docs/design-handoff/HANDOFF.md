@@ -483,3 +483,41 @@ Numbers: percentages are rounded integers with no decimals ("65%"). Dates are "2
 - [ ] History: open a past search → the same snapshot; delete → the row disappears and the toast appears; Undo restores it; after 6s the `DELETE` is sent; "Show older" loads the next keyset page.
 - [ ] Reduced motion: nothing moves.
 - [ ] Console is clean.
+
+---
+
+## 14. Brand: logo and favicon (added Mon 9 Nov)
+
+All files are in `docs/design-handoff/brand/`. `brand-review.png` shows every asset at real size, in browser tabs, and in the header.
+
+**The mark** is a ranked result set in miniature, the A2 reflow: rank 1 is the big orange frame (`accent`), rank 2 is off-white (`fg`), ranks 3–4 are mid grey, and the rest are dark grey, on near-black. It says what the app does: it finds the best match and makes it the biggest. Square, like the rest of the UI. It is pixel-snapped: the main version uses whole units on a 32 grid, and there is a separate 16px master so the tab icon stays sharp.
+
+**Wire it in** (frontend owner):
+1. Copy into `frontend/public/` (replace the existing `favicon.ico`): `favicon.ico` (16/32/48), `favicon.svg`, `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `site.webmanifest`.
+2. In `frontend/index.html` `<head>`, replace the current icon line with:
+   ```html
+   <link rel="icon" href="/favicon.ico" sizes="48x48" />
+   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+   <link rel="manifest" href="/site.webmanifest" />
+   <meta name="theme-color" content="#09090A" />
+   ```
+3. **Header** (`Layout`, A1·1): put `<Mark size={20} />` (from `brand/Mark.tsx`, copy it to `src/components/Mark.tsx`) 12px left of the "Space Explorer" text. Keep the wordmark as **live text** (Instrument Sans 17/600, −0.01em). The outlined `wordmark.svg` is only for places without the font. `Mark.tsx` reads `--color-accent` and `--color-fg` (greys are `fg` at 55% and 20%); if your token names changed, adjust the `CELLS` fills.
+4. **Tab titles:** `Space Explorer` on browse, `“{query}” · Space Explorer` on search results, `{image title} · Space Explorer` while the modal is open, `History · Space Explorer`.
+5. **README:** put `logo-lockup-on-dark@2x.png` at the top (render it at 234px wide).
+
+| File | Use |
+|---|---|
+| `mark.svg` | Mark, transparent background (header, docs) |
+| `favicon.svg` / `favicon-16.svg` | Tab icon on dark tile, 32 grid / 16px master |
+| `favicon.ico`, `apple-touch-icon.png`, `icon-*.png`, `site.webmanifest` | Browser, iOS, Android |
+| `logo-lockup.svg` | Mark + wordmark, text outlined, transparent |
+| `logo-lockup-on-dark.svg` / `@2x.png` | Same on a near-black tile (README, slides) |
+| `wordmark.svg` | Wordmark only, outlined |
+| `Mark.tsx` | React component, token colours |
+
+**Rules:**
+- Minimum size is 16px. Below 24px on screen, use the 16px master.
+- Keep clear space of at least one centre-square width around the mark.
+- Keep the order of the cells (big orange top-left, fading towards bottom-right). Don't recolour, rotate, round the corners or add effects. A single-colour `fg` version is allowed.
+- Orange in the mark follows the app rule: it marks the best match.
