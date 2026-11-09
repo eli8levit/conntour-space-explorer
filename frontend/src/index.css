@@ -87,20 +87,6 @@
     --fade-top: 28px;
   }
 
-  /* A1·11: the canvas drifts very slowly, so the archive feels alive. */
-  @keyframes drift {
-    0%,
-    100% {
-      transform: translate(0, 0);
-    }
-    50% {
-      transform: translate(-30px, -22px);
-    }
-  }
-  .animate-drift {
-    animation: drift 56s ease-in-out infinite;
-  }
-
   /* A2 loading: the search box border breathes while the query runs. No spinners. */
   @keyframes border-pulse {
     0%,
@@ -162,7 +148,6 @@
 
   /* §11: under reduced motion nothing moves; the drawer fades instead of sliding. */
   @media (prefers-reduced-motion: reduce) {
-    .animate-drift,
     .animate-border-pulse {
       animation: none;
     }

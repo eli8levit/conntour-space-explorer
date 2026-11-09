@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import type { Source } from "../api/types";
 import { OPENED_IN_APP } from "../hooks/useImageParam";
 import { isBigFrame } from "../lib/canvas";
-import { frameTransitionName } from "../lib/viewTransition";
 import { displayTitle } from "../lib/displayTitle";
 import { bodyLabel, formatCoordinates, formatDate, yearOf } from "../lib/format";
 import type { Span } from "../lib/match";
@@ -16,6 +15,12 @@ interface CanvasFrameProps {
   /** "013": the position in date order. */
   plate: string;
   to: string;
+  /** Position and size in px inside its round. */
+  box: { left: number; top: number; width: number; height: number };
+  /** Set on one copy of each image only: a view-transition name must be unique on the page. */
+  transitionName?: string;
+  /** False for the visual copies: only one copy of each image is in the tab order. */
+  focusable: boolean;
 }
 
 // A frame this close to the right edge shows its annotation on the left instead.
@@ -26,7 +31,7 @@ const ANNOTATION_ROOM = 300;
  * small ones only the plate number. Hover or keyboard focus makes the frame
  * "hot": orange brackets, crosshair and an annotation beside it.
  */
-export function CanvasFrame({ source, span, plate, to }: CanvasFrameProps) {
+export function CanvasFrame({ source, span, plate, to, box, transitionName, focusable }: CanvasFrameProps) {
   const [flip, setFlip] = useState(false);
   const title = displayTitle(source);
   const year = yearOf(source.date_created);
@@ -38,17 +43,14 @@ export function CanvasFrame({ source, span, plate, to }: CanvasFrameProps) {
 
   return (
     <li
-      className="group relative hover:z-10 has-[:focus-visible]:z-10"
-      style={{
-        gridColumn: `span ${span[0]}`,
-        gridRow: `span ${span[1]}`,
-        viewTransitionName: frameTransitionName(source.id),
-      }}
+      className="group absolute hover:z-10 has-[:focus-visible]:z-10"
+      style={{ ...box, viewTransitionName: transitionName }}
     >
       <Link
         to={to}
         state={OPENED_IN_APP}
         draggable={false}
+        tabIndex={focusable ? undefined : -1}
         aria-label={`${title}, ${year}`}
         onPointerEnter={(event) => placeAnnotation(event.currentTarget)}
         onFocus={(event) => placeAnnotation(event.currentTarget)}
