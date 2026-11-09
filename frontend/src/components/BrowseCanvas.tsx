@@ -23,7 +23,7 @@ import { CanvasFrame } from "./CanvasFrame";
 // So at most 3–4 rounds exist in the DOM at any time.
 
 /** Upward speed, px per second. */
-const SPEED = 28;
+const SPEED = 18;
 /** Seconds to ease to a new speed (stop on hover, start again after). */
 const EASE = 0.45;
 /** The first round starts a little above the window, so frames are cropped at the top edge too. */

@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { Place, PlaceRow } from "../api/types";
 import { usePlaces } from "../hooks/places";
-import { bodyLabel } from "../lib/format";
+import { bodyLabel, provenanceLabel } from "../lib/format";
 import { loadLandLines } from "../lib/landLines";
 import { dotsPath, graticule, hemisphere, linesPath, project, smallCircle, type LonLat, type View } from "../lib/orthographic";
 
@@ -318,9 +318,11 @@ function Figure({ place, sourceId, mode, width: W, height: H, others }: FigurePr
           </text>
         )}
         {/* On a phone-width box the two bottom readouts would touch; the grid note is the one to drop. */}
-        {(place.body === "earth" || mode === "orbit") && W >= 420 && (
+        {/* How we know the place (the line under the locator no longer says it). Mars keeps this
+            corner for its Earth marker. On a phone-width box it would touch the right readout. */}
+        {place.body !== "mars" && W >= 420 && (
           <text x={14} y={H - 14} fill={C.text}>
-            ORTHOGRAPHIC · 30° GRID
+            {provenanceLabel(place.provenance).toUpperCase()}
           </text>
         )}
         {mode === "surface" && sameBody.length > 0 && (

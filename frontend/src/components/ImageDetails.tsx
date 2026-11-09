@@ -1,14 +1,14 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link } from "react-router-dom";
 import type { SearchHit, Source } from "../api/types";
 import { displayTitle, nasaTitleIfDifferent, titleForMatching } from "../lib/displayTitle";
 import { eyebrow, parseCaption } from "../lib/details";
-import { bodyLabel, formatCoordinates, formatDate, formatPercent, idRuleNote, provenanceLabel, scoreBreakdown, yearOf } from "../lib/format";
+import { bodyLabel, formatDate, formatPercent, idRuleNote, provenanceLabel, scoreBreakdown, yearOf } from "../lib/format";
 import { queryTerms } from "../lib/highlight";
 import { isStrong, matchedTerms, whyLine } from "../lib/match";
 import { yearSentence, type YearRange } from "../lib/timeline";
 import { HighlightedText } from "./HighlightedText";
-import { CloseIcon } from "./Icons";
+import { CloseIcon, PinIcon } from "./Icons";
 import { LocatorMini } from "./LocatorMini";
 import { ConfidenceBar } from "./MatchMarks";
 import { MiniTimeline } from "./MiniTimeline";
@@ -30,24 +30,55 @@ export function ImageDetails({ source, hit, query, semanticOn, archive, extent, 
   const caption = parseCaption(source.description);
   const terms = query ? queryTerms(query) : [];
 
+  const heading = useRef<HTMLHeadingElement>(null);
+  const condensed = useScrolledPast(heading);
+
   return (
-    <div className="flex min-h-full flex-col gap-5 px-5 pb-6 pt-[26px] sm:px-[30px]">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="text-[13px] text-muted">{eyebrow(source)}</span>
-          {/* Focus starts on the title (not the × button), so screen readers announce where they are. */}
-          <h2 tabIndex={-1} data-initial-focus className="text-balance text-[32px] leading-none tracking-[-0.025em] focus-visible:outline-none sm:text-[44px]">
-            <HighlightedText text={title} terms={terms} />
-          </h2>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close details"
-          className="flex h-9 w-9 shrink-0 items-center justify-center border border-line-strong transition-colors hover:border-faint"
+    <div className="flex min-h-full flex-col gap-5 px-5 pb-6 sm:px-[30px]">
+      {/*
+        The sticky bar. Zero height, so it never pushes the content: it only paints over it.
+        Once the big title has scrolled under it, the bar gets a background and the title in
+        small type; the × stays in reach the whole time.
+      */}
+      <div className="sticky top-0 z-20 -mx-5 h-0 sm:-mx-[30px]">
+        <div
+          className={`pointer-events-none absolute inset-x-0 top-0 flex h-16 items-start gap-4 border-b px-5 pt-3.5 transition-colors duration-200 sm:px-[30px] ${
+            condensed ? "border-line bg-[#0D0D0F]/95 backdrop-blur-[10px]" : "border-transparent"
+          }`}
         >
-          <CloseIcon />
-        </button>
+          <span
+            aria-hidden="true"
+            className={`mt-[7px] min-w-0 flex-1 truncate text-[17px] leading-tight transition-opacity duration-200 ${
+              condensed ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {title}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close details"
+            // Lower while the big title shows (aligned with its eyebrow, as in the design), centred in the bar after.
+            className={`pointer-events-auto ml-auto flex h-9 w-9 shrink-0 items-center justify-center border border-line-strong bg-[#0D0D0F] transition-[transform,border-color] duration-200 hover:border-faint ${
+              condensed ? "" : "translate-y-3"
+            }`}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-1.5 pr-14 pt-1.5">
+        <span className="text-[13px] text-muted">{eyebrow(source)}</span>
+        {/* Focus starts on the title (not the × button), so screen readers announce where they are. */}
+        <h2
+          ref={heading}
+          tabIndex={-1}
+          data-initial-focus
+          className="text-balance text-[32px] leading-none tracking-[-0.025em] focus-visible:outline-none sm:text-[44px]"
+        >
+          <HighlightedText text={title} terms={terms} />
+        </h2>
       </div>
 
       {/* Where first: the place is the special feature, so it is on screen when the modal opens. */}
@@ -63,6 +94,28 @@ export function ImageDetails({ source, hit, query, semanticOn, archive, extent, 
       <Keywords keywords={source.keywords} terms={terms} />
     </div>
   );
+}
+
+/** The sticky bar's height: the title counts as scrolled away once it is under the bar. */
+const BAR_HEIGHT = 64;
+
+/** True once `target` has scrolled up under the sticky bar of its scrolling column. */
+function useScrolledPast(target: RefObject<HTMLElement>) {
+  const [past, setPast] = useState(false);
+  useEffect(() => {
+    const element = target.current;
+    if (!element) return;
+    // The column that scrolls: the nearest ancestor with overflow-y auto (the modal's details column).
+    let root: HTMLElement | null = element.parentElement;
+    while (root && !/(auto|scroll)/.test(getComputedStyle(root).overflowY)) root = root.parentElement;
+    const observer = new IntersectionObserver(
+      ([entry]) => setPast(!entry!.isIntersecting && entry!.boundingClientRect.top < (entry!.rootBounds?.top ?? 0) + BAR_HEIGHT),
+      { root, rootMargin: `-${BAR_HEIGHT}px 0px 0px 0px` },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [target]);
+  return past;
 }
 
 // About 8 lines at 15px / 1.6.
@@ -123,11 +176,18 @@ function MetaGrid({ source, caption }: { source: Source; caption: ReturnType<typ
   else if (!source.photographer) fields.push(["Credit", <span className="text-muted">Not in the NASA record</span>]);
 
   const nasaTitle = nasaTitleIfDifferent(source);
+  // The last cell takes what is left of its row, so every row's rule runs the full width
+  // (2 columns on a phone, 3 from sm). Static class names: Tailwind only sees literal strings.
+  const n = fields.length;
+  const lastSpan = `${n % 2 === 1 ? "col-span-2" : ""} ${["sm:col-span-1", "sm:col-span-3", "sm:col-span-2"][n % 3]}`;
   return (
     <dl className="grid grid-cols-2 border-t border-line sm:grid-cols-3">
-      {fields.map(([label, value]) => (
+      {fields.map(([label, value], index) => (
         // The last column needs no gutter: "NASA/JPL-Caltech/ASU" then fits on one line, as in the design.
-        <div key={label} className="flex min-w-0 flex-col gap-1 border-b border-line py-3 pr-3 sm:[&:nth-child(3n)]:pr-0">
+        <div
+          key={label}
+          className={`flex min-w-0 flex-col gap-1 border-b border-line py-3 pr-3 sm:[&:nth-child(3n)]:pr-0 ${index === n - 1 ? lastSpan : ""}`}
+        >
           <dt className="text-xs text-muted">{label}</dt>
           <dd className="break-words text-sm">{value}</dd>
         </div>
@@ -180,17 +240,24 @@ function MatchBlock({ hit, query, semanticOn }: { hit: SearchHit; query: string;
     idRuleNote(hit.id_rule, query),
   );
   return (
-    <div className="group relative flex flex-col gap-1.5">
+    // Built like "Its place in time" beside it: label, one sentence, then the figure at the
+    // bottom, so the bar lines up with the timeline's axis and the labels share a line.
+    <div className="group flex flex-col gap-1.5">
       <span className="text-xs text-muted">Match for “{query}”</span>
-      <span className={`text-[40px] leading-none tracking-[-0.03em] ${strong ? "text-accent-text" : "text-fg"}`}>
-        {formatPercent(hit.confidence)}
-      </span>
-      <ConfidenceBar confidence={hit.confidence} variant="detail" className="mt-1" />
-      <span className="text-xs leading-normal text-muted">{why}.</span>
-      {/* The breakdown: on hover for a mouse, always in the accessibility tree. */}
-      <span className="text-[11px] text-faint opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100">
-        {scoreBreakdown(hit, semanticOn, query)}
-      </span>
+      <span className="text-[13px]">{why}.</span>
+      {/* sm:pb-5: the height of the timeline's year labels, so the bar sits on its axis line (side by side only). */}
+      <div className="mt-auto flex flex-col gap-2.5 pt-2 sm:pb-5">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className={`text-[40px] leading-none tracking-[-0.03em] ${strong ? "text-accent-text" : "text-fg"}`}>
+            {formatPercent(hit.confidence)}
+          </span>
+          {/* The breakdown: on hover for a mouse, always on touch, always in the accessibility tree. */}
+          <span className="text-right text-[11px] text-faint opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+            {scoreBreakdown(hit, semanticOn, query)}
+          </span>
+        </div>
+        <ConfidenceBar confidence={hit.confidence} variant="detail" />
+      </div>
     </div>
   );
 }
@@ -203,18 +270,20 @@ function PlaceInTime({ source, archive, extent }: { source: Source; archive: Sou
     <div className="flex flex-col gap-1.5">
       <span className="text-xs text-muted">Its place in time</span>
       <span className="text-[13px]">{yearSentence(year, sameYear)}</span>
-      <MiniTimeline sources={archive} extent={extent} current={source} />
+      <div className="mt-auto">
+        <MiniTimeline sources={archive} extent={extent} current={source} />
+      </div>
     </div>
   );
 }
 
 /**
- * A3·12–13: where it was seen. The locator spans the column; under it, the
- * place in words, how we know it, and the door into the Space view.
+ * A3·12–13: where it was seen. The locator spans the column; under it, one
+ * line: the place, and the door into the Space view. How we know the place
+ * is in the locator's corner and in the tooltip.
  */
 function WhereSeen({ source }: { source: Source }) {
   const place = source.place!;
-  const coordinates = formatCoordinates(place);
   const body = bodyLabel(place.body);
   const label = place.label === body ? body : `${place.label}, ${body}`;
   return (
@@ -222,15 +291,11 @@ function WhereSeen({ source }: { source: Source }) {
       <div className="border border-line">
         <LocatorMini place={place} sourceId={source.id} />
       </div>
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-xs text-muted">Where this was seen</span>
-          <span className="text-[17px] leading-tight">{label}</span>
-          <span className="text-xs text-faint">
-            {coordinates && <span className="text-soft">{coordinates} · </span>}
-            {provenanceLabel(place.provenance)}
-          </span>
-        </div>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <span className="flex min-w-0 items-baseline gap-2 text-[17px] leading-tight" title={`Place ${provenanceLabel(place.provenance)}`}>
+          <PinIcon size={16} className="shrink-0 translate-y-[2px] text-muted" />
+          <span className="min-w-0">{label}</span>
+        </span>
         <Link
           to={`/scene?focus=${source.id}`}
           className="shrink-0 text-[13px] underline underline-offset-2 hover:text-accent-text"
