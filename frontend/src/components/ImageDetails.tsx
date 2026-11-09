@@ -246,7 +246,13 @@ function MatchBlock({ hit, query, semanticOn }: { hit: SearchHit; query: string;
     // Built like "Its place in time" beside it: label, one sentence, then the figure at the
     // bottom, so the bar lines up with the timeline's axis and the labels share a line.
     <div className="group flex flex-col gap-1.5">
-      <span className="text-xs text-muted">Match for “{query}”</span>
+      {/* The query as an orange chip, like the matched keyword chips, so it is easy to find. */}
+      <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+        Match for
+        <span className="-my-[3px] max-w-full break-words border border-accent px-2 py-px text-[13px] leading-tight text-accent-text">
+          {query}
+        </span>
+      </span>
       <span className="text-[13px]">{why}.</span>
       {/* sm:pb-5: the height of the timeline's year labels, so the bar sits on its axis line (side by side only). */}
       <div className="mt-auto flex flex-col gap-2.5 pt-2 sm:pb-5">

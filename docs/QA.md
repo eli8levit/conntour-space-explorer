@@ -121,6 +121,27 @@ strong (`score` in `backend/services/scoring.py`). Each hit then carries `id_rul
 up: "Meaning … · Words … · halved: “STS-135” is not in this image". A bare year is not an ID,
 so "launch in 2011" is not affected.
 
+**17a. In Keywords mode, the exact title "Dezhurov tests his Orlan suit" scores only 83%. Why?**
+The words score is Postgres `ts_rank_cd` with normalization 32, which is `rank / (rank + 1)`: it
+gives less for each extra match and never reaches 1. That exact title has a raw rank of 4.8, so
+4.8 / 5.8 = 0.83. It is the top result and the right one; the number is a rank on a curve, not "the
+share of your words found". If it mattered: score words by query coverage and field (all words in
+the title = 100%), then re-run the eval.
+
+**17b. "astronout in suit" (a typo) finds only one weak match. Why no typo tolerance?**
+The words half cannot match "astronout", and the model does not read it as "astronaut" either.
+Spelled right, "astronaut in suit" makes Dezhurov strong (53%) with 37 results. The fix I would
+use is Postgres `pg_trgm`: store the archive's vocabulary with a trigram index, replace each
+unknown query word with its nearest word ("astronout" -> "astronaut") before searching, and show
+"Showing results for …". Correcting the query fixes both halves; fuzzy-matching the captions would
+fix only the words half. Not built: not needed for the brief.
+
+**17c. "rocket launch" ranks press events above actual launch photos. Why?**
+The search reads captions, not pixels. Press-event captions say "rocket" and "launch" literally;
+the real launch photos (Columbia, Atlantis) say "space shuttle" and rank #14 and #29. "space
+shuttle launch" puts Columbia at #2. The next step is an image model (CLIP) as a third signal, so
+the pixels of flames and smoke count; that is also the core of searching camera footage.
+
 **18. Why search on submit, not on each keystroke?**
 Each run is a history entry. Typing "m", "ma", "mar" must not create three entries
 (`frontend/src/components/SearchDock.tsx`). For the same reason, a ref blocks a second submit while

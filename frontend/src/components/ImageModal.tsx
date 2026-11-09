@@ -48,13 +48,26 @@ function useBrowseContext(id: number) {
   };
 }
 
-function ImageDialog({ id, onClose }: { id: number; onClose: () => void }) {
+function ImageDialog({ id, onClose: closeUrl }: { id: number; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  // Closing goes Back in history. It must run once: Esc pressed twice (or × clicked twice)
+  // before the URL changed used to go back two entries and leave the results page.
+  const closing = useRef(false);
+  const onClose = () => {
+    if (closing.current) return;
+    closing.current = true;
+    closeUrl();
+  };
   const source = useSource(id);
   const context = useBrowseContext(id);
   const { imageLink } = useImageParam();
   const navigate = useNavigate();
   const location = useLocation();
+  // If Back lands on another history entry that still has ?image=, the dialog stays mounted:
+  // it must be closable again there.
+  useEffect(() => {
+    closing.current = false;
+  }, [location.key]);
 
   // The native <dialog> with showModal() gives us, for free: a focus trap,
   // an inert page behind it, and the Esc key (the "cancel" event below).
@@ -68,6 +81,7 @@ function ImageDialog({ id, onClose }: { id: number; onClose: () => void }) {
     element.querySelector<HTMLElement>("[data-initial-focus]")?.focus();
     document.body.style.overflow = "hidden"; // stop the page scrolling behind
     return () => {
+      closing.current = true; // our own close() below must not count as a second request
       element.close();
       document.body.style.overflow = "";
       opener?.focus();
@@ -107,6 +121,10 @@ function ImageDialog({ id, onClose }: { id: number; onClose: () => void }) {
         event.preventDefault();
         onClose();
       }}
+      // Chrome may close a dialog on Esc without a cancel event (when the page has had no user
+      // activation since it opened). The URL must follow, or ?image= stays and the same image
+      // cannot be opened again.
+      onClose={onClose}
       onClick={(event) => {
         // A click on the dialog element itself (not its content) is a click on the scrim.
         if (event.target === event.currentTarget) onClose();

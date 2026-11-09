@@ -46,6 +46,8 @@ These give weak or odd results. Do not type them in front of people.
 | "women in space" | 44 results, none strong. Top is a training photo at 44%, not a clear answer. |
 | "launch in 2011", "2011" | A bare year is not an ID. "launch in 2011" gives 13 results, none strong. "2011" alone gives 0 results. |
 | "astronuat" (a typo) | 0 results. There is no typo tolerance. |
+| "rocket launch" | Press events rank above the real launch photos (Columbia #14, Atlantis #29): the search reads captions, not pixels. "space shuttle launch" works. See QA 17c. |
+| An exact title in Keywords mode | Tops out at about 83%, not 100% (the words score is a rank on a curve). See QA 17a. |
 
 ## The five hardest questions
 
