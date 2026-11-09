@@ -18,6 +18,8 @@ RUN npm run build
 FROM nginx:alpine AS production
 
 COPY --from=builder /app/dist /usr/share/nginx/html
+# nginx runs as an unprivileged user: every file must be world-readable, whatever mode it had in git.
+RUN chmod -R a+rX /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Empty by default; production mounts the origin guard here (see docker-compose.prod.yml).
 RUN mkdir -p /etc/nginx/guard
