@@ -11,6 +11,8 @@ Metrics, per mode:
   query with 2 relevant images can still score 1.0.
 - Recall: relevant images returned at all (above the confidence threshold).
 - Strong: relevant images returned with confidence >= STRONG_MATCH (shown orange in the UI).
+- Relevant among strong: of all results shown orange, the share that is relevant. A
+  generous strong tier keeps P@5 high but labels off-topic images "strong"; this catches it.
 - Noise: results returned for queries whose topic is not in the data (should be ~0),
   and how many of those were "strong" (should be 0).
 - Gibberish: results for non-words like "zzqx" (should be 0).
@@ -104,6 +106,8 @@ class Noise:
     off_topic_strong: int
     gibberish: int  # results for GIBBERISH (should be 0)
     strong_without_id: int  # strong results for ID_QUERIES that lack the ID (should be 0)
+    strong_total: int = 0  # strong results over all labelled queries
+    strong_relevant: int = 0  # ...of which relevant
 
 
 @dataclass
@@ -149,8 +153,12 @@ def evaluate(
     results: dict[Mode, list[Row]] = {mode: [] for mode in modes}
     noise: dict[Mode, Noise] = {}
     for mode in modes:
+        strong_total = strong_relevant = 0
         for query, relevant in LABELS.items():
             hits = [(nasa_id[h.source_id], h.confidence) for h in run(query, mode)]
+            strong_names = [n for n, c in hits if c >= STRONG_MATCH]
+            strong_total += len(strong_names)
+            strong_relevant += sum(1 for n in strong_names if n in relevant)
             top5 = sum(1 for n, _ in hits[:5] if n in relevant)
             found = sum(1 for n, _ in hits if n in relevant)
             strong = sum(1 for n, c in hits if n in relevant and c >= STRONG_MATCH)
@@ -168,6 +176,8 @@ def evaluate(
             off_topic_strong=sum(1 for h in off_topic if h.confidence >= STRONG_MATCH),
             gibberish=sum(len(run(q, mode)) for q in GIBBERISH),
             strong_without_id=len(wrong_id),
+            strong_total=strong_total,
+            strong_relevant=strong_relevant,
         )
     return results, noise
 
@@ -229,6 +239,13 @@ def print_table(results, noise) -> None:
     print(
         f"{'relevant and strong':30s}"
         + "".join(f"{mean(results[m], 'strong_recall'):>18.2f}" for m in MODES)
+    )
+    print(
+        f"{'relevant among strong':30s}"
+        + "".join(
+            f"{noise[m].strong_relevant / max(1, noise[m].strong_total):>13.2f} ({noise[m].strong_total:3d})"
+            for m in MODES
+        )
     )
     rows = [
         ("off-topic results (strong)", lambda n: f"{n.off_topic} ({n.off_topic_strong})"),
