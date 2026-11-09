@@ -239,6 +239,9 @@ function MatchBlock({ hit, query, semanticOn }: { hit: SearchHit; query: string;
     hit.semantic_score,
     idRuleNote(hit.id_rule, query),
   );
+  const bar = useRef<HTMLDivElement>(null);
+  const percent = useRef<HTMLSpanElement>(null);
+  useFillIn(bar, percent, hit.confidence);
   return (
     // Built like "Its place in time" beside it: label, one sentence, then the figure at the
     // bottom, so the bar lines up with the timeline's axis and the labels share a line.
@@ -248,7 +251,10 @@ function MatchBlock({ hit, query, semanticOn }: { hit: SearchHit; query: string;
       {/* sm:pb-5: the height of the timeline's year labels, so the bar sits on its axis line (side by side only). */}
       <div className="mt-auto flex flex-col gap-2.5 pt-2 sm:pb-5">
         <div className="flex items-baseline justify-between gap-3">
-          <span className={`text-[40px] leading-none tracking-[-0.03em] ${strong ? "text-accent-text" : "text-fg"}`}>
+          <span
+            ref={percent}
+            className={`text-[40px] tabular-nums leading-none tracking-[-0.03em] ${strong ? "text-accent-text" : "text-fg"}`}
+          >
             {formatPercent(hit.confidence)}
           </span>
           {/* The breakdown: on hover for a mouse, always on touch, always in the accessibility tree. */}
@@ -256,10 +262,52 @@ function MatchBlock({ hit, query, semanticOn }: { hit: SearchHit; query: string;
             {scoreBreakdown(hit, semanticOn, query)}
           </span>
         </div>
-        <ConfidenceBar confidence={hit.confidence} variant="detail" />
+        <div ref={bar}>
+          <ConfidenceBar confidence={hit.confidence} variant="detail" />
+        </div>
       </div>
     </div>
   );
+}
+
+// The fill starts once the dialog has settled, and is slow enough to read as "measuring".
+const FILL = { delay: 220, duration: 900 };
+
+/**
+ * On open (and on prev/next, which remounts the column), the confidence bar
+ * fills from 0 and the % counts up with it. Both write to the DOM directly:
+ * the Web Animations API for the bar, textContent for the number, so the
+ * animation never re-renders React. Under reduced motion both start final.
+ */
+function useFillIn(bar: RefObject<HTMLElement>, percent: RefObject<HTMLElement>, confidence: number) {
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const fill = bar.current?.querySelector<HTMLElement>("span > span");
+    const number = percent.current;
+    if (!fill || !number) return;
+    const easing = "cubic-bezier(0.22, 1, 0.36, 1)"; // ease-out: fast start, gentle landing
+    const animation = fill.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
+      ...FILL,
+      easing,
+      fill: "backwards", // hold at 0 during the delay
+    });
+    fill.style.transformOrigin = "left";
+
+    // The number follows the same curve (an ease-out cubic is close to that bezier).
+    const start = performance.now() + FILL.delay;
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, Math.max(0, (now - start) / FILL.duration));
+      number.textContent = formatPercent(confidence * (1 - (1 - t) ** 3));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => {
+      animation.cancel();
+      cancelAnimationFrame(frame);
+      number.textContent = formatPercent(confidence);
+    };
+  }, [bar, percent, confidence]);
 }
 
 /** A3·11: when it was taken, against the whole archive. */
