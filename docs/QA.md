@@ -15,11 +15,11 @@ in the React Query cache and navigates to `/search/:id` inside a View Transition
 **2. Why hybrid search?**
 Each half misses what the other finds. Full-text finds exact IDs like "STS-135" but not "red
 planet" or "animals", and vectors find meaning but give a noisier top 5. Hybrid P@5 is 0.83,
-keyword-only is 0.60, and semantic-only is 0.69 (`docs/search-eval.md`).
+keyword-only is 0.62, and semantic-only is 0.75 (recall: 0.97 for hybrid, 0.82 for keyword-only) (`docs/search-eval.md`).
 
 **3. How is confidence calculated?**
-`confidence = 0.8 × meaning + 0.2 × words`. Meaning is the cosine stretched from 0.20–0.50 to
-0–1, and words is `ts_rank_cd(..., 32)` times the share of query words found
+`confidence = 0.8 × meaning + 0.2 × words`. Meaning is the cosine stretched from 0.20–0.70 to
+0–1 (until 2026-11-09 the band was 0.20–0.50; see question 6a), and words is `ts_rank_cd(..., 32)` times the share of query words found
 (`backend/services/scoring.py`). The constants are in `backend/config.py`.
 
 **4. Why 80/20 and not 50/50?**
@@ -28,15 +28,39 @@ compared five formulas. 80/20 had the best P@5 and recall and kept "STS-135" in 
 (`docs/search-eval.md`, "Choice 1").
 
 **5. Is the confidence a probability?**
-No. It is a calibrated score from 0 to 1. The constants were tuned so that relevant images reach
-0.5 or more ("strong") and off-topic queries get no strong results. The labeled eval measures both.
+No. It is a score from 0 to 1 with a tuned strong line (0.5). The constants were tuned so that relevant images reach
+0.5 or more ("strong") and off-topic queries get no strong results. The labeled eval measures both,
+and also how many strong results are relevant: 55% (0.55, 47 strong results). Strong is not a promise of a correct result.
 
 **6. Why is "red planet" only a faint match?**
 MiniLM gives "red planet" → Lycus Sulci (Mars) a cosine of 0.359. This is the same as "solar
 flares" → Parker Solar Probe, which is off-topic. Any calibration that makes the Mars images strong
-also makes Parker strong, so I kept Mars faint (best 0.42). The order is not clean either: ranks
-1, 2, 5 and 7 are Mars images, but ranks 3 and 4 are an infrared asteroid chart and the WISE logo.
+also makes Parker strong, so I kept Mars faint. Today "red planet" has 9 results, none strong, and
+the best is Lycus Sulci at 25% (it was 42% until 2026-11-09, before the ceiling moved to 0.70). The order was not clean
+either (measured before that change): ranks 1, 2, 5 and 7 were Mars images, but ranks 3 and 4 were an infrared asteroid chart and the WISE logo.
 The fixes are a bigger model, query expansion, or a re-ranker (`docs/search-eval.md`, "The remaining limit").
+
+**6a. Strong results were not right enough. What did you find?**
+The top-5 metric looked fine, but I had not measured whether the orange results were right. I measured: only 30% of
+strong results were relevant (132 strong results across the eval). The meaning score saturated: with the
+ceiling at cosine 0.50, every cosine of 0.50 or more read "Meaning 100%". For "mars rover", a real rover photo
+(cosine 0.67, Focus on El Capitan-2) and an orbital Mars photo with no rover (0.55, Lycus Sulci, caption just
+"Lycus Sulci") were both 100%, so orbital photos were strong at 81–85%. I swept the ceiling (floor 0.20, weight 0.8):
+0.60 gave 0.48 relevant-among-strong, 0.65 gave 0.51, 0.70 gave 0.55. A higher floor hurt P@5 and recall badly. At
+ceiling 0.70 I lowered `MIN_CONFIDENCE` from 0.20 to 0.12, which brought recall back to 0.97 and P@5 to 0.83.
+Result: top-5 and recall are kept, and 55% of orange results are relevant (`docs/search-eval.md`, "The strong tier").
+
+**6b. What is still wrong with "mars rover"?**
+A small text model reads "mars rover" as mostly "Mars" (cosine with "mars" is 0.74, with "the Curiosity rover
+drives on Mars" 0.81). Live (hybrid), 7 of 19 results are strong: El Capitan 86%, Curiosity anniversary 77%,
+Perseverance marble countdown 70%, Gale Crater 63%, then orbital Lycus Sulci 61%, Ganges Chasma 56% and
+Ophir Chasma 51%. In Keywords mode the orbital photos drop to about 22%. Next steps: a rule that a multi-word
+query's partial matches cannot be strong, or a re-ranker.
+
+**6c. What is the Combined / Keywords toggle?**
+The search box can run in `hybrid` (Combined, the default) or `keyword` mode (`POST /api/searches` takes an optional
+`"mode"`). Keywords mode ignores meaning. On a results page, switching re-runs the same words. History rows say
+"keywords only", and the rail note says meaning is off. It is useful to show what meaning adds.
 
 **7. Why an OR query, not AND?**
 `plainto_tsquery` ANDs the words, so "images of Mars rovers" would need all four. The SQL replaces
@@ -80,21 +104,21 @@ gets the candidates once per query and then re-scores thousands of constant sets
 
 **15. How do you test search quality?**
 `backend/scripts/eval_search.py` has 15 queries with hand-labeled relevant images, 3 off-topic
-queries and 3 gibberish queries. It prints P@5, recall, "relevant and strong" and off-topic results for keyword, semantic
-and hybrid, and `--tune` grid-searches the constants. Run it with
+queries and 3 gibberish queries. It prints P@5, recall, "relevant and strong", "relevant among strong" (the share of orange results that are
+relevant) and off-topic results for keyword, semantic and hybrid, and `--tune` grid-searches the constants. Run it with
 `docker compose exec backend python scripts/eval_search.py`.
 
 **16. Isn't the tuning overfit to 15 queries?**
 Yes, partly. It is a sanity check against bad constants, not a proof (the docstring of `tune` says
 this). With more time I would add more queries and keep a held-out set that the tuning never sees.
 
-**17. Why is STS-129 at 43% for "STS-135", when it shows "Meaning 100%"?**
-Many STS captions have a cosine of 0.50 or more with "STS-135", so their meaning score is the full
-1.0, and they used to be strong. The ID rule fixes that: when the query names an ID, images with the
+**17. Why is STS-129 faint for "STS-135", when its Meaning score is high?**
+Many STS captions have a high cosine with "STS-135" (0.50 or more), so their meaning score is high
+(with the old ceiling of 0.50 it was the full 100%), and they used to be strong. The ID rule fixes that: when the query names an ID, images with the
 exact ID are raised to at least 0.5, and the others get half their score, so they can never be
 strong (`score` in `backend/services/scoring.py`). Each hit then carries `id_rule` (`"raised"`,
 `"halved"` or `null`), stored in the snapshot, so the breakdown can say why the numbers do not add
-up: "Meaning 100% · Words 27% · halved: “STS-135” is not in this image". A bare year is not an ID,
+up: "Meaning … · Words … · halved: “STS-135” is not in this image". A bare year is not an ID,
 so "launch in 2011" is not affected.
 
 **18. Why search on submit, not on each keystroke?**

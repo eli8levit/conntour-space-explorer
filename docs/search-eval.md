@@ -3,6 +3,11 @@
 This page explains how the search was measured, which choices the measurements led to,
 and where the remaining limit is.
 
+Update 2026-11-09 (commit 8d4b9f0): `SEMANTIC_CEIL` moved from 0.50 to 0.70 and `MIN_CONFIDENCE`
+from 0.20 to 0.12. The final results table and "The strong tier" section use the new constants.
+"Choice 1", "Choice 2" and "Choice 3" are history. They were measured with the old constants
+(ceil 0.50, min 0.20), and their numbers are not re-run.
+
 ## How it is measured
 
 `backend/scripts/eval_search.py` contains 15 labeled queries. For each query, I read the
@@ -21,6 +26,9 @@ For each query, the script measures:
 - **Recall**: how many relevant images come back at all (above the minimum confidence).
 - **Relevant and strong**: how many relevant images reach confidence 0.5 or higher. The
   UI shows these results in orange.
+- **Relevant among strong**: the share of strong (orange) results that are relevant. The number in
+  brackets is how many strong results there are. It tells how far to trust an orange result.
+  P@5 does not measure this.
 - **Off-topic results**: how many results the 3 off-topic queries return. The number in
   brackets is how many of them are strong. That number should be 0.
 - **Gibberish results**: how many results the gibberish queries return. It should be 0.
@@ -43,12 +51,13 @@ The script does not store anything. It calls the retrieval and scoring code dire
 > text contains.
 
 ```
-meaning    = clamp((cosine - 0.20) / (0.50 - 0.20), 0, 1)
+meaning    = clamp((cosine - 0.20) / (0.70 - 0.20), 0, 1)
 words      = ts_rank_cd(search_vector, query, 32) * (query words found / query words)
 confidence = 0.8 * meaning + 0.2 * words
 ```
 
-- Results under 0.20 are dropped. Results at 0.50 or higher are "strong".
+- Results under 0.12 are dropped. Results at 0.50 or higher are "strong". A cosine of 0.70 or
+  more counts as 100% meaning. (Until 2026-11-09 the band was 0.20–0.50 and the minimum was 0.20.)
 - Two guard rules come after the formula (see "Choice 3"):
   1. **Gibberish:** if the model knows none of your words, only results that contain one
      of your words can appear.
@@ -64,30 +73,32 @@ confidence = 0.8 * meaning + 0.2 * words
 query                              keyword P@5/R    semantic P@5/R      hybrid P@5/R
 red planet                             0.00/0.00         0.60/0.83         0.60/0.67
 images of Mars rovers                  1.00/1.00         0.75/1.00         1.00/1.00
-rover                                  0.60/0.60         0.60/1.00         0.80/1.00
-space shuttle launch                   0.67/1.00         0.00/1.00         0.67/1.00
-astronaut spacewalk                    0.40/0.60         0.80/1.00         0.80/1.00
+rover                                  0.80/1.00         0.60/1.00         0.80/1.00
+space shuttle launch                   0.67/1.00         0.67/1.00         0.67/1.00
+astronaut spacewalk                    0.40/0.80         0.80/1.00         0.80/1.00
 Saturn                                 1.00/1.00         0.50/1.00         1.00/1.00
 STS-135                                1.00/1.00         1.00/1.00         1.00/1.00
-Russian cosmonaut training             0.75/0.75         0.50/1.00         0.75/1.00
+Russian cosmonaut training             0.75/1.00         0.75/1.00         0.75/1.00
 rocket engine test                     1.00/1.00         0.33/1.00         0.67/1.00
 animals                                0.00/0.00         1.00/1.00         1.00/1.00
 storm seen from space                  0.50/0.50         1.00/1.00         1.00/1.00
-Apollo moon mission                    0.33/0.33         1.00/1.00         1.00/1.00
+Apollo moon mission                    0.33/1.00         1.00/1.00         1.00/1.00
 Soyuz                                  0.80/1.00         0.80/1.00         0.80/1.00
 Expedition 61                          1.00/1.00         1.00/1.00         1.00/1.00
-life aboard the space station          0.00/0.33         0.40/0.67         0.40/0.83
+life aboard the space station          0.00/1.00         0.40/0.67         0.40/0.83
 ------------------------------------------------------------------------------------
-mean                                   0.60/0.67         0.69/0.97         0.83/0.97
-relevant and strong                         0.38              0.77              0.74
-off-topic results (strong)                 1 (0)            11 (1)             5 (0)
+mean                                   0.62/0.82         0.75/0.97         0.83/0.97
+relevant and strong                         0.38              0.56              0.51
+relevant among strong                  0.46 ( 41)         0.52 ( 56)         0.55 ( 47)
+off-topic results (strong)                 3 (0)            11 (0)             6 (0)
 gibberish results                              0                 0                 0
-ID queries: strong, no ID                      0                 7                 0
+ID queries: strong, no ID                      0                 0                 0
 ```
 
-The "semantic" column is for comparison only, and the app never uses it. Its 7 is
-expected: in that mode, a full meaning score of 1.0 halved is exactly 0.5. In hybrid
-mode, confidence is always below 1, so a halved score always stays under 0.5.
+The "semantic" column is for comparison only, and the app never uses it. (With the old
+ceiling its "ID queries: strong, no ID" was 7, because a full meaning score of 1.0 halved is
+exactly 0.5. With ceil 0.70 it is 0.) In hybrid mode, confidence is always below 1, so a halved
+score always stays under 0.5.
 
 Hybrid search is better than either half alone:
 
@@ -96,7 +107,35 @@ Hybrid search is better than either half alone:
 - Meaning search finds those, but its top 5 is noisier, and it returns more off-topic
   results.
 
+## The strong tier (2026-11-09)
+
+The table above had one blind spot: P@5 and recall do not say whether the orange results are right.
+I added the metric "relevant among strong" and measured the old constants. Only 30% of strong results
+were relevant (132 strong results across the eval).
+
+- **The cause:** with the ceiling at 0.50, every cosine of 0.50 or more read as "Meaning 100%". For
+  "mars rover", a real rover photo (cosine 0.67, Focus on El Capitan-2) and an orbital Mars photo
+  with no rover (0.55, Lycus Sulci, whose caption is just "Lycus Sulci" with the keyword Mars) were both 100%.
+  So orbital photos were strong at 81–85%.
+- **The sweep** (floor 0.20, weight 0.8), relevant among strong: ceil 0.60 gave 0.48, ceil 0.65 gave 0.51,
+  ceil 0.70 gave 0.55. Raising the floor hurt P@5 and recall badly.
+- **The second change:** at ceil 0.70, lowering `MIN_CONFIDENCE` from 0.20 to 0.12 brought recall back
+  to 0.97 and P@5 to 0.83. Floor 0.20, weights 80/20, `STRONG_MATCH` 0.5, the ID rule and the gibberish
+  rule did not change.
+- **The effect on the other columns:** keyword P@5/recall went from 0.60/0.67 to 0.62/0.82, and semantic from
+  0.69/0.97 to 0.75/0.97. Hybrid stayed at 0.83/0.97. In hybrid, "relevant among strong" is 0.55 (47 strong
+  results). Keyword is 0.46 (41) and semantic 0.52 (56). Off-topic results are 3, 11 and 6, and none is strong.
+- **Live checks (hybrid):** "mars rover" has 7 strong of 19: El Capitan 86%, Curiosity anniversary 77%,
+  Perseverance marble countdown 70%, Gale Crater 63%, then orbital Lycus Sulci 61%, Ganges Chasma 56% and
+  Ophir Chasma 51%. "astronaut spacewalk" has 3 strong of 50 (it was 16). "STS-135" has 3 strong, all with
+  the ID. "animals" finds the heron (22%) and the manatees (13%), now faint.
+- **The limit that remains:** MiniLM reads "mars rover" as mostly "Mars". Raw cosine of "mars rover" with
+  "mars" is 0.74, and with "the Curiosity rover drives on Mars" 0.81. A rule that partial matches of a
+  multi-word query cannot be strong, or a re-ranker, is the next step.
+
 ## Choice 1: how to combine meaning and words
+
+(History: measured with ceil 0.50.)
 
 Each formula below got its own tuned constants (a grid search over floor, ceiling,
 weight and threshold).
@@ -194,7 +233,7 @@ images without it cannot be.
 - The NASA id is now part of the full-text index (weight A), so "PIA22505" finds Gale
   Crater.
 
-Hybrid mode, without the rules (`--no-guards`) and with them:
+Hybrid mode, without the rules (`--no-guards`) and with them (history: measured with ceil 0.50 and min 0.20):
 
 | | Without the rules | With the rules |
 |---|---|---|
@@ -206,13 +245,13 @@ Hybrid mode, without the rules (`--no-guards`) and with them:
 | "Expedition 61" P@5 | 0.50 | 1.00 |
 
 The rest of the 15 labeled queries did not change. The tuner still picks the same
-constants (floor 0.20, ceil 0.50, 80/20, min 0.20).
+constants (floor 0.20, ceil 0.50, 80/20, min 0.20). Those were the constants until 2026-11-09.
 
 **What the rules do not fix:**
 
-- "solar flares" still returns "Mars briefing" at 0.22, as a faint result.
+- (Measured until 2026-11-09:) "solar flares" still returned "Mars briefing" at 0.22, as a faint result.
 - A higher bar for matches on meaning alone would remove it, but it would also remove
-  the manatees for "animals" (0.22). Their meaning scores are the same (cosine 0.282 and
+  the manatees for "animals" (0.22 then, 13% now). Their meaning scores are the same (cosine 0.282 and
   0.283), so no principled bar can keep one and drop the other.
 - I also tested a bar relative to the query's own score distribution (a z-score). It did
   not separate gibberish from real queries either: "zzqx" stands out from the archive
@@ -223,9 +262,11 @@ constants (floor 0.20, ceil 0.50, 80/20, min 0.20).
 - **The problem:** MiniLM gives "red planet" → Lycus Sulci (a Mars image) about the same
   cosine as "solar flares" → Parker Solar Probe (a Sun mission, not about flares).
 - **The consequence:** any calibration that makes the Mars images strong also makes Parker
-  strong. So "red planet" shows only faint matches (up to 0.42), and the order is not clean:
-  ranks 1, 2, 5 and 7 are Mars images, but ranks 3 and 4 are an infrared asteroid chart and
-  the WISE mission logo (its P@5 is 0.60).
+  strong. So "red planet" shows only faint matches (9 results, none strong, best Lycus Sulci 25%; it was
+  0.42 until 2026-11-09). The order was not clean when measured before that change: ranks 1, 2, 5 and 7 were
+  Mars images, but ranks 3 and 4 were an infrared asteroid chart and the WISE mission logo (its P@5 is 0.60).
+- **A second limit:** a short query like "mars rover" is read as mostly "Mars", so some orbital photos
+  stay strong (see "The strong tier").
 - **Next steps:**
   - Use a larger model, as arctic-embed-m shows, when the budget allows.
   - Use a query-expansion step ("red planet" → "Mars").

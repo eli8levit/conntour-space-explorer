@@ -47,14 +47,14 @@ sequenceDiagram
     participant S as scoring.py
 
     U->>UI: Types a query and presses Enter
-    UI->>C: POST {"query": "..."}
+    UI->>C: POST {"query": "...", "mode": "hybrid"}
     C->>C: Pydantic strips spaces, checks 1 to 200 chars
     C->>T: embed_query(query)
     T-->>C: 384 numbers (or None in keyword-only mode)
     C->>DB: One SQL query (CTE): keyword candidates UNION vector candidates
     DB-->>C: For each candidate: keyword rank, word coverage, cosine
     C->>S: score(candidates)
-    S-->>C: Hits with confidence 0.20 or more, best first, at most 50
+    S-->>C: Hits with confidence 0.12 or more, best first, at most 50
     C->>DB: INSERT searches and search_results (one commit)
     C->>DB: Read the stored snapshot back (get_by_id)
     DB-->>C: SearchDetail
@@ -66,11 +66,13 @@ sequenceDiagram
 The code path:
 
 1. `frontend/src/components/SearchDock.tsx` runs the search on submit only, not on each key.
+   The search box has a Combined / Keywords toggle (mode `hybrid` or `keyword`). On a results page, switching re-runs the same words. History rows for keyword searches say "keywords only", and the rank rail says meaning is off.
    Every run is a history entry, so typing "m", "ma", "mar" must not create three entries. For the
    same reason a ref blocks a second submit while one is in flight, and a held Enter is ignored.
 2. `useRunSearch` in `frontend/src/hooks/searches.ts` calls `api.runSearch`.
 3. `backend/controllers/searches.py` (`create_search`) validates the body with
-   `SearchRequest` in `backend/models.py`.
+   `SearchRequest` in `backend/models.py`. The body has an optional `mode`: `"hybrid"` (default)
+   or `"keyword"`. In keyword mode the query is not embedded, so confidence = words.
 4. `backend/services/search.py` (`score_query`) embeds the query with `run_in_threadpool`.
    ONNX inference is synchronous CPU work. On the event loop it would block every other request.
 5. `backend/repositories/search.py` (`HYBRID_CANDIDATES_SQL`) gets both raw scores in one round trip.
@@ -179,7 +181,7 @@ API endpoints:
 |---|---|
 | `GET /api/sources?limit=24&offset=0&center=&body=` | `{items, total}`, newest first, optional filters |
 | `GET /api/sources/{id}` | One image with full metadata and its place |
-| `POST /api/searches` `{query}` | 201 and the stored `SearchDetail` |
+| `POST /api/searches` `{query, mode?}` (`mode`: `"hybrid"` default or `"keyword"`) | 201 and the stored `SearchDetail` |
 | `GET /api/searches?limit=20&cursor=` | `{items, next_cursor, total}`, newest first |
 | `GET /api/searches/{id}` | The stored snapshot (not a re-run) |
 | `DELETE /api/searches/{id}` | 204, or 404 |
@@ -214,7 +216,7 @@ Search is **hybrid**: full-text search finds exact words, and vector search find
 close the meaning is and 20% how many of your words the image's text contains.*
 
 ```
-meaning    = clamp((cosine - 0.20) / (0.50 - 0.20), 0, 1)
+meaning    = clamp((cosine - 0.20) / (0.70 - 0.20), 0, 1)
 words      = ts_rank_cd(..., 32) * (query words found / query words)
 confidence = 0.8 * meaning + 0.2 * words
 ```
@@ -222,8 +224,11 @@ confidence = 0.8 * meaning + 0.2 * words
 - `ts_rank_cd` with normalization 32 is `rank / (rank + 1)`, so it is already between 0 and 1.
 - The coverage factor exists because the OR query lets one word match. "solar flares" would
   otherwise give full word credit to "Parker Solar Probe". With coverage it gets half.
-- Raw cosine is not a usable confidence. Unrelated captions still score about 0.2, and the best
-  matches here rarely pass 0.5. So the code stretches the band 0.20–0.50 to 0–1.
+- Raw cosine is not a usable confidence. Unrelated captions still score about 0.2, and good
+  matches here reach 0.6 to 0.8. So the code stretches the band 0.20–0.70 to 0–1. Until 2026-11-09
+  the band was 0.20–0.50. That ceiling was too low: every cosine of 0.50 or more read "Meaning 100%",
+  and only 30% of strong results were relevant. At 0.70 it is 55% (see "The strong tier" in
+  [search-eval.md](search-eval.md)).
 - In keyword-only mode (no model), confidence = words.
 
 The constants (all in `backend/config.py`):
@@ -231,9 +236,9 @@ The constants (all in `backend/config.py`):
 | Constant | Value | Meaning |
 |---|---|---|
 | `SEMANTIC_FLOOR` | 0.20 | Cosine at or below this counts as "unrelated" (0) |
-| `SEMANTIC_CEIL` | 0.50 | Cosine at or above this counts as "clearly about it" (1) |
+| `SEMANTIC_CEIL` | 0.70 | Cosine at or above this counts as "clearly about it" (1) |
 | `SEMANTIC_WEIGHT` / `KEYWORD_WEIGHT` | 0.8 / 0.2 | The blend |
-| `MIN_CONFIDENCE` | 0.20 | Results below this are dropped |
+| `MIN_CONFIDENCE` | 0.12 | Results below this are dropped (lowered from 0.20 together with the ceiling change, to keep recall) |
 | `STRONG_MATCH` | 0.5 | At or above this a result is "strong" (orange in the UI) |
 | `MAX_RESULTS` | 50 | At most 50 results per search |
 | `CANDIDATE_POOL` | 200 | Rows each retriever may give before scoring |
@@ -251,19 +256,19 @@ measurements are in [search-eval.md](search-eval.md), "Choice 3"):
    it. A standalone year (1900–2099) is never an ID, whatever word comes
    before it ("launch in 2011", "Apollo 1969").
 
-The ID rule changes the confidence after the blend, so "Meaning 100% · Words 27%" no longer adds
-up to the 43% on screen. So each hit carries `id_rule` (`"raised"`, `"halved"` or `null` when the
+The ID rule changes the confidence after the blend, so a breakdown such as "Meaning 100% · Words 27%" no longer adds
+up to the score on screen (for example 43%). So each hit carries `id_rule` (`"raised"`, `"halved"` or `null` when the
 rule changed nothing). The history snapshot stores it, and the UI ends the breakdown and the
 "why it matched" line with "halved: “STS-135” is not in this image" or "raised: it has “STS-135”"
 (`idRuleNote` in `frontend/src/lib/format.ts`).
 
 **Why 80/20.** `backend/scripts/eval_search.py` compared five formulas, each with its own tuned
 constants. The first version was 50/50. With 50/50 a match on meaning alone could never score
-above 0.5, so it could never be strong. Noisy-OR and `max()` lost the order for "STS-135": every
-STS-* caption gets the full meaning score, so the words could not lift the real STS-135 photos
+above 0.5, so it could never be strong. Noisy-OR and `max()` lost the order for "STS-135": with the original ceiling (0.50) every
+STS-* caption got the full meaning score, so the words could not lift the real STS-135 photos
 above the other missions. 80/20 had the best P@5 (0.82) and recall (0.96), kept exact hits first,
-and is a one-sentence rule. (These are the formula-comparison numbers, before the guard rules.
-With the rules, hybrid is 0.83 and 0.97.)
+and is a one-sentence rule. (These are the formula-comparison numbers, before the guard rules and
+with the old ceiling 0.50. With the rules and the ceiling 0.70, hybrid is 0.83 and 0.97.)
 
 **Why calibration is in Python, not SQL.** The original plan did it in SQL. In Python the
 formula is a set of pure functions with unit tests (`backend/tests/test_scoring.py`). The eval
@@ -276,9 +281,18 @@ and is one of the smallest and fastest (0.7 ms per query on a laptop CPU).
 
 **The known limit.** MiniLM gives "red planet" → Lycus Sulci (Mars) the same cosine (0.359) as
 "solar flares" → Parker Solar Probe (a Sun mission). Any calibration that makes the Mars images
-strong also makes Parker strong. So "red planet" shows only faint matches (best 0.42), and the
-order is not clean: ranks 1, 2, 5 and 7 are Mars images, but ranks 3 and 4 are an infrared
+strong also makes Parker strong. So "red planet" shows only faint matches (9 results, none strong, best Lycus Sulci 25%; it was 0.42
+until 2026-11-09). The order was not clean before the change: ranks 1, 2, 5 and 7 were Mars images, but ranks 3 and 4 were an infrared
 asteroid chart and the WISE mission logo.
+
+**The strong tier.** P@5 and recall do not say whether the orange results are right, so the eval has
+a metric "relevant among strong". With the ceiling at 0.50 it was 0.30 (132 strong results). A real rover photo
+(cosine 0.67) and an orbital Mars photo with no rover (0.55) were both "Meaning 100%". A sweep of the ceiling
+(0.60: 0.48, 0.65: 0.51, 0.70: 0.55) set it to 0.70. Raising the floor hurt P@5 and recall, and lowering `MIN_CONFIDENCE`
+to 0.12 restored recall (0.97) and P@5 (0.83). The limit that remains: a small text model reads "mars rover"
+as mostly "Mars" (cosine with "mars" 0.74, with "the Curiosity rover drives on Mars" 0.81), so 3 of the 7 strong
+results for "mars rover" are orbital photos (Lycus Sulci 61%, Ganges Chasma 56%, Ophir Chasma 51%). The next step is a rule that partial matches of a multi-word query cannot be
+strong, or a re-ranker.
 
 Full numbers, the formula comparison and the model sweep: [search-eval.md](search-eval.md).
 
@@ -409,7 +423,7 @@ The archive, the results and the history never download the scene code.
 
 | File | Job |
 |---|---|
-| `match.ts` | `STRONG_MATCH = 0.5` (mirrors the backend), frame size by rank, the "5 strong matches, 8 faint" summary, and the "why it matched" line ("Matched mars, rover in the title", or "Similar in meaning" for a pure meaning match) |
+| `match.ts` | `STRONG_MATCH = 0.5` (mirrors the backend), frame size by rank, the "5 strong matches, 8 faint" summary, and the "why it matched" line ("Matched mars, rover in the title", "Matched mars in the NASA title" when a word is only in NASA's own title, since the screen shows our short title, or "Similar in meaning" for a pure meaning match) |
 | `displayTitle.ts` | About a third of the NASA titles are raw IDs ("iss071e608493"). For those it builds a short title from the caption: strip the ID, date and dateline, take the first sentence or clause, cap at 60 characters. The real `nasa_id` stays in the details. |
 | `timeline.ts` | The year timeline: one square per image, stacked by year, and `?from=&to=` parsing |
 | `history.ts` | Day groups ("Today", "Yesterday", weekday, month) and the one-line row summary |
@@ -520,9 +534,9 @@ Code: `frontend/src/scene/`. Entry: `frontend/src/pages/ScenePage.tsx`.
 
 | Suite | Command | What it covers |
 |---|---|---|
-| Backend (pytest) | `cd backend && uv run pytest` | 81 tests. API tests through `httpx.ASGITransport` on a real Postgres, in a separate database `space_explorer_test` (dropped and re-seeded on every run). A `FakeEmbedder` (bag-of-words hashing) replaces the model. Also pure tests for scoring, cursors, places, titles and the schema upgrade. |
-| Frontend (vitest) | `cd frontend && npx vitest run` (or `npm test`) | 116 tests in 15 files: the pure helpers in `src/lib/` (match, display titles, timeline, history, details, formatting, highlighting, ids) and `src/scene/` (clustering, flights, geometry, layout, markers, years). |
-| Search quality | `docker compose exec backend python scripts/eval_search.py` | P@5, recall, strong recall and off-topic results for keyword, semantic and hybrid. Add `--tune` for the grid search. |
+| Backend (pytest) | `cd backend && uv run pytest` | 84 tests. API tests through `httpx.ASGITransport` on a real Postgres, in a separate database `space_explorer_test` (dropped and re-seeded on every run). A `FakeEmbedder` (bag-of-words hashing) replaces the model. Also pure tests for scoring, cursors, places, titles and the schema upgrade. |
+| Frontend (vitest) | `cd frontend && npx vitest run` (or `npm test`) | 142 tests: the pure helpers in `src/lib/` (match, display titles, timeline, history, details, formatting, highlighting, ids) and `src/scene/` (clustering, flights, geometry, layout, markers, years). |
+| Search quality | `docker compose exec backend python scripts/eval_search.py` | P@5, recall, relevant and strong, relevant among strong (the share of orange results that are relevant) and off-topic results for keyword, semantic and hybrid. Add `--tune` for the grid search. |
 
 The backend tests need the compose `db` service on port 5433. On this machine the frontend
 command runs as `volta run --node 22 npx vitest run`.
@@ -559,8 +573,9 @@ command runs as `volta run --node 22 npx vitest run`.
 - **Add Alembic**, so schema changes are reviewed, versioned migrations.
 - **Add auth and per-user history**: an `owner_id` on `searches`, and every history query and
   delete filtered by it.
-- **Add a re-ranker**: a cross-encoder on the top 20 results. This is the fix for "red planet"
-  and for close neighbours like other STS missions.
+- **Add a re-ranker**: a cross-encoder on the top 20 results. This is the fix for "red planet",
+  for close neighbours like other STS missions, and for orbital Mars photos that stay strong for "mars rover".
+  A cheaper step first: a rule that partial matches of a multi-word query cannot be strong.
 - **Use a bigger model**, or add a query-expansion step ("red planet" → "Mars"), when the budget allows.
 - **Cache query embeddings** (an LRU or Redis keyed by the normalized query). Popular queries skip the model.
 - **Embed asynchronously on ingest.** Today the seed embeds all missing rows in one call at start.
