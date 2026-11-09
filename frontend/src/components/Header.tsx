@@ -46,7 +46,11 @@ export function Header() {
 
       {!onScene && <HistoryButton />}
 
-      <div className="hidden shrink-0 text-[13px] lg:block">
+      <div className="hidden shrink-0 items-center gap-6 text-[13px] lg:flex">
+        {/* A static page outside the SPA (public/architecture.html), so a plain link, not a router Link. */}
+        <a href="/architecture.html" className="text-muted hover:text-fg">
+          How it works
+        </a>
         {searchId !== null ? (
           <Link to={`/scene?search=${searchId}`} className="text-muted hover:text-fg">
             See these in space →

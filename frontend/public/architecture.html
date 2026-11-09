@@ -1,0 +1,2245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:dark}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Space Explorer Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (max 1160px) under a sticky chapter bar. Each chapter = a short plain-English lede
+   and one live diagram. Visual language borrowed from the app's own
+   "Signal" design: near-black, warm off-white, one orange that only means "strong / active", square corners. */
+:root {
+  --bg: #09090A;
+  --surface: #0F0F11;
+  --raised: #16161A;
+  --line: #222227;
+  --line-strong: #2E2E34;
+  --fg: #E9E7E2;
+  --soft: #D6D4CE;
+  --muted: #A6A49E;
+  --faint: #8A8882;
+  --accent: #FF5A1F;
+  --accent-text: #FF8A5C;
+  --accent-wash: rgba(255, 90, 31, 0.12);
+  --bar-faint: #6E6C67;
+  --ok: #7FD1A8;
+  --bad: #F87171;
+  --code-bg: #0C0C0E;
+  --scrim: rgba(6, 6, 7, 0.8);
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-sans); font-size: 15px; line-height: 1.6;
+  letter-spacing: 0.006em; font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+a { color: var(--fg); text-decoration-color: var(--accent); text-underline-offset: 3px; }
+:focus-visible { outline: 1px solid var(--fg); outline-offset: 2px; }
+h1, h2, h3, h4 { text-wrap: balance; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+p { margin: 0; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+code { color: var(--soft); background: var(--code-bg); border: 1px solid var(--line); padding: 0.05em 0.35em; white-space: nowrap; }
+.wrap-code code { white-space: normal; word-break: break-word; }
+ul { margin: 0; padding-left: 1.1em; }
+li + li { margin-top: 0.35em; }
+button { font: inherit; color: inherit; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-inner {
+  max-width: 1240px; margin: 0 auto; display: flex; align-items: center; gap: 18px; height: 52px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; white-space: nowrap; font-size: 14px; }
+.brand small { color: var(--faint); font-weight: 400; }
+@media (max-width: 640px) { .brand small { display: none; } }
+.chapters { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.chapters::-webkit-scrollbar { display: none; }
+.chapters a {
+  font-size: 12.5px; color: var(--muted); text-decoration: none; padding: 6px 9px; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.chapters a:hover { color: var(--fg); }
+.chapters a.on { color: var(--fg); border-color: var(--line-strong); }
+.chapters a .n { color: var(--faint); margin-right: 5px; }
+.chapters a.on .n { color: var(--accent-text); }
+.progress { position: absolute; left: 0; bottom: -1px; height: 2px; background: var(--accent); width: 0; }
+
+/* ---------- page ---------- */
+main {
+  max-width: 1160px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 96px;
+}
+.chap { padding-block: 72px 8px; border-top: 1px solid var(--line); }
+.chap:first-of-type { border-top: 0; }
+.chap-head { display: grid; gap: 12px; max-width: 760px; margin-bottom: 28px; }
+.plate { font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); display: flex; gap: 10px; align-items: center; }
+.plate b { color: var(--accent-text); font-weight: 600; white-space: nowrap; }
+h2 { font-size: clamp(24px, 3.2vw, 32px); line-height: 1.15; }
+h3 { font-size: 17px; line-height: 1.3; }
+h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; }
+.lede { color: var(--soft); font-size: 16.5px; max-width: 68ch; }
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+.accent { color: var(--accent-text); }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.stack { display: grid; gap: 16px; align-content: start; }
+@media (max-width: 860px) { .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--surface); border: 1px solid var(--line); padding: 20px; min-width: 0; position: relative; }
+.panel.flat { background: transparent; }
+.panel-title { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 14px; flex-wrap: wrap; }
+.note { font-size: 13px; color: var(--faint); }
+.file { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.file::before { content: "↳ "; color: var(--faint); }
+
+/* bracket corners: the app's hover mark */
+.brk { position: relative; }
+.brk::before, .brk::after { content: ""; position: absolute; width: 12px; height: 12px; border-color: var(--accent); border-style: solid; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.brk::before { top: -5px; left: -5px; border-width: 2px 0 0 2px; }
+.brk::after { bottom: -5px; right: -5px; border-width: 0 2px 2px 0; }
+.brk:hover::before, .brk:hover::after, .brk.on::before, .brk.on::after { opacity: 1; }
+
+.btn {
+  border: 1px solid var(--line-strong); background: var(--raised); padding: 7px 12px; font-size: 13px; cursor: pointer;
+  display: inline-flex; gap: 8px; align-items: center; min-height: 34px;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #0B0B0C; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-text); }
+.btn:disabled { opacity: .45; cursor: default; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); }
+.seg button { border: 0; background: transparent; padding: 7px 12px; font-size: 13px; cursor: pointer; color: var(--muted); min-height: 34px; }
+.seg button + button { border-left: 1px solid var(--line-strong); }
+.seg button[aria-pressed="true"] { background: var(--raised); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+svg text { font-family: var(--font-sans); }
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th, .tbl td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--faint); font-weight: 600; }
+.tbl td.num, .tbl th.num { text-align: right; }
+.tbl tr.hl td { background: var(--accent-wash); }
+.tbl td:first-child { padding-left: 0; }
+.api-tbl td:first-child { white-space: nowrap; }
+
+/* ---------- hero ---------- */
+.hero { padding-block: 56px 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 40px; align-items: center; }
+@media (max-width: 960px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+.hero h1 { font-size: clamp(34px, 5vw, 54px); line-height: 1.04; letter-spacing: -0.025em; font-weight: 600; }
+.hero h1 em { font-style: normal; color: var(--accent-text); }
+.hero .lede { margin-top: 18px; }
+.shot { position: relative; border: 1px solid var(--line-strong); background: #09090A; }
+.shot img { display: block; width: 100%; height: auto; }
+.shot figcaption { font-size: 12.5px; color: var(--faint); padding: 10px 12px; border-top: 1px solid var(--line); background: var(--surface); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); margin-top: 28px; }
+.stats div { padding: 14px 16px; border-right: 1px solid var(--line); min-width: 0; }
+.stats div:last-child { border-right: 0; }
+.stats b { display: block; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.stats span { font-size: 12.5px; color: var(--muted); }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stats div:nth-child(2) { border-right: 0; } .stats div:nth-child(-n+2) { border-bottom: 1px solid var(--line); } }
+.thirty { margin-top: 28px; display: grid; gap: 10px; }
+.thirty ol { margin: 0; padding-left: 1.3em; color: var(--soft); }
+.thirty li::marker { color: var(--accent-text); font-weight: 600; }
+
+/* ---------- brief ---------- */
+.req { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); }
+.req > div { padding: 18px; border-right: 1px solid var(--line); display: grid; gap: 8px; align-content: start; min-width: 0; }
+.req > div:last-child { border-right: 0; }
+.req .k { font-size: 11.5px; color: var(--faint); letter-spacing: .12em; text-transform: uppercase; }
+.req h3 { font-size: 16px; }
+.req p { font-size: 14px; color: var(--muted); }
+@media (max-width: 900px) { .req { grid-template-columns: repeat(2, minmax(0, 1fr)); } .req > div:nth-child(2) { border-right: 0; } .req > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); } }
+@media (max-width: 520px) { .req { grid-template-columns: minmax(0, 1fr); } .req > div { border-right: 0; border-bottom: 1px solid var(--line); } .req > div:last-child { border-bottom: 0; } }
+
+/* ---------- system map ---------- */
+.sys-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; border: 1px solid var(--line); background: var(--surface); }
+.sys-canvas { padding: 16px; border-bottom: 1px solid var(--line); min-width: 0; }
+.sys-svg { width: 100%; height: auto; display: block; min-width: 620px; }
+.node rect.box { fill: var(--raised); stroke: var(--line-strong); stroke-width: 1; transition: stroke .2s, fill .2s; }
+.node { cursor: pointer; }
+.node:hover rect.box, .node.on rect.box { stroke: var(--accent); }
+.node.on rect.box { fill: var(--accent-wash); }
+.node text.t { fill: var(--fg); font-size: 15px; font-weight: 600; }
+.node text.s { fill: var(--muted); font-size: 12px; }
+.node text.p { fill: var(--accent-text); font-size: 11.5px; font-family: var(--font-mono); }
+.node.off { opacity: .22; }
+.edge { fill: none; stroke: var(--line-strong); stroke-width: 1.5; }
+.edge.on { stroke: var(--muted); }
+.edge.dash { stroke-dasharray: 4 5; }
+.edge.off { opacity: .15; }
+.edge-label { fill: var(--faint); font-size: 11.5px; }
+.pkt { fill: var(--accent); }
+.pkt.back { fill: var(--fg); }
+.pkt.img { fill: var(--bar-faint); }
+.sys-info { padding: 20px; display: grid; gap: 10px 32px; align-content: start; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); min-height: 190px; }
+.sys-info > .plate, .sys-info > h3, .sys-info > .chiprow { grid-column: 1; }
+.sys-info > ul { grid-column: 2; grid-row: 1 / span 4; }
+.sys-info > .stack { grid-column: 1; }
+@media (max-width: 760px) { .sys-info { grid-template-columns: minmax(0, 1fr); } .sys-info > ul { grid-column: 1; grid-row: auto; } }
+.sys-info h3 { font-size: 19px; }
+.sys-info ul { color: var(--soft); font-size: 14px; }
+.chiprow { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--font-mono); font-size: 11.5px; border: 1px solid var(--line-strong); padding: 2px 7px; color: var(--muted); }
+
+/* ---------- sequence ---------- */
+.seq { border: 1px solid var(--line); background: var(--surface); }
+.seq-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.seq-body { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); }
+@media (max-width: 1000px) { .seq-body { grid-template-columns: minmax(0, 1fr); } }
+.seq-diagram { padding: 8px 12px; border-right: 1px solid var(--line); min-width: 0; }
+@media (max-width: 1000px) { .seq-diagram { border-right: 0; border-bottom: 1px solid var(--line); } }
+.seq-svg { width: 100%; height: auto; display: block; min-width: 640px; }
+.lane-line { stroke: var(--line-strong); stroke-dasharray: 2 4; }
+.lane-head rect { fill: var(--raised); stroke: var(--line-strong); }
+.lane-head text.t { fill: var(--fg); font-size: 16px; font-weight: 600; }
+.lane-head text.s { fill: var(--faint); font-size: 12px; }
+.msg { cursor: pointer; }
+.msg path.ln { fill: none; stroke: var(--line-strong); stroke-width: 1.4; transition: stroke .25s; }
+.msg text { fill: var(--faint); font-size: 14px; transition: fill .25s; }
+.msg text.num { font-size: 10.5px; font-weight: 600; }
+.msg.done path.ln { stroke: var(--bar-faint); }
+.msg.done text { fill: var(--muted); }
+.msg.cur path.ln { stroke: var(--accent); stroke-width: 2; }
+.msg.cur text { fill: var(--fg); }
+.msg.cur text.num { fill: var(--accent-text); }
+.msg .hit { fill: transparent; }
+.msg path.hd { fill: var(--line-strong); stroke: none; transition: fill .25s; }
+.msg.done path.hd { fill: var(--bar-faint); }
+.msg.cur path.hd { fill: var(--accent); }
+.msg:hover path.ln { stroke: var(--muted); }
+.msg.cur:hover path.ln { stroke: var(--accent); }
+.seq-num { fill: var(--faint); font-size: 12px; font-weight: 600; }
+.seq-num.cur { fill: var(--accent-text); }
+.seq-detail { padding: 20px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.seq-detail .stepno { font-size: 12px; color: var(--accent-text); letter-spacing: .1em; text-transform: uppercase; font-weight: 600; }
+.seq-detail h3 { font-size: 20px; }
+.seq-detail p { color: var(--soft); font-size: 14.5px; }
+.why { font-size: 13.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+.why b { color: var(--fg); font-weight: 600; }
+pre.payload {
+  margin: 0; background: var(--code-bg); border: 1px solid var(--line); padding: 12px 14px; font-family: var(--font-mono);
+  font-size: 12px; line-height: 1.55; color: var(--soft); white-space: pre-wrap; word-break: break-word; min-height: 64px;
+}
+.dots { display: flex; gap: 4px; flex-wrap: wrap; }
+.dots button { width: 22px; height: 22px; border: 1px solid var(--line-strong); background: transparent; font-size: 10.5px; color: var(--faint); cursor: pointer; padding: 0; }
+.dots button.done { background: var(--raised); color: var(--muted); }
+.dots button.cur { border-color: var(--accent); color: var(--accent-text); }
+
+/* ---------- retrieval ---------- */
+.retr-svg { width: 100%; height: auto; display: block; min-width: 560px; }
+.retr-svg .lbl { fill: var(--muted); font-size: 12px; }
+.retr-svg .ttl { fill: var(--fg); font-size: 13.5px; font-weight: 600; }
+.retr-svg .box { fill: var(--raised); stroke: var(--line-strong); }
+.retr-svg .acc { fill: var(--accent-wash); stroke: var(--accent); }
+
+/* ---------- confidence lab ---------- */
+.lab { border: 1px solid var(--line); background: var(--surface); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .lab { grid-template-columns: minmax(0, 1fr); } }
+.lab-in { padding: 20px; border-right: 1px solid var(--line); display: grid; gap: 16px; align-content: start; min-width: 0; }
+@media (max-width: 900px) { .lab-in { border-right: 0; border-bottom: 1px solid var(--line); } }
+.lab-out { padding: 20px; display: grid; gap: 18px; align-content: start; min-width: 0; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button { font-size: 12.5px; border: 1px solid var(--line-strong); background: transparent; padding: 6px 9px; cursor: pointer; text-align: left; color: var(--muted); }
+.presets button:hover { color: var(--fg); border-color: var(--muted); }
+.presets button[aria-pressed="true"] { color: var(--fg); border-color: var(--accent); background: var(--accent-wash); }
+.field { display: grid; gap: 6px; }
+.field label, .field .lab-l { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); }
+.field label output, .field .lab-l output { color: var(--fg); font-family: var(--font-mono); font-size: 12.5px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.inline-fields { display: flex; gap: 16px; flex-wrap: wrap; align-items: end; }
+select, input[type="text"], input[type="number"] {
+  font: inherit; font-size: 13.5px; background: var(--raised); color: var(--fg); border: 1px solid var(--line-strong); padding: 6px 8px; min-height: 34px;
+}
+input[type="number"] { width: 64px; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--muted); cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.big-score { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.big-score .pct { font-size: 64px; line-height: 1; font-weight: 600; letter-spacing: -0.03em; transition: color .2s; }
+.tier { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; padding: 4px 9px; border: 1px solid var(--line-strong); font-weight: 600; }
+.tier.strong { color: #0B0B0C; background: var(--accent); border-color: var(--accent); }
+.tier.faint { color: var(--fg); }
+.tier.dropped { color: var(--faint); border-style: dashed; }
+.meter { display: grid; gap: 6px; }
+.meter .row { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.meter .row b { color: var(--fg); font-weight: 600; font-family: var(--font-mono); font-size: 12.5px; }
+.bar { height: 8px; background: var(--raised); position: relative; overflow: hidden; }
+.bar i { position: absolute; inset: 0 auto 0 0; background: var(--bar-faint); width: 0; transition: width .45s cubic-bezier(.2,.8,.2,1); }
+.bar.acc i { background: var(--accent); }
+.bar .tick { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--fg); opacity: .5; }
+.formula { font-family: var(--font-mono); font-size: 13px; background: var(--code-bg); border: 1px solid var(--line); padding: 12px 14px; color: var(--soft); line-height: 1.7; overflow-x: auto; white-space: pre; }
+.formula .hl { color: var(--accent-text); }
+.uiline { font-size: 13.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+.uiline b { color: var(--fg); font-weight: 500; }
+.calib-svg { width: 100%; height: auto; display: block; }
+.calib-svg text { fill: var(--faint); font-size: 11px; }
+
+/* ---------- quality ---------- */
+.hbars { display: grid; gap: 14px; }
+.hbar-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 12px; align-items: center; }
+.hbar-row .name { font-size: 14px; }
+.hbar-row .name small { display: block; color: var(--faint); font-size: 12px; }
+.hbar-pair { display: grid; gap: 4px; }
+.hb { display: grid; grid-template-columns: minmax(0, 1fr) 46px; gap: 8px; align-items: center; }
+.hb .track { height: 14px; background: var(--raised); position: relative; }
+.hb .track i { position: absolute; inset: 0 auto 0 0; background: var(--bar-faint); transform-origin: left; }
+.hb.p5 .track i { background: var(--muted); }
+.hbar-row.win .hb.p5 .track i { background: var(--accent); }
+.hb b { font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; text-align: right; }
+.play .hb .track i { animation: grow 1.1s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.axis { display: grid; grid-template-columns: 110px minmax(0, 1fr) 46px; gap: 12px; font-size: 11px; color: var(--faint); }
+.axis .ticks { position: relative; height: 14px; margin-right: 8px; }
+.axis .ticks span { position: absolute; transform: translateX(-50%); }
+.legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+.zeros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); }
+.zeros div { padding: 14px; border-right: 1px solid var(--line); min-width: 0; }
+.zeros div:last-child { border-right: 0; }
+.zeros b { font-size: 28px; font-weight: 600; display: block; color: var(--ok); }
+.zeros span { font-size: 12.5px; color: var(--muted); }
+@media (max-width: 520px) { .zeros { grid-template-columns: minmax(0, 1fr); } .zeros div { border-right: 0; border-bottom: 1px solid var(--line); } }
+
+/* ---------- data model ---------- */
+.er { display: grid; grid-template-columns: minmax(0, 1.15fr) 56px minmax(0, 1fr) 56px minmax(0, 0.9fr); align-items: start; }
+@media (max-width: 960px) { .er { grid-template-columns: minmax(0, 1fr); } .er .rel { height: 44px; } .er .rel svg { transform: rotate(90deg); } }
+.ent { border: 1px solid var(--line-strong); background: var(--surface); min-width: 0; }
+.ent-h { padding: 10px 14px; border-bottom: 1px solid var(--line-strong); display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.ent-h b { font-family: var(--font-mono); font-size: 14px; }
+.ent-h span { font-size: 12px; color: var(--faint); }
+.col { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 4px 14px; font-family: var(--font-mono); font-size: 12px; border-bottom: 1px solid var(--line); transition: background .2s; }
+.col:last-child { border-bottom: 0; }
+.col .ty { color: var(--faint); }
+.col .tag { font-size: 10px; color: var(--accent-text); margin-left: 6px; }
+.col.grp { font-family: var(--font-sans); font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: .1em; padding-top: 8px; background: transparent; }
+.col.lit { background: var(--accent-wash); }
+.col.lit span:first-child { color: var(--fg); }
+.rel { display: flex; align-items: center; justify-content: center; align-self: center; }
+.rel svg { width: 56px; height: 40px; }
+.rel line { stroke: var(--muted); }
+.rel text { fill: var(--faint); font-size: 10px; }
+.idx-tbl tr { cursor: default; }
+.idx-tbl tr:hover td { background: var(--accent-wash); }
+
+/* ---------- backend layers ---------- */
+.layers { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 900px) { .layers { grid-template-columns: minmax(0, 1fr); } }
+.layer-stack { position: relative; display: grid; gap: 0; border: 1px solid var(--line); align-content: start; }
+.layer { padding: 16px 18px 16px 172px; border-bottom: 1px solid var(--line); position: relative; min-height: 86px; cursor: pointer; background: var(--surface); transition: background .2s; }
+.layer:last-child { border-bottom: 0; }
+.layer:hover, .layer.on { background: var(--raised); }
+.layer .ln { position: absolute; left: 42px; top: 16px; font-family: var(--font-mono); font-size: 13px; color: var(--accent-text); }
+.layer .ln small { display: block; color: var(--faint); font-family: var(--font-sans); font-size: 11.5px; margin-top: 2px; }
+.layer h3 { font-size: 15px; margin-bottom: 4px; }
+.layer p { font-size: 13.5px; color: var(--muted); }
+.layer-stack::before { content: ""; position: absolute; left: 20px; top: 24px; bottom: 24px; width: 1px; background: var(--line-strong); z-index: 1; }
+.traveler { position: absolute; left: 15px; top: 52px; width: 11px; height: 11px; background: var(--accent); pointer-events: none; z-index: 2; }
+.traveler.up { background: var(--fg); }
+.trav-cap { font-size: 12.5px; color: var(--muted); display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.trav-cap i { width: 9px; height: 9px; background: var(--accent); display: inline-block; }
+.trav-cap.up i { background: var(--fg); }
+@media (max-width: 520px) { .layer { padding-left: 42px; padding-top: 44px; } }
+
+/* ---------- history demos ---------- */
+.ks { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 640px) { .ks { grid-template-columns: minmax(0, 1fr); } }
+.ks-col { border: 1px solid var(--line-strong); min-width: 0; }
+.ks-col header { padding: 10px 12px; border-bottom: 1px solid var(--line-strong); display: grid; gap: 2px; }
+.ks-col header b { font-size: 14px; }
+.ks-col header code { font-size: 11px; white-space: normal; }
+.ks-list { list-style: none; margin: 0; padding: 6px 0; min-height: 200px; }
+.ks-list li { margin: 0; display: flex; justify-content: space-between; padding: 3px 12px; font-family: var(--font-mono); font-size: 12px; color: var(--soft); transition: opacity .3s, background .3s; }
+.ks-list li.page-break { color: var(--faint); font-family: var(--font-sans); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; border-top: 1px dashed var(--line-strong); margin-top: 4px; padding-top: 7px; }
+.ks-list li.deleted { text-decoration: line-through; color: var(--faint); }
+.ks-list li.skipped { background: rgba(248,113,113,.12); color: var(--bad); }
+.ks-list li.new { animation: flash 1s ease-out; }
+@keyframes flash { from { background: var(--accent-wash); } to { background: transparent; } }
+.ks-verdict { padding: 8px 12px; border-top: 1px solid var(--line-strong); font-size: 13px; min-height: 38px; }
+.ks-verdict.bad { color: var(--bad); }
+.ks-verdict.good { color: var(--ok); }
+.cursor-box { display: grid; gap: 8px; }
+.cursor-box pre { margin: 0; font-family: var(--font-mono); font-size: 12px; background: var(--code-bg); border: 1px solid var(--line); padding: 10px 12px; white-space: pre-wrap; word-break: break-all; color: var(--soft); }
+
+.undo-demo { display: grid; gap: 12px; }
+.hrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; border: 1px solid var(--line-strong); padding: 12px 14px; transition: opacity .3s, max-height .4s; }
+.hrow .q { font-weight: 600; }
+.hrow .meta { font-size: 12.5px; color: var(--muted); }
+.hrow.gone { opacity: 0.15; }
+.toast { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; background: var(--raised); border: 1px solid var(--line-strong); font-size: 13.5px; }
+.timeline6 { position: relative; height: 34px; border-bottom: 1px solid var(--line-strong); }
+.timeline6 .fill { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--accent); width: 0; }
+.timeline6 .mk { position: absolute; bottom: -18px; transform: translateX(-50%); font-size: 11px; color: var(--faint); }
+.timeline6 .mk::before { content: ""; position: absolute; left: 50%; top: -10px; height: 8px; width: 1px; background: var(--line-strong); }
+.log { font-family: var(--font-mono); font-size: 12px; background: var(--code-bg); border: 1px solid var(--line); padding: 10px 12px; min-height: 92px; color: var(--soft); white-space: pre-wrap; margin-top: 14px; }
+.log .k { color: var(--accent-text); }
+.log .g { color: var(--ok); }
+.log .f { color: var(--faint); }
+
+/* ---------- frontend ---------- */
+.flow-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); }
+.flow-row > div { padding: 14px 16px; border-right: 1px solid var(--line); position: relative; min-width: 0; display: grid; gap: 4px; align-content: start; }
+.flow-row > div:last-child { border-right: 0; }
+.flow-row > div:not(:last-child)::after { content: "→"; position: absolute; right: -8px; top: 14px; color: var(--accent-text); background: var(--bg); font-size: 13px; z-index: 1; padding: 0 1px; }
+.flow-row b { font-size: 14px; }
+.flow-row span { font-size: 12.5px; color: var(--muted); }
+@media (max-width: 760px) { .flow-row { grid-template-columns: minmax(0, 1fr); } .flow-row > div { border-right: 0; border-bottom: 1px solid var(--line); } .flow-row > div:not(:last-child)::after { content: "↓"; right: 14px; top: auto; bottom: -11px; } }
+
+.urlbar { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); background: var(--code-bg); padding: 8px 12px; font-family: var(--font-mono); font-size: 13px; overflow-x: auto; white-space: nowrap; }
+.urlbar .host { color: var(--faint); }
+.urlbar .q { color: var(--accent-text); }
+.mock { position: relative; height: 230px; border: 1px solid var(--line-strong); background: var(--bg); overflow: hidden; }
+.mock .pg { position: absolute; inset: 0; padding: 12px; display: grid; gap: 6px; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 34px; align-content: start; }
+.mock .pg i { background: var(--raised); display: block; }
+.mock .pg i.m { background: var(--accent-wash); outline: 1px solid var(--accent); }
+.mock .pgname { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--muted); background: var(--surface); padding: 2px 8px; border: 1px solid var(--line); }
+.mock .drawer { position: absolute; top: 0; bottom: 0; left: 0; width: 42%; background: var(--surface); border-right: 1px solid var(--line-strong); transform: translateX(-102%); transition: transform .35s cubic-bezier(.2,.8,.2,1); padding: 12px; font-size: 12px; display: grid; align-content: start; gap: 6px; z-index: 3; }
+.mock .drawer.open { transform: none; }
+.mock .drawer i { display: block; height: 22px; background: var(--raised); }
+.mock .modal { position: absolute; inset: 22px 18%; background: var(--surface); border: 1px solid var(--line-strong); opacity: 0; transform: scale(.96); transition: opacity .25s, transform .25s; padding: 12px; font-size: 12px; z-index: 2; pointer-events: none; }
+.mock .modal.open { opacity: 1; transform: none; }
+.mock .modal::before { content: ""; display: block; height: 60%; background: var(--raised); margin-bottom: 8px; }
+.mock .scrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; transition: opacity .25s; z-index: 1; }
+.mock .scrim.open { opacity: 1; }
+.mock .rangeband { position: absolute; left: 12px; right: 12px; bottom: 40px; height: 6px; background: var(--raised); }
+.mock .rangeband i { position: absolute; top: 0; bottom: 0; background: var(--accent); left: 72%; right: 6%; }
+
+.ft { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 88px), 1fr)); grid-auto-rows: 64px; grid-auto-flow: dense; gap: 6px; }
+.ft .tile { position: relative; background: var(--raised); border: 1px solid var(--line); overflow: hidden; font-size: 11px; padding: 6px; display: flex; flex-direction: column; justify-content: space-between; will-change: transform; }
+.ft .tile::before { content: ""; position: absolute; inset: 0; background: var(--g, none); opacity: .55; }
+.ft .tile > * { position: relative; }
+.ft .tile .pn { color: var(--faint); font-size: 10px; }
+.ft .tile .nm { color: var(--soft); line-height: 1.2; font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ft .tile .rk { display: none; }
+.ft .tile.w2 { grid-column: span 2; }
+.ft .tile.h2 { grid-row: span 2; }
+.ft.res .tile .pn { display: none; }
+.ft.res .tile .rk { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+.ft.res .tile .rk b { font-weight: 600; }
+.ft.res .tile.strong { border-color: var(--accent); }
+.ft.res .tile.strong .rk b.r { background: var(--accent); color: #0B0B0C; padding: 0 4px; }
+.ft.res .tile.strong .rk span { color: var(--accent-text); }
+.ft.res .tile.aside { opacity: .35; filter: grayscale(1); }
+.ft.res .tile .cb { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--bar-faint); }
+.ft.res .tile.strong .cb { background: var(--accent); }
+.ft .tile .cb { display: none; }
+.ft.res .tile .cb { display: block; }
+.bundle { display: grid; gap: 10px; }
+.bundle .b { display: grid; grid-template-columns: 100px minmax(0, 1fr) 130px; gap: 12px; align-items: center; font-size: 13px; }
+.bundle .b b { font-family: var(--font-mono); font-weight: 500; font-size: 12px; color: var(--soft); }
+.bundle .b .tr { height: 18px; background: var(--raised); position: relative; }
+.bundle .b .tr i { position: absolute; inset: 0 auto 0 0; background: var(--bar-faint); }
+.bundle .b .tr i.g { background: var(--muted); }
+.bundle .b .tr span { position: absolute; left: 8px; top: 0; line-height: 18px; font-size: 11.5px; font-family: var(--font-mono); color: var(--fg); mix-blend-mode: normal; }
+
+/* ---------- scene ---------- */
+.scene-wrap { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); border: 1px solid var(--line); background: var(--surface); }
+@media (max-width: 960px) { .scene-wrap { grid-template-columns: minmax(0, 1fr); } }
+.globe-box { position: relative; border-right: 1px solid var(--line); min-width: 0; }
+@media (max-width: 960px) { .globe-box { border-right: 0; border-bottom: 1px solid var(--line); } }
+#globe { display: block; width: 100%; aspect-ratio: 1 / 0.82; max-width: 100%; cursor: grab; touch-action: none; }
+#globe:active { cursor: grabbing; }
+.globe-hud { position: absolute; left: 12px; top: 12px; font-size: 11.5px; color: var(--faint); display: grid; gap: 2px; pointer-events: none; }
+.globe-hud b { color: var(--fg); font-family: var(--font-mono); font-weight: 500; }
+.globe-ctrl { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+.globe-ctrl .btn { background: var(--surface); }
+.scene-info { padding: 20px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+.trick { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; font-size: 14px; }
+.trick .ic { width: 10px; height: 10px; background: var(--accent); margin-top: 7px; }
+.trick .ic.w { background: var(--fg); }
+.trick .ic.g { background: var(--bar-faint); }
+.trick p { color: var(--soft); }
+.trick p b { color: var(--fg); font-weight: 600; }
+.pipe { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); }
+.pipe > div { padding: 16px; border-right: 1px solid var(--line); display: grid; gap: 6px; align-content: start; min-width: 0; position: relative; }
+.pipe > div:last-child { border-right: 0; }
+.pipe .k { font-size: 11px; color: var(--accent-text); letter-spacing: .12em; text-transform: uppercase; font-weight: 600; }
+.pipe p { font-size: 13.5px; color: var(--muted); }
+.pipe .scan { position: absolute; left: 0; top: 0; height: 2px; width: 0; background: var(--accent); }
+.pipe.play .scan { animation: scan 1.2s cubic-bezier(.2,.8,.2,1) both; }
+.pipe.play > div:nth-child(2) .scan { animation-delay: .5s; }
+.pipe.play > div:nth-child(3) .scan { animation-delay: 1s; }
+.pipe.play > div:nth-child(4) .scan { animation-delay: 1.5s; }
+@keyframes scan { from { width: 0; } to { width: 100%; } }
+@media (max-width: 820px) { .pipe { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pipe > div:nth-child(2) { border-right: 0; } .pipe > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); } }
+.counts { display: grid; gap: 8px; }
+.cnt { display: grid; grid-template-columns: 120px minmax(0, 1fr) 34px; gap: 10px; align-items: center; font-size: 13px; }
+.cnt .tr { height: 10px; background: var(--raised); position: relative; }
+.cnt .tr i { position: absolute; inset: 0 auto 0 0; background: var(--muted); }
+.cnt b { font-family: var(--font-mono); font-weight: 500; font-size: 12.5px; text-align: right; }
+.cnt .z { color: var(--faint); }
+
+/* ---------- infra ---------- */
+.infra-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); }
+.infra-row > div { padding: 16px; border-right: 1px solid var(--line); display: grid; gap: 8px; align-content: start; min-width: 0; }
+.infra-row > div:last-child { border-right: 0; }
+.infra-row ul { font-size: 13.5px; color: var(--muted); }
+@media (max-width: 860px) { .infra-row { grid-template-columns: minmax(0, 1fr); } .infra-row > div { border-right: 0; border-bottom: 1px solid var(--line); } .infra-row > div:last-child { border-bottom: 0; } }
+
+/* ---------- decisions ---------- */
+.dec { border-top: 1px solid var(--line); }
+.dec details { border-bottom: 1px solid var(--line); }
+.dec summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 20px; gap: 16px; padding: 12px 0; align-items: baseline; }
+.dec summary::-webkit-details-marker { display: none; }
+.dec summary b { font-weight: 600; font-size: 14.5px; }
+.dec summary span { color: var(--muted); font-size: 14px; }
+.dec summary::after { content: "+"; color: var(--faint); text-align: right; }
+.dec details[open] summary::after { content: "–"; color: var(--accent-text); }
+.dec .gave { padding: 0 0 14px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 20px; gap: 16px; font-size: 14px; }
+.dec .gave p { grid-column: 2; color: var(--soft); }
+.dec .gave p::before { content: "Gave up: "; color: var(--accent-text); font-weight: 600; }
+@media (max-width: 700px) { .dec summary, .dec .gave { grid-template-columns: minmax(0, 1fr) 20px; } .dec summary span { grid-column: 1; } .dec summary::after { grid-row: 1; grid-column: 2; } .dec .gave p { grid-column: 1; } }
+
+footer.end { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--faint); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+</style>
+
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="5" width="14" height="14" fill="var(--accent)"/><rect x="21" y="5" width="6" height="6" fill="var(--fg)"/><rect x="21" y="13" width="6" height="6" fill="var(--faint)"/><rect x="5" y="21" width="6" height="6" fill="var(--faint)"/><rect x="13" y="21" width="6" height="6" fill="var(--line-strong)"/><rect x="21" y="21" width="6" height="6" fill="var(--line-strong)"/></svg>
+      Space Explorer <small>how it works</small>
+    </div>
+    <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+  </div>
+  <div class="progress" id="progress"></div>
+</header>
+
+<main>
+
+<!-- ============ OVERVIEW ============ -->
+<section class="chap" id="overview" data-short="Overview">
+  <div class="hero" style="grid-template-columns:minmax(0,1fr)">
+    <div>
+      <div class="plate"><b>PLATE 00</b> How Space Explorer works</div>
+      <h1 style="margin-top:14px">Search 100 NASA photos in plain English, with a score you can <em>trust</em> and a map of where each was taken.</h1>
+      <p class="lede">A React app talks to a FastAPI backend through nginx. One Postgres database holds the images, a vector for each image, and every search you ran. A small text model runs inside the backend, so search needs no outside service.</p>
+      <div class="stats" aria-label="Key numbers">
+        <div><b>100</b><span>NASA images</span></div>
+        <div><b>1</b><span>SQL query per search</span></div>
+        <div><b>0.83</b><span>P@5, hybrid search</span></div>
+        <div><b>384</b><span>numbers per vector</span></div>
+      </div>
+    </div>
+  
+  </div>
+  <div class="grid-2">
+    <div class="panel thirty">
+      <h4>The whole app in 30 seconds</h4>
+      <ol>
+        <li><b>Browse:</b> all 100 photos on one dark canvas, loaded in one request from <code>/api/sources</code>.</li>
+        <li><b>Search:</b> keyword search and meaning search run in one SQL query. Python blends them into one score: 80% meaning, 20% words.</li>
+        <li><b>History:</b> every search is saved with a snapshot of its results. Reopening never re-runs it.</li>
+        <li><b>Where in space:</b> a lazy-loaded 3D map puts each photo on Earth, in orbit, on Mars or in deep space.</li>
+      </ol>
+    </div>
+    <div class="panel thirty">
+      <h4>The stack</h4>
+      <ul style="color:var(--soft);font-size:14px">
+        <li><b>Frontend:</b> Vite, React 18, TypeScript, Tailwind, TanStack Query, react-router, react-three-fiber</li>
+        <li><b>Backend:</b> FastAPI, async SQLAlchemy + asyncpg, Pydantic, fastembed (all-MiniLM-L6-v2, ONNX)</li>
+        <li><b>Data:</b> Postgres 16 with pgvector</li>
+        <li><b>Infra:</b> Docker Compose, nginx, uv, a Cloudflare Worker in front of one VM</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BRIEF ============ -->
+<section class="chap" id="brief" data-short="Brief">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 01</b> The assignment</div>
+    <h2>Four requirements, four answers</h2>
+    <p class="lede">Conntour asked for browsing, natural-language search with a confidence score, search history with delete and pagination, and one special feature. The given stack: FastAPI, async SQLAlchemy, PostgreSQL, React, TypeScript, Tailwind, Docker Compose, nginx and uv.</p>
+  </div>
+  <div class="req">
+    <div><span class="k">Req 1 · Browse</span><h3>The archive canvas</h3><p>All 100 photos at once, oldest first, with plate numbers. Drag to pan. Click for full metadata at <code>?image=&lt;id&gt;</code>.</p></div>
+    <div><span class="k">Req 2 · Search</span><h3>Hybrid search + confidence</h3><p>Full-text plus vectors. Each result shows a %, a meaning/words breakdown and a "why it matched" line.</p></div>
+    <div><span class="k">Req 3 · History</span><h3>Snapshots, keyset pages</h3><p>Stored results, 10 per page with an opaque cursor, delete with 6 seconds to undo.</p></div>
+    <div><span class="k">Req 4 · Special</span><h3>"Where in space"</h3><p>A 3D line-art map of where each photo was taken, linked to search results.</p></div>
+  </div>
+  <p class="note" style="margin-top:14px">Bonus items done: year filtering (<code>?from=&amp;to=</code>), pagination (keyset + offset), keyword-only fallback if the model fails, keyboard shortcuts (<code>/</code>, ↑↓, ←→, Esc).</p>
+</section>
+
+<!-- ============ SYSTEM ============ -->
+<section class="chap" id="system" data-short="System">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 02</b> The big picture</div>
+    <h2>Five boxes and one shortcut</h2>
+    <p class="lede">The browser only ever talks to nginx. nginx serves the built React files and forwards <code>/api/*</code> to FastAPI. FastAPI holds the model in memory and talks SQL to Postgres. The photos themselves skip all of this: the browser loads them straight from NASA.</p>
+  </div>
+  <div class="sys-wrap">
+    <div class="sys-canvas">
+      <div class="controls" style="justify-content:space-between;margin-bottom:10px">
+        <div class="seg" role="group" aria-label="Environment">
+          <button type="button" id="env-local" aria-pressed="true">Local · localhost:3001</button>
+          <button type="button" id="env-prod" aria-pressed="false">Production · homework.nightcoding.dev</button>
+        </div>
+        <span class="note">Click a box</span>
+      </div>
+      <div class="scroll-x">
+      <svg class="sys-svg" id="sys-svg" viewBox="0 0 1100 460" role="img" aria-label="System diagram: browser, Cloudflare Worker, nginx, FastAPI with the MiniLM model, Postgres with pgvector, and NASA's image host">
+        <path id="e-local" class="edge on" d="M200,235 L290,235"/>
+        <path id="e-bw" class="edge" d="M200,212 C240,212 236,78 270,78"/>
+        <path id="e-wn" class="edge" d="M375,116 L375,190"/>
+        <path id="e-nf" class="edge on" d="M460,235 L540,235"/>
+        <path id="e-fdb" class="edge on" d="M770,235 L850,235"/>
+        <path id="e-img" class="edge on dash" d="M115,280 C115,395 200,395 290,395"/>
+        <text class="edge-label" x="208" y="226">/api</text>
+        <text class="edge-label" x="474" y="226">/api/*</text>
+        <text class="edge-label" x="782" y="226">SQL</text>
+        <text class="edge-label" x="128" y="350">image files</text>
+        <text class="edge-label" x="384" y="160" id="lbl-https">HTTPS → HTTP</text>
+        <g id="pkts"></g>
+
+        <g class="node" data-node="browser" tabindex="0" role="button" aria-label="Browser">
+          <rect class="box" x="30" y="190" width="170" height="90"/>
+          <text class="t" x="46" y="220">Browser</text>
+          <text class="s" x="46" y="240">React SPA (Vite build)</text>
+          <text class="s" x="46" y="258">React Query + router</text>
+        </g>
+        <g class="node off" data-node="worker" tabindex="0" role="button" aria-label="Cloudflare Worker" id="node-worker">
+          <rect class="box" x="270" y="40" width="210" height="76"/>
+          <text class="t" x="286" y="68">Cloudflare Worker</text>
+          <text class="s" x="286" y="88">HTTPS · 10 writes/min per IP</text>
+          <text class="p" x="286" y="105">prod only</text>
+        </g>
+        <g class="node" data-node="nginx" tabindex="0" role="button" aria-label="nginx">
+          <rect class="box" x="290" y="190" width="170" height="90"/>
+          <text class="t" x="306" y="220">nginx</text>
+          <text class="s" x="306" y="240">static files + /api proxy</text>
+          <text class="p" x="306" y="262" id="port-nginx">:3001 → 80</text>
+        </g>
+        <g class="node" data-node="fastapi" tabindex="0" role="button" aria-label="FastAPI backend">
+          <rect class="box" x="540" y="150" width="230" height="160"/>
+          <text class="t" x="556" y="178">FastAPI (uvicorn)</text>
+          <text class="p" x="556" y="197" id="port-api">:5001</text>
+          <rect x="556" y="214" width="198" height="78" fill="var(--bg)" stroke="var(--line-strong)" stroke-dasharray="3 3"/>
+          <text class="s" x="570" y="238" style="fill:var(--fg);font-weight:600">MiniLM model</text>
+          <text class="s" x="570" y="256">ONNX, in-process, ~90 MB</text>
+          <text class="s" x="570" y="274">loaded once at startup</text>
+        </g>
+        <g class="node" data-node="db" tabindex="0" role="button" aria-label="Postgres with pgvector">
+          <rect class="box" x="850" y="180" width="220" height="110"/>
+          <text class="t" x="866" y="210">Postgres 16</text>
+          <text class="s" x="866" y="230">+ pgvector extension</text>
+          <text class="s" x="866" y="248">images · vectors · history</text>
+          <text class="p" x="866" y="270" id="port-db">:5433</text>
+        </g>
+        <g class="node" data-node="nasa" tabindex="0" role="button" aria-label="NASA image host">
+          <rect class="box" x="290" y="360" width="300" height="70"/>
+          <text class="t" x="306" y="390">images-assets.nasa.gov</text>
+          <text class="s" x="306" y="410">the actual JPEGs, never proxied</text>
+        </g>
+      </svg>
+      </div>
+    </div>
+    <div class="sys-info" id="sys-info" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- ============ SEARCH FLOW ============ -->
+<section class="chap" id="search-flow" data-short="One search">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 03</b> One search, end to end</div>
+    <h2>What happens when you press Enter</h2>
+    <p class="lede">Thirteen messages between five places. Press play, or click any arrow. The right side shows what the data looks like at that moment, using "images of Mars rovers" as the query.</p>
+  </div>
+  <div class="seq">
+    <div class="seq-top">
+      <div class="controls">
+        <button type="button" class="btn primary" id="seq-play">▶ Play</button>
+        <button type="button" class="btn" id="seq-prev" aria-label="Previous step">←</button>
+        <button type="button" class="btn" id="seq-next" aria-label="Next step">→</button>
+      </div>
+      <div class="dots" id="seq-dots" aria-label="Steps"></div>
+    </div>
+    <div class="seq-body">
+      <div class="seq-diagram scroll-x"><svg class="seq-svg" id="seq-svg" viewBox="0 0 900 690" role="img" aria-label="Sequence diagram of one search"></svg></div>
+      <div class="seq-detail" aria-live="polite">
+        <div class="stepno" id="seq-no"></div>
+        <h3 id="seq-title"></h3>
+        <p id="seq-body"></p>
+        <div class="file" id="seq-file"></div>
+        <pre class="payload" id="seq-payload"></pre>
+        <div class="why" id="seq-why"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONFIDENCE ============ -->
+<section class="chap" id="confidence" data-short="Score">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 04</b> Hybrid retrieval and the confidence score</div>
+    <h2>Two searches in one query, one number at the end</h2>
+    <p class="lede">Keyword search finds exact words and IDs like "STS-135", but it can't find "red planet". Meaning search finds "red planet", but its top 5 is noisier. So one SQL query asks both, merges the candidates, and Python turns the two raw scores into one confidence.</p>
+  </div>
+
+  <div class="panel" style="margin-bottom:24px">
+    <div class="panel-title"><h3>Retrieval: one SQL round trip</h3><span class="file">backend/repositories/search.py · HYBRID_CANDIDATES_SQL</span></div>
+    <div class="scroll-x">
+    <svg class="retr-svg" id="retr-svg" viewBox="0 0 1060 250" role="img" aria-label="The query becomes an OR tsquery and a vector. Full-text and vector search each return up to 200 candidates, merged with UNION, then every candidate gets both raw scores">
+      <rect class="box" x="10" y="95" width="170" height="60"/>
+      <text class="ttl" x="24" y="120">Query text</text>
+      <text class="lbl" x="24" y="140">"images of Mars rovers"</text>
+
+      <rect class="box" x="250" y="20" width="230" height="78"/>
+      <text class="ttl" x="264" y="44">CTE q · keyword side</text>
+      <text class="lbl" x="264" y="64">plainto_tsquery, then &amp; → |</text>
+      <text class="lbl" x="264" y="82">imag | mar | rover  (OR, stemmed)</text>
+
+      <rect class="box" x="250" y="152" width="230" height="78"/>
+      <text class="ttl" x="264" y="176">Query vector</text>
+      <text class="lbl" x="264" y="196">MiniLM: 384 floats</text>
+      <text class="lbl" x="264" y="214">NULL in keyword-only mode</text>
+
+      <rect class="box" x="545" y="20" width="200" height="78"/>
+      <text class="ttl" x="559" y="44">Full-text (GIN)</text>
+      <text class="lbl" x="559" y="64">search_vector @@ tsq</text>
+      <text class="lbl" x="559" y="82">top 200 by ts_rank_cd</text>
+
+      <rect class="box" x="545" y="152" width="200" height="78"/>
+      <text class="ttl" x="559" y="176">Vector (HNSW)</text>
+      <text class="lbl" x="559" y="196">embedding &lt;=&gt; qvec</text>
+      <text class="lbl" x="559" y="214">200 nearest by cosine</text>
+
+      <rect class="acc" x="810" y="70" width="240" height="110"/>
+      <text class="ttl" x="824" y="96">UNION → candidates</text>
+      <text class="lbl" x="824" y="118">each row gets BOTH scores:</text>
+      <text class="lbl" x="824" y="136">keyword_rank, matched_terms,</text>
+      <text class="lbl" x="824" y="154">cosine, has_query_ids</text>
+
+      <path class="edge on" d="M180,115 C215,115 215,59 250,59"/>
+      <path class="edge on" d="M180,135 C215,135 215,191 250,191"/>
+      <path class="edge on" d="M480,59 L545,59"/>
+      <path class="edge on" d="M480,191 L545,191"/>
+      <path class="edge on" id="r-a" d="M745,59 C780,59 775,110 810,110"/>
+      <path class="edge on" id="r-b" d="M745,191 C780,191 775,140 810,140"/>
+      <g id="retr-dots"></g>
+    </svg>
+    </div>
+    <p class="note" style="margin-top:10px">Why OR: <code>plainto_tsquery</code> ANDs the words, so "images of Mars rovers" would need every word. A row found by only one side still gets the other side's score, which is what makes the blend fair.</p>
+  </div>
+
+  <div class="lab" id="lab">
+    <div class="lab-in">
+      <div class="panel-title" style="margin:0"><h3>Confidence lab</h3><span class="file">backend/services/scoring.py</span></div>
+      <div>
+        <div class="note" style="margin-bottom:8px">Real cases from the app. The inputs are worked back from the breakdown each result shows.</div>
+        <div class="presets" id="presets"></div>
+      </div>
+      <div class="field">
+        <label for="in-cos">Cosine similarity (meaning, raw) <output id="o-cos"></output></label>
+        <input type="range" id="in-cos" min="0" max="0.9" step="0.001">
+        <svg class="calib-svg" id="calib" viewBox="0 0 400 46" aria-hidden="true"></svg>
+      </div>
+      <div class="field">
+        <label for="in-rank">ts_rank_cd(…, 32), already 0–1 <output id="o-rank"></output></label>
+        <input type="range" id="in-rank" min="0" max="1" step="0.005">
+      </div>
+      <div class="inline-fields">
+        <div class="field"><span class="lab-l">Query words found</span>
+          <div style="display:flex;gap:6px;align-items:center"><input type="number" id="in-found" min="0" max="6" aria-label="Query words found"><span class="muted">of</span><input type="number" id="in-total" min="1" max="6" aria-label="Query words total"></div>
+        </div>
+        <div class="field"><label for="in-id">ID in the query</label>
+          <select id="in-id"><option value="none">no ID in the query</option><option value="has">image has the ID</option><option value="lacks">image lacks the ID</option></select>
+        </div>
+      </div>
+      <div class="inline-fields">
+        <label class="check"><input type="checkbox" id="in-gib"> Model knows none of the words (gibberish)</label>
+        <label class="check"><input type="checkbox" id="in-kw"> Keywords mode (the toggle, or the model failed)</label>
+      </div>
+    </div>
+    <div class="lab-out" aria-live="polite">
+      <div class="big-score"><span class="pct" id="out-pct">0%</span><span class="tier" id="out-tier">faint</span></div>
+      <div class="meter">
+        <div class="row"><span>Meaning · clamp((cos − 0.20) / 0.50)</span><b id="out-mean"></b></div>
+        <div class="bar"><i id="bar-mean"></i></div>
+      </div>
+      <div class="meter">
+        <div class="row"><span>Words · rank × found / total</span><b id="out-words"></b></div>
+        <div class="bar"><i id="bar-words"></i></div>
+      </div>
+      <div class="meter">
+        <div class="row"><span>Confidence · drop under 0.12, strong at 0.50</span><b id="out-conf"></b></div>
+        <div class="bar acc" id="bar-conf-wrap"><i id="bar-conf"></i><span class="tick" style="left:12%"></span><span class="tick" style="left:50%"></span></div>
+      </div>
+      <div class="formula" id="out-formula"></div>
+      <div class="uiline" id="out-ui"></div>
+    </div>
+  </div>
+
+  <div class="grid-3" style="margin-top:24px">
+    <div class="panel flat stack"><h4>Why stretch the cosine</h4><p class="muted" style="font-size:14px">Raw cosine is a bad confidence. Unrelated captions still score about 0.2, and good matches reach 0.6 to 0.8. So 0.20–0.70 is stretched to 0–1. Until Nov 9 the top was 0.50; plate 05 says why that changed.</p></div>
+    <div class="panel flat stack"><h4>Why "found / total"</h4><p class="muted" style="font-size:14px">The OR query lets one word match. Without coverage, "solar flares" would give full word credit to "Parker Solar Probe". With it, Parker gets half.</p></div>
+    <div class="panel flat stack"><h4>Why id_rule is stored</h4><p class="muted" style="font-size:14px">The ID rule changes the score after the blend, so the meaning and words shown no longer add up to the score on screen. Each hit keeps <code>id_rule</code> (raised / halved / null) so the UI can explain it.</p></div>
+  </div>
+</section>
+
+<!-- ============ QUALITY ============ -->
+<section class="chap" id="quality" data-short="Measured">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 05</b> Search quality</div>
+    <h2>Measured, not guessed</h2>
+    <p class="lede"><code>scripts/eval_search.py</code> has 15 queries with hand-labelled relevant images, plus 3 off-topic and 3 gibberish queries. It calls the real retrieval and scoring code, stores nothing, and can grid-search the constants with <code>--tune</code>.</p>
+  </div>
+  <div class="grid-2">
+    <div class="panel" id="qual-chart">
+      <div class="panel-title"><h3>Hybrid wins on precision, ties on recall</h3><div class="legend"><span><i style="background:var(--muted)"></i>P@5</span><span><i style="background:var(--bar-faint)"></i>Recall</span></div></div>
+      <div class="hbars">
+        <div class="hbar-row"><div class="name">Keyword<small>full-text only</small></div><div class="hbar-pair"><div class="hb p5"><div class="track"><i style="width:62%"></i></div><b>0.62</b></div><div class="hb"><div class="track"><i style="width:82%"></i></div><b>0.82</b></div></div></div>
+        <div class="hbar-row"><div class="name">Meaning<small>vectors only</small></div><div class="hbar-pair"><div class="hb p5"><div class="track"><i style="width:75%"></i></div><b>0.75</b></div><div class="hb"><div class="track"><i style="width:97%"></i></div><b>0.97</b></div></div></div>
+        <div class="hbar-row win"><div class="name"><b>Hybrid</b><small>what the app uses</small></div><div class="hbar-pair"><div class="hb p5"><div class="track"><i style="width:83%"></i></div><b class="accent">0.83</b></div><div class="hb"><div class="track"><i style="width:97%"></i></div><b>0.97</b></div></div></div>
+        <div class="axis"><span></span><div class="ticks"><span style="left:0">0</span><span style="left:25%">.25</span><span style="left:50%">.5</span><span style="left:75%">.75</span><span style="left:100%">1</span></div><span></span></div>
+      </div>
+      <p class="note" style="margin-top:14px">P@5: how many of the top 5 are relevant. Recall: how many relevant images come back at all. Current constants (ceiling 0.70, minimum 0.12).</p>
+    </div>
+    <div class="stack">
+      <div class="zeros">
+        <div><b>0</b><span>gibberish results ("zzqx", "lorem ipsum")</span></div>
+        <div><b>0</b><span>strong off-topic results ("black hole")</span></div>
+        <div><b>0</b><span>strong results without the queried ID</span></div>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">Choice 1 · how to combine</h4>
+        <div class="scroll-x">
+        <table class="tbl">
+          <thead><tr><th>Formula</th><th class="num">P@5</th><th class="num">Recall</th><th>STS-135 order</th></tr></thead>
+          <tbody>
+            <tr><td>50/50 average (first version)</td><td class="num">0.79</td><td class="num">0.90</td><td>correct</td></tr>
+            <tr><td>Noisy-OR</td><td class="num">0.82</td><td class="num">0.96</td><td class="accent">wrong</td></tr>
+            <tr><td>max(meaning, average)</td><td class="num">0.76</td><td class="num">0.96</td><td class="accent">wrong</td></tr>
+            <tr class="hl"><td><b>80% meaning + 20% words</b></td><td class="num"><b>0.82</b></td><td class="num"><b>0.96</b></td><td>correct</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p class="note" style="margin-top:10px">History: measured with the old ceiling 0.50, before the guard rules. 50/50 capped a meaning-only match at 0.5, so it could never be strong.</p>
+      </div>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:24px" id="tier-fix">
+    <div class="panel-title"><h3>The Nov 9 fix: are the orange results right?</h3><span class="file">backend/config.py · commit 8d4b9f0</span></div>
+    <div class="grid-2">
+      <div class="stack" style="gap:12px">
+        <p style="color:var(--soft);font-size:14.5px">P@5 and recall don't say whether the <b>orange</b> results are right, so the eval got a new metric, <b>relevant among strong</b>. With the old constants only <b>30%</b> of strong results were relevant.</p>
+        <p style="color:var(--soft);font-size:14.5px"><b>The cause:</b> any cosine of 0.50 or more counted as "Meaning 100%". A real rover photo (0.67) and an orbital Mars photo with no rover (0.55) looked identical, so the model's difference was thrown away.</p>
+        <p style="color:var(--soft);font-size:14.5px"><b>The fix:</b> the ceiling went from 0.50 to <b>0.70</b>, and the minimum from 0.20 to <b>0.12</b> to keep recall. Floor, 80/20, the 0.5 strong line and both guard rules didn't change.</p>
+      </div>
+      <div class="stack" style="gap:14px">
+        <div class="meter"><div class="row"><span>El Capitan · real rover · cosine 0.67 · old ceiling</span><b>100%</b></div><div class="bar"><i style="width:100%"></i></div></div>
+        <div class="meter"><div class="row"><span>Lycus Sulci · orbital · cosine 0.55 · old ceiling</span><b>100%</b></div><div class="bar"><i style="width:100%"></i></div></div>
+        <div class="meter"><div class="row"><span>El Capitan · new ceiling 0.70</span><b>94%</b></div><div class="bar acc"><i style="width:94%"></i></div></div>
+        <div class="meter"><div class="row"><span>Lycus Sulci · new ceiling 0.70</span><b>70%</b></div><div class="bar"><i style="width:70%"></i></div></div>
+        <div class="scroll-x">
+        <table class="tbl">
+          <thead><tr><th>Hybrid eval</th><th class="num">Before</th><th class="num">After</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td><b>Relevant among strong</b></td><td class="num">0.30</td><td class="num"><b>0.55</b></td></tr>
+            <tr><td>Strong results (all queries)</td><td class="num">132</td><td class="num">47</td></tr>
+            <tr><td>P@5 / recall</td><td class="num">0.83 / 0.97</td><td class="num">0.83 / 0.97</td></tr>
+            <tr><td>Strong off-topic · gibberish · no-ID</td><td class="num">0 · 0 · 0</td><td class="num">0 · 0 · 0</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:24px">
+    <div class="panel">
+      <h4 style="margin-bottom:10px">Choice 2 · which model (9 compared)</h4>
+      <div class="scroll-x">
+      <table class="tbl">
+        <thead><tr><th>Model</th><th class="num">Size</th><th class="num">Latency</th><th class="num">P@5</th></tr></thead>
+        <tbody>
+          <tr class="hl"><td><b>all-MiniLM-L6-v2</b> (chosen)</td><td class="num">87 MB</td><td class="num">0.7 ms</td><td class="num"><b>0.82</b></td></tr>
+          <tr><td>granite-embedding-small-r2</td><td class="num">188 MB</td><td class="num">1.9 ms</td><td class="num">0.79</td></tr>
+          <tr><td>gte-base</td><td class="num">416 MB</td><td class="num">4.5 ms</td><td class="num">0.79</td></tr>
+          <tr><td>bge-base-en-v1.5 (quant.)</td><td class="num">208 MB</td><td class="num">7.8 ms</td><td class="num">0.74</td></tr>
+          <tr><td>bge-small-en-v1.5 (the plan)</td><td class="num">64 MB</td><td class="num">1.5 ms</td><td class="num">0.68</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="note" style="margin-top:10px">5 of 9 rows shown, measured with the old constants. Full sweep in <code>docs/search-eval.md</code>.</p>
+    </div>
+    <div class="panel">
+      <h4 style="margin-bottom:10px">The known limits</h4>
+      <p style="color:var(--soft);font-size:14.5px"><b>"mars rover" is read as mostly "Mars".</b> Cosine of "mars rover" with "mars" is 0.74. So 3 of the 7 strong results are orbital photos with no rover: Lycus Sulci 61%, Ganges Chasma 56%, Ophir Chasma 51%. Flip to Keywords and they drop to about 22%.</p>
+      <p style="color:var(--soft);font-size:14.5px;margin-top:10px"><b>"red planet" stays faint:</b> 9 results, none strong, best Lycus Sulci 25%. MiniLM gives it the same cosine (0.359) as "solar flares" → Parker Solar Probe.</p>
+      <p class="muted" style="font-size:14px;margin-top:10px">Next: a rule that partial matches of a multi-word query can't be strong, or a cross-encoder re-ranker on the top 20.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DATA ============ -->
+<section class="chap" id="data" data-short="Data">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 06</b> Data model</div>
+    <h2>Three tables in one Postgres</h2>
+    <p class="lede">Images, searches, and the results of each search. The search index is not a separate service: it's two columns on <code>sources</code>, a generated text-search vector and a 384-number embedding. Hover an index below to see which columns it covers.</p>
+  </div>
+  <div class="er">
+    <div class="ent" id="ent-sources">
+      <div class="ent-h"><b>sources</b><span>100 rows · the images</span></div>
+      <div class="col" data-c="s.id"><span>id <span class="tag">PK</span></span><span class="ty">int</span></div>
+      <div class="col" data-c="s.nasa_id"><span>nasa_id <span class="tag">UNIQUE</span></span><span class="ty">text</span></div>
+      <div class="col" data-c="s.title"><span>title · short_title · credit</span><span class="ty">text</span></div>
+      <div class="col" data-c="s.desc"><span>description</span><span class="ty">text</span></div>
+      <div class="col" data-c="s.date"><span>date_created</span><span class="ty">timestamptz</span></div>
+      <div class="col" data-c="s.kw"><span>center · keywords[] · photographer · location</span><span class="ty">text</span></div>
+      <div class="col" data-c="s.url"><span>image_url · thumb_url</span><span class="ty">text</span></div>
+      <div class="col grp"><span>place (flat, one per image)</span><span></span></div>
+      <div class="col" data-c="s.place"><span>place_body · lat · lon · label · provenance</span><span class="ty">mixed</span></div>
+      <div class="col grp"><span>search index</span><span></span></div>
+      <div class="col" data-c="s.emb"><span>embedding <span class="tag">NULL until seeded</span></span><span class="ty">vector(384)</span></div>
+      <div class="col" data-c="s.tsv"><span>search_vector <span class="tag">GENERATED</span></span><span class="ty">tsvector</span></div>
+    </div>
+    <div class="rel"><svg viewBox="0 0 56 40" aria-hidden="true"><line x1="4" y1="20" x2="52" y2="20"/><text x="4" y="14">1</text><text x="46" y="14">n</text></svg></div>
+    <div class="ent" id="ent-results">
+      <div class="ent-h"><b>search_results</b><span>≤ 50 per search</span></div>
+      <div class="col" data-c="r.sid"><span>search_id <span class="tag">PK · FK cascade</span></span><span class="ty">int</span></div>
+      <div class="col" data-c="r.rank"><span>rank <span class="tag">PK</span></span><span class="ty">int</span></div>
+      <div class="col" data-c="r.src"><span>source_id <span class="tag">FK</span></span><span class="ty">int</span></div>
+      <div class="col" data-c="r.conf"><span>confidence</span><span class="ty">float</span></div>
+      <div class="col" data-c="r.kw"><span>keyword_score</span><span class="ty">float</span></div>
+      <div class="col" data-c="r.sem"><span>semantic_score</span><span class="ty">float</span></div>
+      <div class="col" data-c="r.id"><span>id_rule <span class="tag">raised / halved / null</span></span><span class="ty">text</span></div>
+    </div>
+    <div class="rel"><svg viewBox="0 0 56 40" aria-hidden="true"><line x1="4" y1="20" x2="52" y2="20"/><text x="4" y="14">n</text><text x="46" y="14">1</text></svg></div>
+    <div class="ent" id="ent-searches">
+      <div class="ent-h"><b>searches</b><span>the history</span></div>
+      <div class="col" data-c="h.id"><span>id <span class="tag">PK</span></span><span class="ty">int</span></div>
+      <div class="col" data-c="h.q"><span>query</span><span class="ty">text</span></div>
+      <div class="col" data-c="h.at"><span>created_at <span class="tag">default now()</span></span><span class="ty">timestamptz</span></div>
+      <div class="col" data-c="h.n"><span>result_count</span><span class="ty">int</span></div>
+      <div class="col" data-c="h.eng"><span>engine <span class="tag">hybrid / keyword</span></span><span class="ty">text</span></div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:28px">
+    <div class="panel">
+      <h4 style="margin-bottom:10px">Indexes, and why each exists</h4>
+      <div class="scroll-x">
+      <table class="tbl idx-tbl" id="idx-tbl">
+        <thead><tr><th>Index</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr data-cols="s.tsv"><td><code>GIN</code> on search_vector</td><td class="muted">Find rows containing the query words (<code>@@</code>) without a full scan.</td></tr>
+          <tr data-cols="s.emb"><td><code>HNSW</code> on embedding</td><td class="muted">Nearest neighbours by cosine (<code>&lt;=&gt;</code>). At 100 rows Postgres scans instead; the index is for scale.</td></tr>
+          <tr data-cols="s.date,s.id"><td>date_created DESC, id</td><td class="muted">Matches the browse ORDER BY exactly.</td></tr>
+          <tr data-cols="h.at,h.id"><td>created_at DESC, id DESC</td><td class="muted">Matches the history order and the keyset row comparison.</td></tr>
+          <tr data-cols="r.sid,r.rank"><td>PK (search_id, rank)</td><td class="muted">Loads one search in rank order; also the top-3 previews.</td></tr>
+          <tr data-cols="r.src"><td>search_results.source_id</td><td class="muted">Added for the FK join.</td></tr>
+          <tr data-cols="s.nasa_id"><td>UNIQUE nasa_id</td><td class="muted">The seed and places.json join on it.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h4 style="margin-bottom:10px">Key choices</h4>
+      <ul style="color:var(--soft);font-size:14px">
+        <li><b>search_vector is generated.</b> Title has weight A, keywords B, description C, so a title word ranks higher. Generated columns need IMMUTABLE functions and <code>array_to_string</code> is only STABLE, so <code>db/schema.py</code> adds a tiny <code>immutable_array_to_string</code> wrapper.</li>
+        <li><b>Place columns are flat</b> on sources, not a table. Each image has exactly one place.</li>
+        <li><b>embedding is NULL</b> until the seed fills it. Such a row is keyword-only.</li>
+        <li><b>No Alembic.</b> <code>create_all</code> plus idempotent <code>ALTER … ADD COLUMN IF NOT EXISTS</code> for later columns (<code>id_rule</code>, <code>short_title</code>, <code>credit</code>).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BACKEND ============ -->
+<section class="chap" id="backend" data-short="Backend">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 07</b> Backend layers</div>
+    <h2>HTTP, logic and SQL each live in one place</h2>
+    <p class="lede">The scaffold had controllers → repositories → db. I kept that and added <code>services/</code> for logic that is neither HTTP nor SQL. A request goes down the stack; a Pydantic model comes back up. Nothing above the repositories knows SQLAlchemy exists.</p>
+  </div>
+  <div class="layers">
+    <div style="min-width:0">
+    <div class="layer-stack" id="layer-stack">
+      <span class="traveler" id="trav" aria-hidden="true"></span>
+      <div class="layer" data-l="0"><div class="ln">controllers/<small>HTTP only</small></div><h3>Routes, params, status codes</h3><p>Validates with Pydantic, maps errors to 400/404/422. <code>dependencies.py</code> injects the embedder so tests can swap it.</p></div>
+      <div class="layer" data-l="1"><div class="ln">services/<small>logic</small></div><h3>The search use case</h3><p><code>search.py</code> orchestrates, <code>scoring.py</code> is pure math, <code>embedding.py</code> wraps the model, <code>cursor.py</code> encodes history cursors.</p></div>
+      <div class="layer" data-l="2"><div class="ln">repositories/<small>all SQL</small></div><h3>Queries in, Pydantic out</h3><p><code>source.py</code> browse + places, <code>search.py</code> the hybrid query, <code>history.py</code> create / page / get / delete.</p></div>
+      <div class="layer" data-l="3"><div class="ln">db/<small>engine</small></div><h3>Models, async session, schema</h3><p>SQLAlchemy models, asyncpg engine, and <code>schema.py</code> that is safe to run on every start.</p></div>
+    </div>
+    <div class="trav-cap" id="trav-cap"><i></i><span>POST /api/searches travels down</span></div>
+    </div>
+    <div class="stack">
+      <div class="panel">
+        <h4 style="margin-bottom:10px">The API (8 endpoints)</h4>
+        <div class="scroll-x">
+        <table class="tbl api-tbl">
+          <tbody>
+            <tr><td><code>GET /api/sources</code></td><td class="muted">{items, total}, offset pages, optional center / body filter</td></tr>
+            <tr><td><code>GET /api/sources/{id}</code></td><td class="muted">One image with metadata and its place</td></tr>
+            <tr><td><code>POST /api/searches</code></td><td class="muted">body {query, mode?}: mode "hybrid" (default) or "keyword". 201 + the stored snapshot</td></tr>
+            <tr><td><code>GET /api/searches</code></td><td class="muted">{items, next_cursor, total}; <code>?cursor=</code> <code>?q=</code></td></tr>
+            <tr><td><code>GET /api/searches/{id}</code></td><td class="muted">The snapshot, never a re-run</td></tr>
+            <tr><td><code>DELETE /api/searches/{id}</code></td><td class="muted">204, or 404 the second time</td></tr>
+            <tr><td><code>GET /api/places</code></td><td class="muted">One light row per image for the scene</td></tr>
+            <tr><td><code>GET /api/health</code></td><td class="muted">{status, db, embedder}; 503 only if the DB is down</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">Startup, and when things fail</h4>
+        <ul style="color:var(--soft);font-size:14px">
+          <li><b>Lifespan</b> creates the schema, then loads the model once into <code>app.state.embedder</code>.</li>
+          <li><b>Seed on every start</b> only fills what is missing. The scaffold dropped all tables each start, which would have erased history.</li>
+          <li><b>Model fails to load?</b> <code>load_embedder</code> returns a <code>NullEmbedder</code>. Search runs keyword-only, health says <code>degraded</code> but stays 200.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HISTORY ============ -->
+<section class="chap" id="history" data-short="History">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 08</b> Search history</div>
+    <h2>Snapshots, keyset pages, and an undo that never touches the server</h2>
+    <p class="lede">Every search is stored with its results, so reopening shows exactly what you saw, even after the model or constants change. The list pages with a cursor instead of an offset. Run the demo below to see why.</p>
+  </div>
+
+  <div class="panel" id="ks-panel">
+    <div class="panel-title">
+      <h3>Delete a row, then load page 2</h3>
+      <div class="controls"><button type="button" class="btn primary" id="ks-next">Step 1: load page 1</button><button type="button" class="btn" id="ks-reset">Reset</button></div>
+    </div>
+    <div class="ks">
+      <div class="ks-col">
+        <header><b>Offset</b><code>ORDER BY created_at DESC LIMIT 10 OFFSET 10</code></header>
+        <ul class="ks-list" id="ks-off"></ul>
+        <div class="ks-verdict" id="ks-off-v"></div>
+      </div>
+      <div class="ks-col">
+        <header><b>Keyset (what the app uses)</b><code>WHERE (created_at, id) &lt; (:last_at, :last_id) ORDER BY created_at DESC, id DESC LIMIT 11</code></header>
+        <ul class="ks-list" id="ks-key"></ul>
+        <div class="ks-verdict" id="ks-key-v"></div>
+      </div>
+    </div>
+    <p class="note" style="margin-top:12px">LIMIT 11 = page size + 1: the extra row only tells the server a next page exists. <code>test_history_keyset_pagination_and_delete</code> checks this exact scenario with 25 searches.</p>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px">
+    <div class="panel">
+      <div class="panel-title"><h3>The cursor is opaque</h3><span class="file">services/cursor.py</span></div>
+      <div class="cursor-box">
+        <p class="muted" style="font-size:14px">The client only passes it back, so the key can change without breaking the API. A bad cursor is a 400; a naive datetime or a non-integer id is rejected.</p>
+        <div class="inline-fields">
+          <div class="field"><label for="cur-id">last row id</label><input type="number" id="cur-id" value="16" min="1" style="width:90px"></div>
+        </div>
+        <pre id="cur-json"></pre>
+        <pre id="cur-b64" style="color:var(--accent-text)"></pre>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><h3>Delete with 6 seconds to undo</h3><span class="file">components/UndoDelete.tsx</span></div>
+      <div class="undo-demo">
+        <div class="hrow" id="u-row">
+          <div><div class="q">mars rover</div><div class="meta">19 images · 10 strong · best 96%</div></div>
+          <button type="button" class="btn" id="u-del">Delete</button>
+        </div>
+        <div class="toast" id="u-toast" hidden><span id="u-msg">Search deleted. Gone in 6 s</span><button type="button" class="btn" id="u-undo">Undo</button></div>
+        <div class="timeline6"><div class="fill" id="u-fill"></div><span class="mk" style="left:0">0 s · row hides</span><span class="mk" style="left:100%;transform:translateX(-100%)">6 s · DELETE</span></div>
+        <div class="log" id="u-log"><span class="f">Press Delete to start.</span></div>
+        <p class="note">A deleted snapshot can't be rebuilt, so undo must happen before the server deletes. No soft-delete column needed. If the tab closes, <code>pagehide</code> sends the DELETE with <code>fetch(…, {keepalive: true})</code>.</p>
+      </div>
+    </div>
+  </div>
+  <div class="grid-3" style="margin-top:24px">
+    <div class="panel flat stack"><h4>Row stats, no N+1</h4><p class="muted" style="font-size:14px">"N images, K strong, best X%" comes from a LATERAL subquery for the page's rows only, and the top-3 thumbnails from one extra query for the whole page.</p></div>
+    <div class="panel flat stack"><h4>Find a past search</h4><p class="muted" style="font-size:14px"><code>?q=</code> filters on the server with ILIKE, so it searches all history, not just loaded pages. <code>%</code> and <code>_</code> in your text are escaped.</p></div>
+    <div class="panel flat stack"><h4>Global history</h4><p class="muted" style="font-size:14px">There are no users in the brief, so anyone can see or delete any search. Next step: an <code>owner_id</code> on <code>searches</code>.</p></div>
+  </div>
+</section>
+
+<!-- ============ FRONTEND ============ -->
+<section class="chap" id="frontend" data-short="Frontend">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 09</b> Frontend</div>
+    <h2>Server state in React Query, everything else in the URL</h2>
+    <p class="lede">Vite, React 18, TypeScript, Tailwind, TanStack Query 5, react-router 6. There is no global store. Lists, details and history are server state, so React Query caches them. The rest (which image is open, is the drawer open, which years) lives in the URL.</p>
+  </div>
+
+  <div class="flow-row">
+    <div><b>Components</b><span>pages/, components/, scene/</span></div>
+    <div><b>Hooks</b><span>hooks/: the only code that uses the API</span></div>
+    <div><b>api/client.ts</b><span>the only fetch; FastAPI errors → one ApiError</span></div>
+    <div><b>/api/*</b><span>types.ts mirrors Pydantic, snake_case, no mapping</span></div>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px">
+    <div class="panel">
+      <h4 style="margin-bottom:10px">React Query keys</h4>
+      <div class="scroll-x">
+      <table class="tbl">
+        <thead><tr><th>Key</th><th>Hook</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td><code>["sources","all"]</code></td><td>useArchive</td><td class="muted">all 100 in one request, staleTime ∞</td></tr>
+          <tr><td><code>["source", id]</code></td><td>useSource</td><td class="muted">initialData from the archive, so the modal opens instantly</td></tr>
+          <tr><td><code>["search", id]</code></td><td>useSearch</td><td class="muted">staleTime ∞: a snapshot never changes. Seeded by the POST.</td></tr>
+          <tr><td><code>["history", q]</code></td><td>useHistory</td><td class="muted">infinite query; next_cursor is the page param</td></tr>
+          <tr><td><code>["places"]</code></td><td>usePlaces</td><td class="muted">the scene, staleTime ∞</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="note" style="margin-top:10px">Defaults: 5 min staleTime, no refetch on focus, one retry on network/5xx, no retry on 4xx.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><h3>The URL is the state</h3><span class="note">Toggle and watch</span></div>
+      <div class="stack" style="gap:12px">
+        <div class="controls">
+          <div class="seg" role="group" aria-label="Route">
+            <button type="button" data-route="/" aria-pressed="true">/</button>
+            <button type="button" data-route="/search/42" aria-pressed="false">/search/42</button>
+          </div>
+          <button type="button" class="btn" data-param="image" aria-pressed="false">?image=17</button>
+          <button type="button" class="btn" data-param="history" aria-pressed="false">?history=1</button>
+          <button type="button" class="btn" data-param="years" aria-pressed="false">?from=2010&amp;to=2012</button>
+        </div>
+        <div class="urlbar" id="url-bar"></div>
+        <div class="mock" id="url-mock">
+          <div class="pg" id="url-pg"></div>
+          <div class="rangeband" id="url-range" hidden><i></i></div>
+          <div class="scrim" id="url-scrim"></div>
+          <div class="modal" id="url-modal">Image details · &lt;dialog&gt;</div>
+          <div class="drawer" id="url-drawer"><b>History</b><i></i><i></i><i></i><i></i></div>
+          <span class="pgname" id="url-name"></span>
+        </div>
+        <p class="note" id="url-note"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:24px">
+    <div class="panel-title">
+      <h3>Archive → results: every photo glides to its rank</h3>
+      <div class="controls"><button type="button" class="btn primary" id="ft-go">Search "mars rover"</button><span class="file">lib/viewTransition.ts</span></div>
+    </div>
+    <div class="ft" id="ft"></div>
+    <p class="note" style="margin-top:12px">The app wraps the navigation in <code>document.startViewTransition</code>, and each frame has the same <code>view-transition-name</code> (<code>frame-&lt;id&gt;</code>) on both pages, so the browser animates it. The glide is staggered by rank (rank 1 first, 40 ms apart) and set-aside frames fade where they were. No animation library. This demo fakes it with FLIP. The 7 strong titles and % are the real "mars rover" results after the Nov 9 fix.</p>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px">
+    <div class="panel">
+      <h4 style="margin-bottom:12px">Lazy scene: three.js only when you open it</h4>
+      <div class="bundle">
+        <div class="b"><span>Main bundle</span><div class="tr"><i class="g" style="width:29.3%"></i></div><b>268 kB · 85 gzip</b></div>
+        <div class="b"><span>Scene chunk</span><div class="tr"><i style="width:100%"></i></div><b>916 kB · 254 gzip</b></div>
+      </div>
+      <p class="note" style="margin-top:12px">Bars to scale (raw size). <code>React.lazy</code> on ScenePage: the archive, results and history never download it.</p>
+    </div>
+    <div class="panel">
+      <h4 style="margin-bottom:10px">Small things that show care</h4>
+      <ul style="color:var(--soft);font-size:14px">
+        <li><b>Search on submit, not per key</b>: each run is a history entry. A ref blocks a second submit in flight, so three fast Enters save one search.</li>
+        <li><b>useResultView</b> combines snapshot + archive + year range; header, page and modal all call it, so counts always agree.</li>
+        <li><b>Native &lt;dialog&gt;</b> for details: focus trap, Esc and inert page for free.</li>
+        <li><b>Combined / Keywords toggle</b> in the dock. On a results page, switching re-runs the same words, so both rankings sit side by side in history ("keywords only").</li>
+        <li><b>Tokens</b> are CSS variables; the 3D scene reads the same ones.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCENE ============ -->
+<section class="chap" id="scene" data-short="In space">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 10</b> The special feature</div>
+    <h2>"Where in space": a map of where each photo was taken</h2>
+    <p class="lede">The captions hide a lot of place data: Mars coordinates, launch pads, "taken from the ISS". The scene puts every image on Earth, in orbit, on Mars or in deep space. From a results page, "See these in space →" lights your strong matches orange and faint ones white.</p>
+  </div>
+
+  <div class="pipe" id="pipe">
+    <div><span class="scan"></span><span class="k">1 · Rules draft</span><h3>build_places.py</h3><p>Mars lat/lon from the caption (0–360 E → ±180), ISS and Shuttle photo-ID patterns, the location field, named sites, NASA center as last resort.</p></div>
+    <div><span class="scan"></span><span class="k">2 · Hand review</span><h3>All 100 checked</h3><p>27 entries changed. A storm photo belongs off New England, not at Goddard which published it.</p></div>
+    <div><span class="scan"></span><span class="k">3 · Provenance</span><h3>How we know</h3><p>caption 58 · location field 30 · manual 8 · NASA center (approx.) 4. The card says it in words.</p></div>
+    <div><span class="scan"></span><span class="k">4 · Load</span><h3>places.json → seed</h3><p>Applied by nasa_id on every start. <code>test_places.py</code> checks one valid place per image.</p></div>
+  </div>
+
+  <div class="scene-wrap" style="margin-top:24px">
+    <div class="globe-box">
+      <canvas id="globe" aria-label="Line-art Earth with orbit rings and photo pins. Drag to rotate."></canvas>
+      <div class="globe-hud"><span>frames drawn <b id="g-frames">0</b></span><span id="g-state">drifting</span></div>
+      <div class="globe-ctrl">
+        <button type="button" class="btn" id="g-fly">Fly to Kennedy</button>
+        <button type="button" class="btn" id="g-fan" aria-pressed="false">Fan out cluster</button>
+        <button type="button" class="btn" id="g-search" aria-pressed="false">Light a search</button>
+        <button type="button" class="btn" id="g-drift" aria-pressed="true">Drift</button>
+      </div>
+    </div>
+    <div class="scene-info">
+      <div class="trick"><span class="ic"></span><p><b>Pins are one THREE.Points cloud.</b> Each pin is one vertex, drawn as a small square. Pins, cluster markers and leader lines are 3 draw calls, not 100 meshes.</p></div>
+      <div class="trick"><span class="ic w"></span><p><b>Render on demand</b> (<code>frameloop="demand"</code>). Turn off Drift: the frame counter stops. Values that change every frame live in refs, not React state.</p></div>
+      <div class="trick"><span class="ic g"></span><p><b>HTML labels by projection.</b> Each frame projects 3D anchors to pixels and moves divs with a CSS transform. Labels, click picking (12 px, 24 px on touch) and pins share one projection, so they always agree.</p></div>
+      <div class="trick"><span class="ic"></span><p><b>Clusters within 2.5°</b> (about 280 km). Kennedy alone has about 40 photos. A click fans them out on a sunflower spiral (golden angle) with a line back to each true spot.</p></div>
+      <div class="trick"><span class="ic w"></span><p><b>Not to scale, on purpose.</b> Planet sizes keep their real ratio and the rings keep real inclinations (ISS 51.6°, Shuttle 28.5°). Distances are shortened or Mars would be a dot.</p></div>
+      <p class="note">This globe is a 2D canvas sketch of the idea. Pin positions are approximate and only the Kennedy count comes from the docs.</p>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px">
+    <div class="panel">
+      <h4 style="margin-bottom:12px">Where the 100 images are</h4>
+      <div class="counts">
+        <div class="cnt"><span>Earth</span><div class="tr"><i style="width:77%"></i></div><b>77</b></div>
+        <div class="cnt"><span>Earth orbit</span><div class="tr"><i style="width:15%"></i></div><b>15</b></div>
+        <div class="cnt"><span>Mars</span><div class="tr"><i style="width:6%"></i></div><b>6</b></div>
+        <div class="cnt"><span>Deep space</span><div class="tr"><i style="width:2%"></i></div><b>2</b></div>
+        <div class="cnt"><span class="z">Moon</span><div class="tr"></div><b class="z">0</b></div>
+      </div>
+      <p class="note" style="margin-top:10px">Moon level is shown only when an image is on the Moon. Orbit photos have no ground spot, so they're spaced along their ring and drift.</p>
+    </div>
+    <div class="panel">
+      <h4 style="margin-bottom:10px">How you get there</h4>
+      <ul style="color:var(--soft);font-size:14px">
+        <li><code>/scene</code> or "Space view →" in the header.</li>
+        <li><code>/scene?focus=&lt;id&gt;</code>: "Fly there in Space view →" from image details. The camera swings around the planet, not through it.</li>
+        <li><code>/scene?search=&lt;id&gt;</code>: opens on the level with the most strong matches.</li>
+        <li>Year rail: one square per image, one row per year; drag to filter.</li>
+        <li>No WebGL? <code>WebGLBoundary</code> shows a message; the rest of the app works.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INFRA ============ -->
+<section class="chap" id="infra" data-short="Infra">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 11</b> Infrastructure</div>
+    <h2>Three compose files, one baked model, one Worker</h2>
+    <p class="lede"><code>docker compose up --build</code> starts Postgres with pgvector, the backend (seed, then uvicorn) and nginx with the built frontend. Production runs the same stack on one VM behind a Cloudflare Worker.</p>
+  </div>
+  <div class="infra-row">
+    <div><h3>docker-compose.yml</h3><span class="chip">local</span><ul><li>db: pgvector/pgvector:pg16 on 5433</li><li>backend on 5001, code bind-mounted, --reload</li><li>frontend: nginx on 3001 → 80, waits for a healthy backend</li></ul></div>
+    <div><h3>docker-compose.dev.yml</h3><span class="chip">hot reload</span><ul><li>Same db and backend, own volume</li><li>Vite dev server with HMR on 3001</li></ul></div>
+    <div><h3>docker-compose.prod.yml</h3><span class="chip">VM</span><ul><li>No host ports for db or backend</li><li>Password from .env (required)</li><li>restart: unless-stopped, no bind mount</li><li>nginx on 80, with the origin guard</li></ul></div>
+  </div>
+  <div class="grid-2" style="margin-top:24px">
+    <div class="panel">
+      <h4 style="margin-bottom:10px">Backend image</h4>
+      <ul style="color:var(--soft);font-size:14px">
+        <li><code>uv sync --frozen --no-dev</code> from <code>uv.lock</code>, pinned uv version.</li>
+        <li>Model downloaded at build into <code>/models</code>; venv in <code>/opt/venv</code>. Both outside <code>/app</code>, because compose bind-mounts <code>./backend</code> over it.</li>
+        <li>Start: <code>python scripts/seed_db.py &amp;&amp; uvicorn app:app</code>.</li>
+        <li>Health check calls <code>/api/health</code>: keyword-only is "degraded" but healthy.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h4 style="margin-bottom:10px">Edge: Worker + nginx</h4>
+      <ul style="color:var(--soft);font-size:14px">
+        <li>Worker: HTTPS on homework.nightcoding.dev, forwards to <code>ORIGIN</code>, limits <code>POST</code> and <code>DELETE</code> on <code>/api/searches</code> to 10/min per IP (429 + Retry-After).</li>
+        <li>Worker adds <code>X-Origin-Secret</code>; the VM's nginx returns 403 without it, so nobody can skip the rate limit by hitting port 80.</li>
+        <li>nginx: SPA fallback to index.html, 1-year cache for hashed assets, <code>server_tokens off</code>, nosniff, X-Frame-Options DENY, Referrer-Policy.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:24px">
+    <h4 style="margin-bottom:10px">Tests</h4>
+    <div class="scroll-x">
+    <table class="tbl">
+      <tbody>
+        <tr><td><b>Backend · pytest</b></td><td class="muted">API tests via <code>httpx.ASGITransport</code> on a real Postgres, separate DB <code>space_explorer_test</code>. A <code>FakeEmbedder</code> (bag-of-words hashing) replaces the model. Plus pure tests for scoring, cursors, places, titles, schema upgrade.</td></tr>
+        <tr><td><b>Frontend · vitest</b></td><td class="muted">The pure helpers in <code>src/lib/</code> and <code>src/scene/</code>: matching, titles, timeline, history, clustering, flights, layout, years.</td></tr>
+        <tr><td><b>Search quality</b></td><td class="muted"><code>docker compose exec backend python scripts/eval_search.py</code> (add <code>--tune</code> for the grid search).</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="note" style="margin-top:10px">84 backend tests and 142 frontend tests.</p>
+  </div>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section class="chap" id="decisions" data-short="Trade-offs">
+  <div class="chap-head">
+    <div class="plate"><b>PLATE 12</b> Decisions and trade-offs</div>
+    <h2>Every choice has a cost</h2>
+    <p class="lede">Open a row to see what each choice gave up. Below it: what changes at scale.</p>
+  </div>
+  <div class="dec" id="dec"></div>
+  <div class="panel" style="margin-top:28px">
+    <h4 style="margin-bottom:12px">At 1M images I would…</h4>
+    <div class="grid-2" style="gap:12px 32px">
+      <ul style="color:var(--soft);font-size:14px">
+        <li><b>Keep and tune the indexes.</b> GIN and HNSW already exist. HNSW returns at most <code>hnsw.ef_search</code> rows (default 40); the code already raises it per transaction to the 200 pool.</li>
+        <li><b>Add a cross-encoder re-ranker</b> on the top 20. This fixes "red planet" and close STS neighbours.</li>
+        <li><b>Cache query embeddings</b> (LRU or Redis by normalized query).</li>
+        <li><b>Embed on ingest via a queue</b>, not all at startup.</li>
+      </ul>
+      <ul style="color:var(--soft);font-size:14px">
+        <li><b>Alembic</b> for reviewed, versioned migrations.</li>
+        <li><b>Auth</b>: <code>owner_id</code> on searches; filter every history query and delete.</li>
+        <li><b>Page the archive</b> (keyset or viewport tiles), estimate the history count, server-side clusters for <code>/api/places</code>.</li>
+        <li><b>Observability</b>: latency, keyword-only rate, "no strong match" rate as a quality signal.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer class="end"><span>Space Explorer · Conntour home exercise</span><span>Details: docs/ARCHITECTURE.md and docs/search-eval.md</span></footer>
+
+</main>
+
+<script>
+(() => {
+"use strict";
+const RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const NS = "http://www.w3.org/2000/svg";
+const svgEl = (tag, attrs, parent) => {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+};
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const onVisible = (elm, on, off) => {
+  if (!("IntersectionObserver" in window)) { on(); return; }
+  new IntersectionObserver((es) => es.forEach((e) => (e.isIntersecting ? on() : off && off())), { threshold: 0.05 }).observe(elm);
+};
+let palette = {};
+function readPalette() {
+  const cs = getComputedStyle(document.documentElement);
+  ["bg","surface","raised","line","line-strong","fg","soft","muted","faint","accent","accent-text","bar-faint"].forEach((k) => { palette[k] = cs.getPropertyValue("--" + k).trim(); });
+}
+readPalette();
+const themeChanged = [];
+try { window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => { readPalette(); themeChanged.forEach((f) => f()); }); } catch (e) {}
+new MutationObserver(() => { readPalette(); themeChanged.forEach((f) => f()); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+/* ================= chapter nav + progress ================= */
+const chapters = $$("section.chap");
+const nav = $("#chapters");
+chapters.forEach((s, i) => {
+  const a = document.createElement("a");
+  a.href = "#" + s.id;
+  a.innerHTML = `<span class="n">${String(i).padStart(2, "0")}</span>${s.dataset.short}`;
+  nav.appendChild(a);
+});
+const links = $$("a", nav);
+const prog = $("#progress");
+let curChap = -1;
+function onScroll() {
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  prog.style.width = (max > 0 ? (window.scrollY / max) * 100 : 0) + "%";
+  let cur = 0;
+  chapters.forEach((s, i) => { if (s.getBoundingClientRect().top < 160) cur = i; });
+  if (cur !== curChap) {
+    curChap = cur;
+    links.forEach((a, i) => a.classList.toggle("on", i === cur));
+    const a = links[cur], nr = nav.getBoundingClientRect(), ar = a.getBoundingClientRect();
+    if (ar.left < nr.left || ar.right > nr.right) nav.scrollBy({ left: ar.left - nr.left - nr.width / 2 + ar.width / 2, behavior: RM ? "auto" : "smooth" });
+  }
+}
+window.addEventListener("scroll", onScroll, { passive: true });
+window.addEventListener("resize", onScroll);
+onScroll();
+
+/* ================= PLATE 02: system map ================= */
+const SYS = {
+  browser: { t: "Browser · React SPA", chips: ["Vite", "React 18", "TanStack Query 5", "react-router 6"],
+    li: ["A Vite build of React + TypeScript, served by nginx as plain static files.",
+         "React Query caches every API response. The URL holds the view state, so every screen can be linked.",
+         "Loads the photos straight from NASA's image host."],
+    files: ["frontend/src/App.tsx", "frontend/src/api/client.ts"] },
+  worker: { t: "Cloudflare Worker", chips: ["prod only", "429 + Retry-After"],
+    li: ["Gives HTTPS on homework.nightcoding.dev with no certificates on the VM.",
+         "Limits POST /api/searches and DELETE /api/searches/* to 10 per minute per IP.",
+         "Adds an X-Origin-Secret header, so the VM answers only requests that came through it."],
+    files: ["deploy/worker/src/index.ts", "deploy/worker/wrangler.toml"] },
+  nginx: { t: "nginx", chips: ["SPA fallback", "same-origin /api"],
+    li: ["Serves the built files. Unknown paths fall back to index.html so client routes work on reload.",
+         "Proxies /api/ to the backend, so the app is same-origin and needs no CORS.",
+         "Caches hashed assets for a year, hides its version, sends nosniff, X-Frame-Options and Referrer-Policy.",
+         "In production, returns 403 to any request without the Worker's secret."],
+    files: ["frontend/nginx.conf", "deploy/nginx/origin-guard.conf.template"] },
+  fastapi: { t: "FastAPI + the model", chips: ["uvicorn", "asyncpg", "fastembed / ONNX"],
+    li: ["Lifespan creates the schema, then loads all-MiniLM-L6-v2 once into app.state.embedder.",
+         "The model runs in-process on CPU: about 0.7 ms per query, no external service.",
+         "Embedding runs in a threadpool so CPU work never blocks the async event loop.",
+         "If the model can't load, a NullEmbedder switches search to keyword-only."],
+    files: ["backend/app.py", "backend/services/embedding.py"] },
+  db: { t: "Postgres 16 + pgvector", chips: ["vector(384)", "HNSW", "tsvector + GIN"],
+    li: ["One store for images, vectors and history, so a search and its snapshot commit in one transaction.",
+         "pgvector adds the vector column, the <=> cosine-distance operator and the HNSW index.",
+         "Full-text search uses a generated tsvector column with a GIN index.",
+         "Seeded on every start without deleting anything, so history survives restarts."],
+    files: ["backend/db/models.py", "backend/db/schema.py", "backend/scripts/seed_db.py"] },
+  nasa: { t: "NASA's image host", chips: ["image_url", "thumb_url"],
+    li: ["The database stores only the two URLs per image.",
+         "The browser fetches the JPEGs directly, so our servers never carry image bytes.",
+         "That keeps the backend small: production runs on one e2-small VM."],
+    files: ["backend/data/mock_data.json"] },
+};
+const sysInfo = $("#sys-info");
+function showNode(key) {
+  const d = SYS[key];
+  $$(".node").forEach((n) => n.classList.toggle("on", n.dataset.node === key));
+  sysInfo.innerHTML = `<div class="plate"><b>Selected</b></div><h3>${d.t}</h3>
+    <div class="chiprow">${d.chips.map((c) => `<span class="chip">${c}</span>`).join("")}</div>
+    <ul>${d.li.map((l) => `<li>${l.replace(/</g, "&lt;")}</li>`).join("")}</ul>
+    <div class="stack" style="gap:2px">${d.files.map((f) => `<span class="file">${f}</span>`).join("")}</div>`;
+}
+$$(".node").forEach((n) => {
+  n.addEventListener("click", () => showNode(n.dataset.node));
+  n.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showNode(n.dataset.node); } });
+});
+showNode("fastapi");
+
+let sysMode = "local";
+const CHAINS = { local: ["e-local", "e-nf", "e-fdb"], prod: ["e-bw", "e-wn", "e-nf", "e-fdb"] };
+function setMode(m) {
+  sysMode = m;
+  $("#env-local").setAttribute("aria-pressed", String(m === "local"));
+  $("#env-prod").setAttribute("aria-pressed", String(m === "prod"));
+  $("#node-worker").classList.toggle("off", m === "local");
+  $("#e-local").classList.toggle("off", m === "prod");
+  ["e-bw", "e-wn"].forEach((id) => { $("#" + id).classList.toggle("off", m === "local"); $("#" + id).classList.toggle("on", m === "prod"); });
+  $("#lbl-https").style.opacity = m === "prod" ? 1 : 0.15;
+  $("#port-nginx").textContent = m === "local" ? ":3001 → 80" : ":80 · needs X-Origin-Secret";
+  $("#port-api").textContent = m === "local" ? ":5001" : "no host port";
+  $("#port-db").textContent = m === "local" ? ":5433" : "no host port";
+  buildChain();
+  if (m === "prod") showNode("worker");
+}
+$("#env-local").addEventListener("click", () => setMode("local"));
+$("#env-prod").addEventListener("click", () => setMode("prod"));
+
+const pktG = $("#pkts");
+const req = svgEl("circle", { r: 5.5, class: "pkt", opacity: 0 }, pktG);
+const resp = svgEl("circle", { r: 5.5, class: "pkt back", opacity: 0 }, pktG);
+const imgs = [0, 1, 2].map(() => svgEl("circle", { r: 4, class: "pkt img", opacity: 0 }, pktG));
+let chain = null;
+function buildChain() {
+  const paths = CHAINS[sysMode].map((id) => document.getElementById(id));
+  const lens = paths.map((p) => p.getTotalLength());
+  chain = { paths, lens, total: lens.reduce((a, b) => a + b, 0) };
+}
+function pointOnChain(d) {
+  for (let i = 0; i < chain.paths.length; i++) {
+    if (d <= chain.lens[i]) return chain.paths[i].getPointAtLength(d);
+    d -= chain.lens[i];
+  }
+  const last = chain.paths.length - 1;
+  return chain.paths[last].getPointAtLength(chain.lens[last]);
+}
+setMode("local");
+const imgPath = $("#e-img"), imgLen = imgPath.getTotalLength();
+let sysRun = false, sysT0 = 0;
+function sysFrame(t) {
+  if (!sysRun) return;
+  const T = chain.total / 0.32, gap = 380, cycle = 2 * T + gap * 2;
+  const ph = (t - sysT0) % cycle;
+  if (ph < T) { const p = pointOnChain((ph / T) * chain.total); req.setAttribute("cx", p.x); req.setAttribute("cy", p.y); req.setAttribute("opacity", 1); resp.setAttribute("opacity", 0); }
+  else if (ph < T + gap) { req.setAttribute("opacity", 0); }
+  else if (ph < 2 * T + gap) { const p = pointOnChain((1 - (ph - T - gap) / T) * chain.total); resp.setAttribute("cx", p.x); resp.setAttribute("cy", p.y); resp.setAttribute("opacity", 1); }
+  else resp.setAttribute("opacity", 0);
+  imgs.forEach((c, i) => {
+    const f = (((t - sysT0) / 2600) + i / 3) % 1;
+    const p = imgPath.getPointAtLength(imgLen * (1 - f));
+    c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("opacity", 0.9);
+  });
+  requestAnimationFrame(sysFrame);
+}
+if (!RM) onVisible($("#sys-svg"), () => { if (!sysRun) { sysRun = true; sysT0 = performance.now(); requestAnimationFrame(sysFrame); } }, () => { sysRun = false; });
+
+/* ================= PLATE 03: sequence ================= */
+const LANES = [
+  { n: "Browser", s: "SearchDock · React Query" },
+  { n: "FastAPI", s: "controllers + services" },
+  { n: "Threadpool", s: "MiniLM (ONNX)" },
+  { n: "Postgres", s: "FTS + pgvector" },
+  { n: "scoring.py", s: "pure functions" },
+];
+const LX = [100, 280, 460, 640, 820];
+const STEPS = [
+  { f: 0, t: 0, l: "submit once", title: "You press Enter",
+    body: "The search dock runs a search on submit only, never on each key, because every run becomes a history entry. A ref blocks a second submit while one is in flight, and a held Enter is ignored.",
+    file: "frontend/src/components/SearchDock.tsx",
+    pay: 'query = "images of Mars rovers"\n// a ref blocks re-entry: three fast Enters save one search',
+    why: "<b>Why:</b> typing m, ma, mar must not create three history rows." },
+  { f: 0, t: 1, l: "POST /api/searches", title: "useRunSearch sends one POST",
+    body: "A React Query mutation with a fixed key (RUN_SEARCH_KEY) calls api.runSearch. The body also carries the toggle's mode: \"hybrid\" (Combined, the default) or \"keyword\". Other components see the search is running through useIsMutating.",
+    file: "frontend/src/hooks/searches.ts · src/api/client.ts",
+    pay: 'POST /api/searches\nContent-Type: application/json\n\n{"query": "images of Mars rovers", "mode": "hybrid"}',
+    why: "<b>In production</b> this request passes the Worker's rate limit first: 10 per minute per IP." },
+  { f: 1, t: 1, l: "validate input", title: "Pydantic validates the body",
+    body: "SearchRequest strips spaces, checks the query is 1 to 200 characters and that mode is \"hybrid\" or \"keyword\". Anything else is a 422 before any work happens.",
+    file: "backend/controllers/searches.py · backend/models.py",
+    pay: 'SearchRequest(query="images of Mars rovers", mode="hybrid")\n# "", 201+ chars or mode="pixels" → 422',
+    why: "<b>Why:</b> bound the cost of every request at the edge." },
+  { f: 1, t: 2, l: "embed_query(query)", title: "Embed the query off the event loop",
+    body: "score_query calls the model through run_in_threadpool. ONNX inference is synchronous CPU work; on the async event loop it would block every other request while it runs.",
+    file: "backend/services/search.py · services/embedding.py",
+    pay: "query_vector = await run_in_threadpool(\n    embedder.embed_query, query)",
+    why: "<b>Cost:</b> about 0.7 ms per query on a laptop CPU." },
+  { f: 2, t: 1, l: "384 floats (or None)", title: "A vector comes back",
+    body: "384 numbers that place the query by meaning. If the model failed to load, the NullEmbedder returns None and the engine becomes \"keyword\".",
+    file: "backend/services/embedding.py",
+    pay: '[0.031, -0.087, 0.112, …]   # 384 floats (illustrative)\nengine = "hybrid"           # "keyword" when None',
+    why: "<b>Graceful:</b> keyword-only search still serves users. /api/health says degraded but returns 200." },
+  { f: 1, t: 3, l: "one SQL: FTS ∪ vector", title: "One SQL query asks both retrievers",
+    body: "A CTE turns the text into an OR tsquery. Full-text (GIN) and vector search (HNSW) each give up to 200 candidates, merged with UNION. It also checks whether each row contains every ID the query names.",
+    file: "backend/repositories/search.py · HYBRID_CANDIDATES_SQL",
+    pay: "WITH q AS (… replace(plainto_tsquery(…)::text, '&', '|') …),\ncandidates AS (\n  (… WHERE search_vector @@ q.tsq … LIMIT 200)\n  UNION\n  (… ORDER BY embedding <=> :qvec LIMIT 200)\n)\nSELECT id, keyword_rank, matched_terms, cosine, has_query_ids …",
+    why: "<b>Before it runs:</b> SET LOCAL hnsw.ef_search = 200, so an index scan at scale doesn't stop at the default 40 rows." },
+  { f: 3, t: 1, l: "raw scores per row", title: "Every candidate gets both raw scores",
+    body: "A row found only by the vector side still gets its keyword rank, and the other way round. That is what makes the blend fair.",
+    file: "search_types.Candidate",
+    pay: "{ id: 57, keyword_rank: 0.825, matched_terms: 2,\n  query_terms: 3, cosine: 0.509, has_query_ids: null }\n… one row per candidate (Gale Crater, back-solved)",
+    why: "<b>At most 400 rows</b> come back (200 + 200), so scoring in Python is cheap." },
+  { f: 1, t: 4, l: "score(candidates)", title: "Python turns raw scores into one confidence",
+    body: "Stretch the cosine (0.20–0.70 becomes 0–1), scale the keyword rank by word coverage, blend 80/20, apply the gibberish and ID rules, drop anything under 0.12, sort, keep at most 50.",
+    file: "backend/services/scoring.py · score()",
+    pay: "meaning    = clamp((0.509 − 0.20) / 0.50)  = 0.618\nwords      = 0.825 × 2/3                  = 0.550\nconfidence = 0.8 × 0.618 + 0.2 × 0.550    = 0.60",
+    why: "<b>Why Python, not SQL:</b> pure, unit-tested, and the eval re-scores thousands of constant sets in memory." },
+  { f: 4, t: 1, l: "hits ≥ 0.12, best first", title: "Scored hits, best first",
+    body: "Ties break on source_id, so the order is stable between runs. A hit carries id_rule when the ID rule changed its score.",
+    file: "search_types.ScoredHit",
+    pay: "ScoredHit(source_id=57, confidence=0.60,\n          keyword_score=0.55, semantic_score=0.618,\n          id_rule=None)\n… up to 50 hits",
+    why: "<b>Strong</b> means 0.50 or more: orange in the UI." },
+  { f: 1, t: 3, l: "INSERT search + results", title: "Store the search and its snapshot",
+    body: "One commit writes the searches row and one search_results row per hit, with the rank, the confidence, both raw scores and id_rule.",
+    file: "backend/repositories/history.py · create()",
+    pay: "INSERT INTO searches (query, result_count, engine) …\nINSERT INTO search_results (search_id, rank, source_id,\n  confidence, keyword_score, semantic_score, id_rule) …\nCOMMIT",
+    why: "<b>Snapshot:</b> history shows what the user saw, even after the model, constants or data change." },
+  { f: 3, t: 1, l: "read it back", title: "Read the snapshot back",
+    body: "run_search reads the stored search through get_by_id, the same path as GET /api/searches/{id}. A fresh search and a reopened one always look identical.",
+    file: "backend/services/search.py · run_search()",
+    pay: "detail = await history.get_by_id(search_id)\n# tested: test_reopened_search_is_the_stored_snapshot",
+    why: "<b>One path</b> for new and old searches means one thing to test." },
+  { f: 1, t: 0, l: "201 SearchDetail", title: "201 Created",
+    body: "The response is the full stored search: the query, the engine and the ranked results with their scores.",
+    file: "backend/models.py · SearchDetail",
+    pay: 'HTTP/1.1 201 Created\n{ "id": 42, "query": "images of Mars rovers",\n  "engine": "hybrid", … ranked results … }',
+    why: "<b>Live result:</b> 4 strong, 12 faint. Rank 1 is Gale Crater at 60%." },
+  { f: 0, t: 0, l: "cache + navigate", title: "Cache it, then glide to the results",
+    body: "onSuccess puts the response in the cache under [\"search\", 42], marks the history list stale and navigates inside a View Transition. The results page renders from the cache with no second request.",
+    file: "frontend/src/hooks/searches.ts · src/lib/viewTransition.ts",
+    pay: 'queryClient.setQueryData(["search", 42], detail)\nqueryClient.invalidateQueries({ queryKey: ["history"] })\nwithViewTransition(() => navigate("/search/42"))',
+    why: "<b>staleTime: Infinity</b> for a search: a snapshot never changes, so it's never refetched." },
+];
+const seqSvg = $("#seq-svg");
+LANES.forEach((ln, i) => {
+  const x = LX[i];
+  svgEl("line", { x1: x, y1: 66, x2: x, y2: 680, class: "lane-line" }, seqSvg);
+  const g = svgEl("g", { class: "lane-head" }, seqSvg);
+  svgEl("rect", { x: x - 80, y: 10, width: 160, height: 56 }, g);
+  const t = svgEl("text", { x: x - 68, y: 34, class: "t" }, g); t.textContent = ln.n;
+  const s = svgEl("text", { x: x - 68, y: 54, class: "s" }, g); s.textContent = ln.s;
+});
+const msgEls = [], numEls = [];
+STEPS.forEach((st, i) => {
+  const y = 104 + i * 44;
+  const g = svgEl("g", { class: "msg", tabindex: "0", role: "button", "aria-label": `Step ${i + 1}: ${st.l}` }, seqSvg);
+  svgEl("rect", { x: 0, y: y - 22, width: 900, height: 44, class: "hit" }, g);
+  const n = svgEl("text", { x: 2, y: y + 4, class: "seq-num" }, seqSvg); n.textContent = String(i + 1).padStart(2, "0");
+  numEls.push(n);
+  let d, head, tx, anchor, ty;
+  const x1 = LX[st.f], x2 = LX[st.t];
+  if (st.f === st.t) {
+    d = `M${x1},${y - 8} h44 v16 h-40`;
+    head = `M${x1 + 4},${y + 8} l8,-4.5 v9 z`;
+    tx = x1 + 52; ty = y + 4; anchor = "start";
+  } else {
+    const dir = x2 > x1 ? 1 : -1;
+    d = `M${x1},${y} L${x2 - dir * 9},${y}`;
+    head = `M${x2},${y} l${-dir * 10},-5 v10 z`;
+    tx = (x1 + x2) / 2; ty = y - 8; anchor = "middle";
+  }
+  const p = svgEl("path", { d, class: "ln" }, g);
+  svgEl("path", { d: head, class: "hd" }, g);
+  const t = svgEl("text", { x: tx, y: ty, "text-anchor": anchor }, g); t.textContent = st.l;
+  g.addEventListener("click", () => { stopPlay(); setStep(i); });
+  g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); stopPlay(); setStep(i); } });
+  msgEls.push({ g, p });
+});
+const dotsBox = $("#seq-dots");
+STEPS.forEach((_, i) => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = i + 1; b.setAttribute("aria-label", "Step " + (i + 1));
+  b.addEventListener("click", () => { stopPlay(); setStep(i); });
+  dotsBox.appendChild(b);
+});
+let step = 0, playTimer = null;
+function setStep(i) {
+  step = Math.max(0, Math.min(STEPS.length - 1, i));
+  const st = STEPS[step];
+  msgEls.forEach((m, k) => {
+    m.g.classList.toggle("done", k < step);
+    m.g.classList.toggle("cur", k === step);
+    m.p.style.transition = "none"; m.p.style.strokeDasharray = ""; m.p.style.strokeDashoffset = "";
+  });
+  numEls.forEach((n, k) => n.classList.toggle("cur", k === step));
+  if (!RM) {
+    const p = msgEls[step].p, len = p.getTotalLength();
+    p.style.strokeDasharray = len; p.style.strokeDashoffset = len;
+    p.getBoundingClientRect();
+    p.style.transition = "stroke-dashoffset .55s cubic-bezier(.2,.8,.2,1)"; p.style.strokeDashoffset = 0;
+  }
+  $$("button", dotsBox).forEach((b, k) => { b.className = k < step ? "done" : k === step ? "cur" : ""; });
+  $("#seq-no").textContent = `Step ${step + 1} of ${STEPS.length} · ${LANES[st.f].n}${st.f !== st.t ? " → " + LANES[st.t].n : ""}`;
+  $("#seq-title").textContent = st.title;
+  $("#seq-body").textContent = st.body;
+  $("#seq-file").textContent = st.file;
+  $("#seq-payload").textContent = st.pay;
+  $("#seq-why").innerHTML = st.why;
+  $("#seq-prev").disabled = step === 0;
+  $("#seq-next").disabled = step === STEPS.length - 1;
+}
+function stopPlay() { clearInterval(playTimer); playTimer = null; $("#seq-play").textContent = "▶ Play"; }
+$("#seq-play").addEventListener("click", () => {
+  if (playTimer) { stopPlay(); return; }
+  if (step === STEPS.length - 1) setStep(0);
+  $("#seq-play").textContent = "❚❚ Pause";
+  playTimer = setInterval(() => { if (step >= STEPS.length - 1) { stopPlay(); return; } setStep(step + 1); }, 3200);
+});
+$("#seq-prev").addEventListener("click", () => { stopPlay(); setStep(step - 1); });
+$("#seq-next").addEventListener("click", () => { stopPlay(); setStep(step + 1); });
+setStep(0);
+
+/* ================= PLATE 04: retrieval dots ================= */
+const rdG = $("#retr-dots"), rA = $("#r-a"), rB = $("#r-b");
+const rLenA = rA.getTotalLength(), rLenB = rB.getTotalLength();
+const rDots = [];
+for (let i = 0; i < 4; i++) rDots.push({ c: svgEl("circle", { r: 4, class: "pkt", opacity: 0 }, rdG), path: rA, len: rLenA, off: i / 4 });
+for (let i = 0; i < 4; i++) rDots.push({ c: svgEl("circle", { r: 4, class: "pkt back", opacity: 0 }, rdG), path: rB, len: rLenB, off: i / 4 + 0.12 });
+let rRun = false;
+function rFrame(t) {
+  if (!rRun) return;
+  rDots.forEach((d) => {
+    const f = (t / 1800 + d.off) % 1;
+    const p = d.path.getPointAtLength(d.len * f);
+    d.c.setAttribute("cx", p.x); d.c.setAttribute("cy", p.y);
+    d.c.setAttribute("opacity", f < 0.1 ? f * 10 : f > 0.9 ? (1 - f) * 10 : 1);
+  });
+  requestAnimationFrame(rFrame);
+}
+if (!RM) onVisible($("#retr-svg"), () => { if (!rRun) { rRun = true; requestAnimationFrame(rFrame); } }, () => { rRun = false; });
+
+/* ================= PLATE 04: confidence lab ================= */
+const P = { floor: 0.2, ceil: 0.7, sw: 0.8, kw: 0.2, min: 0.12, strong: 0.5, idf: 0.5 };
+const PRESETS = [
+  { k: "mars", label: "“images of Mars rovers” → Gale Crater (60%)", cos: 0.509, rank: 0.825, found: 2, total: 3, id: "none" },
+  { k: "elcap", label: "“mars rover” → El Capitan, a real rover photo (86%)", cos: 0.67, rank: 0.54, found: 2, total: 2, id: "none" },
+  { k: "lycus", label: "“mars rover” → Lycus Sulci, orbital, no rover (61%)", cos: 0.55, rank: 0.5, found: 1, total: 2, id: "none" },
+  { k: "sts129", label: "“STS-135” → STS-129 photo, halved (31%)", cos: 0.554, rank: 0.54, found: 1, total: 2, id: "lacks", idt: "STS-135" },
+  { k: "sts135", label: "“STS-135” → an STS-135 photo (81%)", cos: 0.619, rank: 0.7, found: 2, total: 2, id: "has", idt: "STS-135" },
+  { k: "heron", label: "“animals” → great blue heron (22%)", cos: 0.33875, rank: 0, found: 0, total: 1, id: "none" },
+  { k: "manatee", label: "“animals” → manatees (13%)", cos: 0.2825, rank: 0, found: 0, total: 1, id: "none" },
+  { k: "zzqx", label: "“zzqx” (gibberish)", cos: 0.26, rank: 0, found: 0, total: 1, id: "none", gib: true },
+  { k: "kwonly", label: "Keywords toggle: Mars rovers → Gale Crater (55%)", cos: 0.509, rank: 0.825, found: 2, total: 3, id: "none", kwOnly: true },
+];
+const IN = { cos: $("#in-cos"), rank: $("#in-rank"), found: $("#in-found"), total: $("#in-total"), id: $("#in-id"), gib: $("#in-gib"), kw: $("#in-kw") };
+let idText = "the ID";
+const presetBox = $("#presets");
+PRESETS.forEach((p) => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = p.label; b.dataset.k = p.k; b.setAttribute("aria-pressed", "false");
+  b.addEventListener("click", () => applyPreset(p));
+  presetBox.appendChild(b);
+});
+function applyPreset(p) {
+  IN.cos.value = p.cos; IN.rank.value = p.rank; IN.found.value = p.found; IN.total.value = p.total;
+  IN.id.value = p.id; IN.gib.checked = !!p.gib; IN.kw.checked = !!p.kwOnly; idText = p.idt || "the ID";
+  $$("button", presetBox).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === p.k)));
+  renderLab();
+}
+function labState() {
+  const total = Math.max(1, parseInt(IN.total.value, 10) || 1);
+  const found = Math.max(0, Math.min(total, parseInt(IN.found.value, 10) || 0));
+  return { cos: parseFloat(IN.cos.value), rank: parseFloat(IN.rank.value), found, total, id: IN.id.value, gib: IN.gib.checked, kwOnly: IN.kw.checked };
+}
+function compute(s) {
+  const meaning = s.kwOnly ? 0 : clamp01((s.cos - P.floor) / (P.ceil - P.floor));
+  const words = clamp01(s.rank) * (s.found / s.total);
+  if (s.gib && words === 0) return { meaning, words, blend: 0, conf: 0, rule: null, tier: "dropped", gibDrop: true };
+  const blend = s.kwOnly ? words : P.sw * meaning + P.kw * words;
+  let conf = blend, rule = null;
+  if (s.id === "has" && conf < P.strong) { conf = P.strong; rule = "raised"; }
+  else if (s.id === "lacks") { conf = conf * P.idf; rule = "halved"; }
+  const tier = conf >= P.strong ? "strong" : conf >= P.min ? "faint" : "dropped";
+  return { meaning, words, blend, conf, rule, tier };
+}
+const pct = (v) => Math.round(v * 100) + "%";
+const f2 = (v) => v.toFixed(2), f3 = (v) => v.toFixed(3);
+function drawCalib(cos) {
+  const svg = $("#calib"); svg.innerHTML = "";
+  const X = (c) => 10 + (c / 0.9) * 380;
+  svgEl("rect", { x: X(0.2), y: 8, width: X(0.7) - X(0.2), height: 12, fill: palette["accent"], opacity: 0.18 }, svg);
+  svgEl("line", { x1: X(0), y1: 14, x2: X(0.9), y2: 14, stroke: palette["line-strong"] }, svg);
+  [0, 0.2, 0.7, 0.9].forEach((c) => {
+    svgEl("line", { x1: X(c), y1: 8, x2: X(c), y2: 20, stroke: palette["faint"] }, svg);
+    const t = svgEl("text", { x: X(c), y: 34, "text-anchor": c === 0 ? "start" : c === 0.9 ? "end" : "middle" }, svg);
+    t.textContent = c === 0.2 ? "0.20 → meaning 0" : c === 0.7 ? "0.70 → meaning 1" : String(c);
+  });
+  svgEl("path", { d: `M${X(cos)},22 l-5,8 h10 z`, fill: palette["accent"] }, svg);
+  svgEl("rect", { x: X(cos) - 1, y: 4, width: 2, height: 18, fill: palette["fg"] }, svg);
+}
+function renderLab() {
+  const s = labState(), r = compute(s);
+  IN.found.value = s.found; IN.total.value = s.total;
+  $("#o-cos").textContent = f3(s.cos);
+  $("#o-rank").textContent = f3(s.rank);
+  IN.cos.disabled = s.kwOnly;
+  drawCalib(s.cos);
+  $("#out-pct").textContent = pct(r.conf);
+  $("#out-pct").style.color = r.tier === "strong" ? "var(--accent-text)" : r.tier === "dropped" ? "var(--faint)" : "var(--fg)";
+  const tier = $("#out-tier");
+  tier.className = "tier " + r.tier;
+  tier.textContent = r.tier === "dropped" ? (r.gibDrop ? "dropped · gibberish rule" : "dropped · under 0.12") : r.tier === "strong" ? "strong · orange" : "faint";
+  $("#out-mean").textContent = s.kwOnly ? "n/a" : pct(r.meaning);
+  $("#out-words").textContent = pct(r.words);
+  $("#out-conf").textContent = f3(r.conf);
+  $("#bar-mean").style.width = (s.kwOnly ? 0 : r.meaning * 100) + "%";
+  $("#bar-words").style.width = r.words * 100 + "%";
+  $("#bar-conf").style.width = r.conf * 100 + "%";
+  let lines = [];
+  if (s.kwOnly) {
+    lines.push(`mode       = keyword (toggle, or the model failed)`);
+    lines.push(`words      = ${f3(s.rank)} × ${s.found}/${s.total}${" ".repeat(Math.max(1, 18 - (s.found + "" + s.total).length))}= ${f3(r.words)}`);
+    lines.push(`confidence = words                         = <span class="hl">${f3(r.conf)}</span>`);
+  } else {
+    lines.push(`meaning    = clamp((${f3(s.cos)} − 0.20) / 0.50)   = ${f3(r.meaning)}`);
+    lines.push(`words      = ${f3(s.rank)} × ${s.found}/${s.total}                  = ${f3(r.words)}`);
+    if (r.gibDrop) lines.push(`gibberish  = model knows no word, words = 0 → <span class="hl">dropped</span>`);
+    else {
+      lines.push(`blend      = 0.8 × ${f3(r.meaning)} + 0.2 × ${f3(r.words)}  = ${f3(r.blend)}`);
+      if (r.rule === "halved") lines.push(`ID rule    = halved: ${f3(r.blend)} × 0.5          = <span class="hl">${f3(r.conf)}</span>`);
+      else if (r.rule === "raised") lines.push(`ID rule    = raised to 0.50                = <span class="hl">${f3(r.conf)}</span>`);
+      else lines.push(`confidence = blend                         = <span class="hl">${f3(r.conf)}</span>`);
+    }
+  }
+  $("#out-formula").innerHTML = lines.join("\n");
+  let ui;
+  if (r.tier === "dropped") ui = r.gibDrop ? "Not shown. The model knows none of the query's words and the text contains none of them, so the gibberish rule drops it." : "Not shown. Results under 12% are dropped.";
+  else {
+    ui = s.kwOnly ? `In the app: <b>Words ${pct(r.words)}</b>` : `In the app: <b>Meaning ${pct(r.meaning)} · Words ${pct(r.words)}</b>`;
+    if (r.rule === "halved") ui += ` · <b>halved: “${idText}” is not in this image</b>`;
+    if (r.rule === "raised") ui += ` · <b>raised: it has “${idText}”</b>`;
+    if (!s.kwOnly && r.words === 0) ui += ` <span class="faint">(the why-line says "Similar in meaning")</span>`;
+  }
+  $("#out-ui").innerHTML = ui;
+}
+[IN.cos, IN.rank, IN.found, IN.total, IN.id, IN.gib, IN.kw].forEach((e) => e.addEventListener("input", () => {
+  $$("button", presetBox).forEach((b) => b.setAttribute("aria-pressed", "false"));
+  if (e === IN.id && IN.id.value !== "none" && idText === "the ID") idText = "the ID";
+  renderLab();
+}));
+applyPreset(PRESETS[1]);
+themeChanged.push(renderLab);
+
+/* ================= PLATE 05: replay bars ================= */
+const qual = $("#qual-chart");
+if (!RM) {
+  let played = false;
+  onVisible(qual, () => { if (!played) { played = true; qual.classList.add("play"); } });
+}
+
+/* ================= PLATE 06: index hover ================= */
+$$("#idx-tbl tbody tr").forEach((tr) => {
+  const cols = tr.dataset.cols.split(",");
+  const on = (v) => cols.forEach((c) => $$(`.col[data-c="${c}"]`).forEach((e) => e.classList.toggle("lit", v)));
+  tr.addEventListener("mouseenter", () => on(true));
+  tr.addEventListener("mouseleave", () => on(false));
+  tr.tabIndex = 0;
+  tr.addEventListener("focus", () => on(true));
+  tr.addEventListener("blur", () => on(false));
+});
+
+/* ================= PLATE 07: traveler ================= */
+const trav = $("#trav"), layerEls = $$(".layer");
+let travRun = false;
+function travFrame(t) {
+  if (!travRun) return;
+  const stack = $("#layer-stack");
+  const tops = layerEls.map((l) => l.offsetTop + 58);
+  const cycle = 5200, ph = (t % cycle) / cycle;
+  let y, up;
+  if (ph < 0.5) { const f = ph / 0.5; y = tops[0] + (tops[3] - tops[0]) * easeIO(f); up = false; }
+  else { const f = (ph - 0.5) / 0.5; y = tops[3] - (tops[3] - tops[0]) * easeIO(f); up = true; }
+  trav.style.transform = `translateY(${y - 58}px)`;
+  if (trav.classList.contains("up") !== up) {
+    trav.classList.toggle("up", up);
+    const cap = $("#trav-cap"); cap.classList.toggle("up", up);
+    cap.querySelector("span").textContent = up ? "SearchDetail (a Pydantic model) travels back up" : "POST /api/searches travels down";
+  }
+  const idx = tops.reduce((best, tp, i) => (Math.abs(tp - y) < Math.abs(tops[best] - y) ? i : best), 0);
+  layerEls.forEach((l, i) => l.classList.toggle("on", i === idx));
+  requestAnimationFrame(travFrame);
+}
+function easeIO(x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
+if (!RM) onVisible($("#layer-stack"), () => { if (!travRun) { travRun = true; requestAnimationFrame(travFrame); } }, () => { travRun = false; });
+else trav.hidden = true;
+
+/* ================= PLATE 08: keyset vs offset ================= */
+const ALL = Array.from({ length: 25 }, (_, i) => 25 - i);
+const timeOf = (id) => { const m = 17 * 60 + id * 2; return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`; };
+const ksOff = $("#ks-off"), ksKey = $("#ks-key"), ksBtn = $("#ks-next");
+let ksStep = 0;
+function li(id, cls, text) {
+  const e = document.createElement("li");
+  if (cls) e.className = cls;
+  e.innerHTML = text != null ? text : `<span>search #${id}</span><span class="faint">${timeOf(id)}</span>`;
+  return e;
+}
+function ksRender() {
+  [ksOff, ksKey].forEach((u) => (u.innerHTML = ""));
+  $("#ks-off-v").textContent = ""; $("#ks-key-v").textContent = "";
+  $("#ks-off-v").className = "ks-verdict"; $("#ks-key-v").className = "ks-verdict";
+  if (ksStep === 0) {
+    [ksOff, ksKey].forEach((u) => u.appendChild(li(0, "page-break", "25 searches, newest first. Press Step 1.")));
+    ksBtn.textContent = "Step 1: load page 1"; ksBtn.disabled = false; return;
+  }
+  [ksOff, ksKey].forEach((u) => {
+    u.appendChild(li(0, "page-break", "page 1"));
+    ALL.slice(0, 10).forEach((id) => u.appendChild(li(id, (ksStep >= 2 && id === 20 ? "deleted" : "") + (ksStep === 1 ? " new" : ""))));
+  });
+  if (ksStep === 1) { ksBtn.textContent = "Step 2: delete #20"; return; }
+  if (ksStep === 2) {
+    ksBtn.textContent = "Step 3: load page 2";
+    $("#ks-off-v").textContent = "Deleted #20. Every later row moves up one place.";
+    $("#ks-key-v").textContent = "Deleted #20. The cursor still points at #16.";
+    return;
+  }
+  const after = ALL.filter((id) => id !== 20);
+  ksOff.appendChild(li(0, "page-break", "page 2 · OFFSET 10"));
+  ksOff.appendChild(li(15, "skipped", `<span>search #15</span><span>never shown</span>`));
+  after.slice(10, 20).forEach((id) => ksOff.appendChild(li(id, "new")));
+  ksKey.appendChild(li(0, "page-break", `page 2 · after (${timeOf(16)}, #16)`));
+  ALL.filter((id) => id < 16).slice(0, 10).forEach((id) => ksKey.appendChild(li(id, "new")));
+  $("#ks-off-v").textContent = "Skipped #15: it slid onto page 1 after the delete.";
+  $("#ks-off-v").className = "ks-verdict bad";
+  $("#ks-key-v").textContent = "Continues right after #16. Nothing skipped, nothing repeated.";
+  $("#ks-key-v").className = "ks-verdict good";
+  ksBtn.textContent = "Done"; ksBtn.disabled = true;
+}
+ksBtn.addEventListener("click", () => { ksStep = Math.min(3, ksStep + 1); ksRender(); });
+$("#ks-reset").addEventListener("click", () => { ksStep = 0; ksRender(); });
+ksRender();
+
+/* cursor */
+function renderCursor() {
+  const id = Math.max(1, parseInt($("#cur-id").value, 10) || 1);
+  const payload = JSON.stringify({ created_at: "2026-11-09T16:42:07.118000+00:00", id }).replace(/,"/g, ', "').replace(/":/g, '": ');
+  $("#cur-json").textContent = payload;
+  let b64 = "";
+  try { b64 = btoa(payload).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); } catch (e) {}
+  $("#cur-b64").textContent = "GET /api/searches?limit=10&cursor=" + b64;
+}
+$("#cur-id").addEventListener("input", renderCursor);
+renderCursor();
+
+/* undo delete */
+const uRow = $("#u-row"), uDel = $("#u-del"), uToast = $("#u-toast"), uMsg = $("#u-msg"), uFill = $("#u-fill"), uLog = $("#u-log");
+const uClose = document.createElement("button");
+uClose.type = "button"; uClose.className = "btn"; uClose.textContent = "Close the tab";
+$("#u-undo").after(uClose);
+const toastBtns = document.createElement("div");
+toastBtns.className = "controls"; $("#u-undo").before(toastBtns); toastBtns.append($("#u-undo"), uClose);
+let uState = "idle", uStart = 0, uTimer = null, uRaf = 0;
+const logLine = (html) => { if (uLog.querySelector(".f.placeholder") || uState === "starting") uLog.innerHTML = ""; uLog.innerHTML += (uLog.innerHTML ? "\n" : "") + html; };
+function uTick() {
+  if (uState !== "pending") return;
+  const el = (performance.now() - uStart) / 1000;
+  uFill.style.width = Math.min(100, (el / 6) * 100) + "%";
+  uMsg.textContent = `Search deleted. Gone in ${Math.max(0, Math.ceil(6 - el))} s`;
+  uRaf = requestAnimationFrame(uTick);
+}
+function uEnd(label) {
+  uState = "ended"; clearTimeout(uTimer); cancelAnimationFrame(uRaf); uToast.hidden = true;
+  uDel.textContent = "Reset demo"; uDel.disabled = false;
+}
+uDel.addEventListener("click", () => {
+  if (uState === "ended") { uState = "idle"; uRow.classList.remove("gone"); uFill.style.width = "0"; uDel.textContent = "Delete"; uLog.innerHTML = '<span class="f">Press Delete to start.</span>'; return; }
+  if (uState !== "idle") return;
+  uState = "starting"; uLog.innerHTML = "";
+  uState = "pending"; uStart = performance.now();
+  uRow.classList.add("gone"); uDel.disabled = true; uToast.hidden = false;
+  logLine(`<span class="k">t=0.0s</span>  row hidden in the UI. Nothing sent yet.`);
+  uTimer = setTimeout(() => {
+    logLine(`<span class="k">t=6.0s</span>  DELETE /api/searches/42 → <span class="g">204</span>`);
+    logLine(`<span class="f">        onMutate drops the row from cached pages; onSettled refetches history</span>`);
+    uFill.style.width = "100%"; uEnd();
+  }, 6000);
+  uRaf = requestAnimationFrame(uTick);
+});
+$("#u-undo").addEventListener("click", () => {
+  if (uState !== "pending") return;
+  const el = ((performance.now() - uStart) / 1000).toFixed(1);
+  logLine(`<span class="k">t=${el}s</span>  Undo → clearTimeout(). <span class="g">Nothing to restore on the server.</span>`);
+  uRow.classList.remove("gone"); uEnd();
+});
+uClose.addEventListener("click", () => {
+  if (uState !== "pending") return;
+  const el = ((performance.now() - uStart) / 1000).toFixed(1);
+  logLine(`<span class="k">t=${el}s</span>  pagehide → fetch("/api/searches/42", { method: "DELETE", keepalive: true })`);
+  logLine(`<span class="f">        the delete still happens after the tab is gone</span>`);
+  uEnd();
+});
+
+/* ================= PLATE 09: URL state ================= */
+const URLS = { route: "/", image: false, history: false, years: false };
+const pg = $("#url-pg");
+for (let i = 0; i < 24; i++) pg.appendChild(document.createElement("i"));
+function renderUrl() {
+  const isRes = URLS.route !== "/";
+  const params = [];
+  if (URLS.years && isRes) params.push("from=2010", "to=2012");
+  if (URLS.image) params.push("image=17");
+  if (URLS.history) params.push("history=1");
+  $("#url-bar").innerHTML = `<span class="host">localhost:3001</span><span>${URLS.route}</span>${params.length ? `<span class="q">?${params.join("&amp;")}</span>` : ""}`;
+  $$("[data-route]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.route === URLS.route)));
+  $$("[data-param]").forEach((b) => b.setAttribute("aria-pressed", String(URLS[b.dataset.param])));
+  $$("i", pg).forEach((t, i) => {
+    t.className = isRes && i < 9 ? "m" : "";
+    t.style.gridColumn = isRes && i === 0 ? "span 2" : "";
+    t.style.gridRow = isRes && i === 0 ? "span 2" : "";
+    t.style.opacity = isRes && i >= 14 ? 0.35 : 1;
+    if (isRes && URLS.years && i < 9 && (i === 2 || i === 5 || i === 7)) t.style.opacity = 0.25;
+  });
+  $("#url-range").hidden = !(isRes && URLS.years);
+  const drawer = URLS.history, modal = URLS.image && !URLS.history;
+  $("#url-drawer").classList.toggle("open", drawer);
+  $("#url-modal").classList.toggle("open", modal);
+  $("#url-scrim").classList.toggle("open", drawer || modal);
+  $("#url-name").textContent = isRes ? "SearchResultsPage · ranked" : "BrowsePage · archive canvas";
+  let note = "Every view can be linked, survives a reload, and Back works.";
+  if (URLS.image && URLS.history) note = "Both ?image= and ?history=1: Layout shows only the drawer. One overlay at a time.";
+  else if (URLS.history) note = "?history=1 opens the drawer on any page. The page behind it stays mounted.";
+  else if (URLS.image) note = "?image= opens the native <dialog> on any page. Opened in the app, closing it is Back; from a pasted link, closing removes the param. ←/→ use replace.";
+  else if (URLS.years && isRes) note = "?from=&to= narrows the results by year. Ranks keep their numbers. Changes use replace, so dragging doesn't fill the Back button.";
+  else if (isRes) note = "/search/:id is the same route for a fresh search and one from history.";
+  $("#url-note").textContent = note;
+}
+$$("[data-route]").forEach((b) => b.addEventListener("click", () => { URLS.route = b.dataset.route; if (URLS.route === "/") URLS.years = false; renderUrl(); }));
+$$("[data-param]").forEach((b) => b.addEventListener("click", () => {
+  const k = b.dataset.param; URLS[k] = !URLS[k];
+  if (k === "years" && URLS.years) URLS.route = "/search/42";
+  renderUrl();
+}));
+renderUrl();
+
+/* ================= PLATE 09: FLIP archive → results ================= */
+const FT = [
+  { id: 1, n: "Focus on El Capitan-2", c: 86, h: 30 }, { id: 2, n: "Curiosity's first anniversary", c: 77, h: 22 },
+  { id: 3, n: "Perseverance marble countdown", c: 70, h: 18 }, { id: 4, n: "Gale Crater", c: 63, h: 24 },
+  { id: 5, n: "Lycus Sulci", c: 61, h: 20 }, { id: 6, n: "Ganges Chasma", c: 56, h: 28 },
+  { id: 7, n: "Ophir Chasma dunes", c: 51, h: 26 },
+  { id: 8, c: 40, faint: true, h: 210 }, { id: 9, c: 39, faint: true, h: 32 }, { id: 10, c: 38, faint: true, h: 220 },
+  { id: 11, c: 37, faint: true, h: 200 }, { id: 12, c: 36, faint: true, h: 215 },
+  { id: 13, c: 0, h: 190 }, { id: 14, c: 0, h: 140 }, { id: 15, c: 0, h: 160 }, { id: 16, c: 0, h: 205 },
+];
+const ARCH_ORDER = [13, 4, 8, 1, 15, 10, 6, 2, 14, 11, 5, 16, 3, 9, 12, 7];
+const ARCH_SIZE = { 13: "w2", 1: "h2", 10: "w2", 14: "h2", 5: "w2", 9: "w2" };
+const ft = $("#ft");
+const tileById = {};
+const archName = (d) => (d.c && !d.faint ? d.n : "Archive photo");
+ARCH_ORDER.forEach((id, idx) => {
+  const d = FT.find((x) => x.id === id);
+  const t = document.createElement("div");
+  t.className = "tile";
+  t.style.setProperty("--g", `linear-gradient(140deg, hsla(${d.h}, 30%, 42%, .55), hsla(${d.h + 20}, 12%, 20%, .1))`);
+  t.innerHTML = `<span class="pn">PLATE ${String(idx + 1).padStart(3, "0")}</span><span class="rk"></span><span class="nm">${archName(d)}</span><span class="cb"></span>`;
+  t.dataset.id = id;
+  ft.appendChild(t);
+  tileById[id] = t;
+});
+let ftRes = false;
+function layoutArchive() {
+  ft.classList.remove("res");
+  ARCH_ORDER.forEach((id) => { const t = tileById[id], d = FT.find((x) => x.id === id); t.className = "tile " + (ARCH_SIZE[id] || ""); t.querySelector(".nm").textContent = archName(d); ft.appendChild(t); });
+}
+function layoutResults() {
+  ft.classList.add("res");
+  const ranked = FT.filter((d) => d.c > 0).sort((a, b) => b.c - a.c);
+  ranked.forEach((d, i) => {
+    const t = tileById[d.id];
+    t.className = "tile " + (i === 0 ? "w2 h2 " : i < 3 ? "w2 " : "") + (d.faint ? "" : "strong");
+    t.querySelector(".rk").innerHTML = `<b class="r">${String(i + 1).padStart(2, "0")}</b><span>${d.faint ? "faint" : d.c + "%"}</span>`;
+    t.querySelector(".nm").textContent = d.faint ? "Faint match" : d.n;
+    t.querySelector(".cb").style.width = (d.faint ? 30 : d.c) + "%";
+    ft.appendChild(t);
+  });
+  FT.filter((d) => !d.c).forEach((d) => { const t = tileById[d.id]; t.className = "tile aside"; t.querySelector(".rk").innerHTML = `<b>—</b><span></span>`; t.querySelector(".nm").textContent = "Set aside"; ft.appendChild(t); });
+}
+function flip(mutate) {
+  const tiles = $$(".tile", ft);
+  if (RM) { mutate(); return; }
+  const first = new Map(tiles.map((t) => [t, t.getBoundingClientRect()]));
+  mutate();
+  tiles.forEach((t) => {
+    const a = first.get(t), b = t.getBoundingClientRect();
+    t.style.transition = "none"; t.style.transformOrigin = "0 0";
+    t.style.transform = `translate(${a.left - b.left}px, ${a.top - b.top}px) scale(${a.width / b.width}, ${a.height / b.height})`;
+  });
+  ft.getBoundingClientRect();
+  tiles.forEach((t, i) => {
+    t.style.transition = `transform .8s cubic-bezier(.2,.8,.2,1) ${i * 14}ms`;
+    t.style.transform = "";
+  });
+}
+layoutArchive();
+$("#ft-go").addEventListener("click", () => {
+  ftRes = !ftRes;
+  flip(ftRes ? layoutResults : layoutArchive);
+  $("#ft-go").textContent = ftRes ? "Back to the archive" : "Search “mars rover”";
+});
+
+/* ================= PLATE 10: places pipeline scan ================= */
+if (!RM) { const pipe = $("#pipe"); let played = false; onVisible(pipe, () => { if (!played) { played = true; pipe.classList.add("play"); } }); }
+
+/* ================= PLATE 10: globe ================= */
+const cv = $("#globe"), ctx = cv.getContext("2d");
+const D = Math.PI / 180;
+let W = 0, H = 0, DPR = 1;
+const view = { rot: 75, tilt: 18 };
+let drift = !RM, fan = 0, fanTarget = 0, lit = false, frames = 0, orbitPhase = 0;
+let flight = null, dragging = null, focused = false;
+function rng(seed) { let s = seed; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; }
+const rnd = rng(42);
+const SITES = [
+  { name: "Kennedy Space Center", lat: 28.52, lon: -80.65, n: 40, j: 0.6 },
+  { name: "Johnson", lat: 29.56, lon: -95.09, n: 6, j: 0.25 },
+  { name: "Star City", lat: 55.88, lon: 38.1, n: 3, j: 0.2 },
+  { name: "Baikonur", lat: 45.96, lon: 63.31, n: 3, j: 0.2 },
+  { name: "Goddard", lat: 38.99, lon: -76.85, n: 4, j: 0.2 },
+  { name: "Langley", lat: 37.09, lon: -76.38, n: 2, j: 0.2 },
+  { name: "JPL", lat: 34.2, lon: -118.17, n: 3, j: 0.2 },
+  { name: "Armstrong", lat: 34.96, lon: -117.88, n: 2, j: 0.2 },
+  { name: "Ames", lat: 37.41, lon: -122.06, n: 2, j: 0.2 },
+  { name: "Marshall", lat: 34.65, lon: -86.67, n: 4, j: 0.2 },
+  { name: "Stennis", lat: 30.36, lon: -89.6, n: 2, j: 0.2 },
+  { name: "Glenn", lat: 41.41, lon: -81.86, n: 2, j: 0.2 },
+  { name: "Storm off New England", lat: 41.5, lon: -67.5, n: 1, j: 0 },
+];
+const PINS = [];
+SITES.forEach((s) => { for (let i = 0; i < s.n; i++) PINS.push({ lat: s.lat + (rnd() - 0.5) * 2 * s.j, lon: s.lon + (rnd() - 0.5) * 2 * s.j, site: s.name }); });
+const kscIdx = PINS.map((p, i) => (p.site === "Kennedy Space Center" ? i : -1)).filter((i) => i >= 0);
+const STRONG = new Set([kscIdx[3], kscIdx[11], kscIdx[19], kscIdx[27], kscIdx[33]]);
+const FAINT = new Set([kscIdx[5], kscIdx[8], PINS.findIndex((p) => p.site === "Johnson"), PINS.findIndex((p) => p.site === "Star City")]);
+function gcDeg(a, b) {
+  const s = Math.sin(a.lat * D) * Math.sin(b.lat * D) + Math.cos(a.lat * D) * Math.cos(b.lat * D) * Math.cos((a.lon - b.lon) * D);
+  return Math.acos(Math.max(-1, Math.min(1, s))) / D;
+}
+const CLUSTERS = [];
+PINS.forEach((p, i) => {
+  const c = CLUSTERS.find((c) => gcDeg(PINS[c.members[0]], p) < 2.5);
+  if (c) c.members.push(i); else CLUSTERS.push({ members: [i] });
+});
+CLUSTERS.forEach((c) => {
+  c.lat = c.members.reduce((a, i) => a + PINS[i].lat, 0) / c.members.length;
+  c.lon = c.members.reduce((a, i) => a + PINS[i].lon, 0) / c.members.length;
+  c.isKsc = c.members.includes(kscIdx[0]);
+});
+const ORBITS = [
+  { name: "ISS · 51.6°", inc: 51.6, r: 1.34, node: 25, n: 10, speed: 1 },
+  { name: "Shuttle · 28.5°", inc: 28.5, r: 1.2, node: -55, n: 5, speed: 0.8 },
+];
+const ORBIT_STRONG = new Set(["0-1", "0-3", "0-5", "0-7", "0-8", "1-2"]);
+function rotXY(x, y, z) {
+  const t = view.tilt * D, ct = Math.cos(t), st = Math.sin(t);
+  return { x, y: y * ct - z * st, z: y * st + z * ct };
+}
+function projLL(lat, lon, r = 1) {
+  const p = lat * D, l = (lon + view.rot) * D;
+  const v = rotXY(r * Math.cos(p) * Math.sin(l), r * Math.sin(p), r * Math.cos(p) * Math.cos(l));
+  return v;
+}
+function projOrbit(o, u) {
+  let x = Math.cos(u) * o.r, y = 0, z = Math.sin(u) * o.r;
+  const i = o.inc * D; const y2 = -z * Math.sin(i), z2 = z * Math.cos(i); y = y2; z = z2;
+  const a = (o.node + view.rot * 0.15) * D; const x3 = x * Math.cos(a) + z * Math.sin(a), z3 = -x * Math.sin(a) + z * Math.cos(a);
+  return rotXY(x3, y, z3);
+}
+function resizeGlobe() {
+  const r = cv.getBoundingClientRect();
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = r.width; H = r.height;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  draw();
+}
+function scr(v, R, cx, cy) { return { x: cx + v.x * R, y: cy - v.y * R, z: v.z }; }
+function draw() {
+  if (!W) return;
+  frames++; $("#g-frames").textContent = frames;
+  const R = Math.min(W, H) * 0.3, cx = W * 0.5, cy = H * 0.46;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = palette["surface"]; ctx.fillRect(0, 0, W, H);
+  const orbitPath = (o, front) => {
+    ctx.beginPath(); let pen = false;
+    for (let k = 0; k <= 180; k++) {
+      const v = scr(projOrbit(o, (k / 180) * Math.PI * 2), R, cx, cy);
+      const behind = v.z < 0 && Math.hypot(v.x - cx, v.y - cy) < R;
+      if (behind === !front) { pen ? ctx.lineTo(v.x, v.y) : ctx.moveTo(v.x, v.y); pen = true; } else pen = false;
+    }
+    ctx.stroke();
+  };
+  ctx.lineWidth = 1; ctx.strokeStyle = palette["line-strong"];
+  ORBITS.forEach((o) => orbitPath(o, false));
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = palette["bg"]; ctx.fill();
+  ctx.strokeStyle = palette["muted"]; ctx.lineWidth = 1; ctx.stroke();
+  ctx.strokeStyle = palette["line-strong"]; ctx.lineWidth = 1;
+  const seg = (pts) => { ctx.beginPath(); let pen = false; pts.forEach((v) => { if (v.z > 0) { pen ? ctx.lineTo(v.x, v.y) : ctx.moveTo(v.x, v.y); pen = true; } else pen = false; }); ctx.stroke(); };
+  for (let lat = -60; lat <= 60; lat += 30) { const pts = []; for (let lon = -180; lon <= 180; lon += 4) pts.push(scr(projLL(lat, lon), R, cx, cy)); seg(pts); }
+  for (let lon = -180; lon < 180; lon += 30) { const pts = []; for (let lat = -90; lat <= 90; lat += 4) pts.push(scr(projLL(lat, lon), R, cx, cy)); seg(pts); }
+  ctx.strokeStyle = palette["faint"]; ctx.lineWidth = 1.2;
+  ORBITS.forEach((o) => orbitPath(o, true));
+  const colorFor = (strong, faint) => !lit ? palette["fg"] : strong ? palette["accent"] : faint ? palette["fg"] : palette["bar-faint"];
+  const sq = (x, y, s, c, a = 1) => { ctx.globalAlpha = a; ctx.fillStyle = c; ctx.fillRect(Math.round(x - s / 2), Math.round(y - s / 2), s, s); ctx.globalAlpha = 1; };
+  ORBITS.forEach((o, oi) => {
+    for (let k = 0; k < o.n; k++) {
+      const u = (k / o.n) * Math.PI * 2 + orbitPhase * o.speed;
+      const v = scr(projOrbit(o, u), R, cx, cy);
+      const hidden = v.z < 0 && Math.hypot(v.x - cx, v.y - cy) < R;
+      if (hidden) continue;
+      const strong = ORBIT_STRONG.has(oi + "-" + k);
+      sq(v.x, v.y, 5, colorFor(strong, false), lit && !strong ? 0.55 : 1);
+    }
+    const lv = scr(projOrbit(o, Math.PI * 0.18), R, cx, cy);
+    if (!(lv.z < 0 && Math.hypot(lv.x - cx, lv.y - cy) < R)) { ctx.fillStyle = palette["faint"]; ctx.font = "11px " + getComputedStyle(document.body).fontFamily; ctx.fillText(o.name, lv.x + 8, lv.y - 6); }
+  });
+  ctx.font = "11.5px " + getComputedStyle(document.body).fontFamily;
+  CLUSTERS.forEach((c) => {
+    const cv3 = scr(projLL(c.lat, c.lon), R, cx, cy);
+    if (cv3.z <= 0.05) return;
+    const best = c.members.some((i) => STRONG.has(i)) ? "s" : c.members.some((i) => FAINT.has(i)) ? "f" : "";
+    if (c.members.length === 1) { const i = c.members[0]; sq(cv3.x, cv3.y, 5, colorFor(STRONG.has(i), FAINT.has(i)), lit && !STRONG.has(i) && !FAINT.has(i) ? 0.5 : 1); return; }
+    if (c.isKsc && fan > 0.001) {
+      const n = c.members.length;
+      c.members.forEach((pi, k) => {
+        const true3 = scr(projLL(PINS[pi].lat, PINS[pi].lon), R, cx, cy);
+        const rr = 7.5 * Math.sqrt(k + 0.5) * fan, th = k * 2.39996323;
+        const px = cv3.x + Math.cos(th) * rr, py = cv3.y + Math.sin(th) * rr;
+        ctx.globalAlpha = 0.5 * fan; ctx.strokeStyle = palette["faint"]; ctx.lineWidth = 0.6;
+        ctx.beginPath(); ctx.moveTo(true3.x, true3.y); ctx.lineTo(px, py); ctx.stroke(); ctx.globalAlpha = 1;
+        sq(px, py, 5, colorFor(STRONG.has(pi), FAINT.has(pi)), lit && !STRONG.has(pi) && !FAINT.has(pi) ? 0.5 : 1);
+      });
+      ctx.fillStyle = palette["fg"]; ctx.fillText(`Kennedy · ${n} photos`, cv3.x + 7.5 * Math.sqrt(n) * fan + 10, cv3.y - 4);
+      return;
+    }
+    const col = !lit ? palette["fg"] : best === "s" ? palette["accent"] : best === "f" ? palette["fg"] : palette["bar-faint"];
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.strokeRect(Math.round(cv3.x - 6), Math.round(cv3.y - 6), 12, 12);
+    sq(cv3.x, cv3.y, 4, col);
+    ctx.fillStyle = col === palette["accent"] ? palette["accent-text"] : palette["soft"];
+    if (c.isKsc || c.members.length >= 4) ctx.fillText(c.isKsc ? `${c.members.length} · Kennedy` : String(c.members.length), cv3.x + 10, cv3.y + 4);
+  });
+  $("#g-state").textContent = flight ? "camera flight" : dragging ? "dragging" : drift ? "drifting" : "idle: nothing redraws";
+}
+let raf = 0, last = 0, inView = false;
+function loop(t) {
+  raf = 0;
+  const dt = last ? Math.min(64, t - last) : 16; last = t;
+  let need = false;
+  if (flight) {
+    const f = Math.min(1, (t - flight.t0) / flight.dur), e = easeIO(f);
+    view.rot = flight.r0 + (flight.r1 - flight.r0) * e; view.tilt = flight.a0 + (flight.a1 - flight.a0) * e;
+    if (f >= 1) { flight = null; focused = true; }
+    need = true;
+  } else if (drift && !dragging && !focused) { view.rot += dt * 0.006; orbitPhase += dt * 0.00018; need = true; }
+  else if (drift && focused) { orbitPhase += dt * 0.00018; need = true; }
+  if (Math.abs(fan - fanTarget) > 0.001) { fan += (fanTarget - fan) * Math.min(1, dt / 120); if (Math.abs(fan - fanTarget) < 0.002) fan = fanTarget; need = true; }
+  if (need) draw();
+  if (inView && (need || dragging)) raf = requestAnimationFrame(loop); else last = 0;
+}
+function kick() { if (!raf && inView) raf = requestAnimationFrame(loop); }
+function flyTo(lat, lon) {
+  let r1 = -lon; while (r1 - view.rot > 180) r1 -= 360; while (r1 - view.rot < -180) r1 += 360;
+  if (RM) { view.rot = r1; view.tilt = lat; focused = true; draw(); return; }
+  flight = { t0: performance.now(), dur: 1400, r0: view.rot, r1, a0: view.tilt, a1: lat };
+  kick();
+}
+$("#g-fly").addEventListener("click", () => flyTo(28.52, -80.65));
+$("#g-fan").addEventListener("click", () => {
+  fanTarget = fanTarget ? 0 : 1; $("#g-fan").setAttribute("aria-pressed", String(!!fanTarget));
+  if (fanTarget && !focused) flyTo(28.52, -80.65);
+  if (RM) { fan = fanTarget; draw(); } else kick();
+});
+$("#g-search").addEventListener("click", () => { lit = !lit; $("#g-search").setAttribute("aria-pressed", String(lit)); draw(); });
+$("#g-drift").addEventListener("click", () => { drift = !drift; $("#g-drift").setAttribute("aria-pressed", String(drift)); draw(); kick(); });
+$("#g-drift").setAttribute("aria-pressed", String(drift));
+let down = null;
+cv.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, rot: view.rot, tilt: view.tilt, moved: false }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener("pointermove", (e) => {
+  if (!down) return;
+  const dx = e.clientX - down.x, dy = e.clientY - down.y;
+  if (!down.moved && Math.hypot(dx, dy) < 4) return;
+  down.moved = true; dragging = true; flight = null; focused = false;
+  view.rot = down.rot + dx * 0.4; view.tilt = Math.max(-70, Math.min(70, down.tilt + dy * 0.3));
+  draw();
+});
+cv.addEventListener("pointerup", (e) => {
+  if (down && !down.moved) {
+    const r = cv.getBoundingClientRect(), R = Math.min(W, H) * 0.3, cx = W * 0.5, cy = H * 0.46;
+    const k = CLUSTERS.find((c) => c.isKsc); const v = scr(projLL(k.lat, k.lon), R, cx, cy);
+    const tol = e.pointerType === "touch" ? 24 : 14;
+    if (v.z > 0 && Math.hypot(e.clientX - r.left - v.x, e.clientY - r.top - v.y) < tol) $("#g-fan").click();
+  }
+  down = null; dragging = false; draw(); kick();
+});
+window.addEventListener("resize", resizeGlobe);
+themeChanged.push(draw);
+onVisible(cv, () => { inView = true; kick(); }, () => { inView = false; });
+resizeGlobe();
+
+/* ================= PLATE 12: decisions ================= */
+const DEC = [
+  ["Hybrid search in one SQL query", "Each half fixes the other's misses. Postgres already holds the data, so there's no extra search service.", "A dedicated engine (Elasticsearch, a vector DB) would give more ranking features."],
+  ["A text model, not CLIP", "Captions are rich; many images are press photos of people and rooms, where image scores are noisy. Small, offline, deterministic.", "It can't find what is only in the pixels: \"helicopter\" misses."],
+  ["all-MiniLM-L6-v2", "Best P@5 of nine models, 87 MB, 0.7 ms per query.", "\"red planet\" stays faint. A larger model fixes it but breaks the size budget."],
+  ["80% meaning + 20% words", "Best measured numbers, exact IDs stay first, a one-sentence rule.", "Tuned on 15 queries: a sanity check, not a proof."],
+  ["Calibration in Python", "Pure, unit-tested, and the eval re-scores in memory.", "Scoring can't run inside SQL with a final LIMIT, so the candidate pool must be big enough (200 per side)."],
+  ["Snapshot results in history", "History shows what the user saw; reopening is a fast read.", "Up to 50 rows per search, and old searches don't get better rankings."],
+  ["Keyset pagination for history", "Same cost at any depth; a delete never shifts later pages.", "No \"jump to page 7\". The cursor only goes forward."],
+  ["The archive loads all 100 at once", "The canvas shows everything; results, timelines and the modal share one cached list.", "Doesn't scale past a few hundred images. The API still has offset pages and filters the UI doesn't use."],
+  ["Undo = delay the DELETE by 6 s", "A deleted snapshot can't be rebuilt; no soft-delete column needed.", "Another tab still sees the row for 6 s. A crash before pagehide means no delete (the safe side)."],
+  ["View Transitions for the reflow", "Pure browser API, no animation library; each photo visibly moves to its rank.", "Only in supporting browsers; others get a plain navigation."],
+  ["No Alembic", "One fixed schema for a demo, fewer moving parts.", "create_all never alters an existing table. A schema change needs down -v or a migration."],
+  ["Repositories return Pydantic models", "Nothing above them depends on SQLAlchemy; no lazy-load surprises in async code.", "Mapping code (to_source) to maintain."],
+  ["Places decided ahead, hand-reviewed", "Correct and explainable, with provenance shown.", "Doesn't scale to new images without a review step."],
+  ["One Points cloud + HTML labels", "A handful of draw calls; crisp text in the real font.", "Custom picking and projection code instead of drei helpers."],
+  ["Vite instead of CRA", "CRA is deprecated; react-scripts 5 blocks TypeScript 5, which three.js types need.", "One migration step at the start."],
+  ["Cloudflare Worker in front of one VM", "HTTPS and a rate limit with no certificates on the VM; a shared secret makes the origin answer only the Worker.", "One more moving part, and a secret to keep in sync."],
+  ["Global history, no auth", "The brief has no users.", "Anyone can see or delete any search on the public demo."],
+];
+const decBox = $("#dec");
+DEC.forEach(([d, why, gave]) => {
+  const det = document.createElement("details");
+  det.innerHTML = `<summary><b>${d}</b><span>${why}</span></summary><div class="gave"><p>${gave}</p></div>`;
+  decBox.appendChild(det);
+});
+
+})();
+</script>
+
+</body>
+</html>
