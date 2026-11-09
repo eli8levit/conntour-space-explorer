@@ -1,4 +1,4 @@
-# Space Explorer
+<h1><img src="docs/media/logo-lockup-on-dark@2x.png" width="234" alt="Space Explorer" /></h1>
 
 Browse and search 100 NASA images in plain English. Each result has a confidence score.
 Search is hybrid: Postgres full-text search for exact words, plus a small local text-embedding model for meaning.

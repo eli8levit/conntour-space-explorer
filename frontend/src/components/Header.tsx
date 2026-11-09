@@ -1,5 +1,6 @@
 import { Link, useMatch } from "react-router-dom";
 import { HistoryButton } from "./HistoryTab";
+import { Mark } from "./Mark";
 import { useArchive } from "../hooks/sources";
 import { useResultView } from "../hooks/useResultView";
 import { parseId } from "../lib/ids";
@@ -18,7 +19,7 @@ export function Header() {
   const searchId = parseId(searchMatch?.params.id);
   const archive = useArchive();
   const total = archive.data?.total;
-  // Over the drifting canvas the bar is a little more see-through (A1 82%, elsewhere 90%).
+  // Over the moving canvas the bar is a little more see-through (A1 82%, elsewhere 90%).
   const onCanvas = useMatch("/") !== null;
 
   return (
@@ -27,10 +28,14 @@ export function Header() {
         onCanvas ? "bg-bg/[0.82]" : "bg-bg/90"
       } backdrop-blur-[14px] sm:px-8`}
     >
-      <Link to="/" className="flex min-w-0 shrink-0 items-baseline gap-3.5">
-        <span className="whitespace-nowrap text-[17px] font-semibold tracking-[-0.01em]">Space Explorer</span>
-        <span className="hidden truncate text-[13px] text-faint md:inline">
-          {total === undefined ? "NASA Image Library" : `${total} images from the NASA Image Library`}
+      {/* §14: the mark 12px left of the wordmark, which stays live text. */}
+      <Link to="/" className="flex min-w-0 shrink-0 items-center gap-3">
+        <Mark size={20} className="shrink-0" />
+        <span className="flex min-w-0 items-baseline gap-3.5">
+          <span className="whitespace-nowrap text-[17px] font-semibold tracking-[-0.01em]">Space Explorer</span>
+          <span className="hidden truncate text-[13px] text-faint md:inline">
+            {total === undefined ? "NASA Image Library" : `${total} images from the NASA Image Library`}
+          </span>
         </span>
       </Link>
 
