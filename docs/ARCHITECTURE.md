@@ -72,7 +72,8 @@ The code path:
 2. `useRunSearch` in `frontend/src/hooks/searches.ts` calls `api.runSearch`.
 3. `backend/controllers/searches.py` (`create_search`) validates the body with
    `SearchRequest` in `backend/models.py`. The body has an optional `mode`: `"hybrid"` (default)
-   or `"keyword"`. In keyword mode the query is not embedded, so confidence = words.
+   or `"keyword"`. In keyword mode the query is still embedded (the vector still brings in candidates), but the
+   scoring ignores meaning, so confidence = words.
 4. `backend/services/search.py` (`score_query`) embeds the query with `run_in_threadpool`.
    ONNX inference is synchronous CPU work. On the event loop it would block every other request.
 5. `backend/repositories/search.py` (`HYBRID_CANDIDATES_SQL`) gets both raw scores in one round trip.
@@ -331,8 +332,9 @@ Full numbers, the formula comparison and the model sweep: [search-eval.md](searc
   "Show 10 older searches" button and "Showing N of M" (from `total`). Rows are grouped by the
   user's day ("Today", "Yesterday", then weekday or month). Each row shows the query, "N images,
   K strong, best X%", the top 3 thumbnails with confidence bars, "Open results" (or "Search again"
-  for a search with no results) and "Delete". A "Find a past search" box filters the rows that are
-  already loaded, in the browser.
+  for a search with no results) and "Delete". A "Find a past search" box filters on the server
+  (`GET /api/searches?q=`, a case-insensitive substring match with `%` and `_` escaped), so it
+  searches the whole history, not only the loaded pages.
 - `backend/tests/test_api.py` (`test_history_keyset_pagination_and_delete`) creates 25 searches,
   pages through them 10 at a time, deletes one, and checks that the old cursor still continues
   exactly where it stopped.
@@ -442,10 +444,16 @@ view too. The font is Instrument Sans, self-hosted.
 
 **The screens.**
 
-- **Archive** (`/`, `frontend/src/pages/BrowsePage.tsx`). All 100 photos on one dark canvas that is
-  larger than the window and drifts slowly. You can drag it. Frame sizes come from a hash of the
-  id, so the layout is the same on every load. The order is oldest first, and each frame has a
-  plate number (001–100). Hover or focus marks a frame with orange brackets and a note beside it.
+- **Archive** (`/`, `frontend/src/pages/BrowsePage.tsx`, `components/BrowseCanvas.tsx`). All 100
+  photos on one dark canvas that fills any window (the column count follows the width) and scrolls
+  upward forever. It is built from "rounds": each round is the whole archive in a new random order,
+  packed in JS into a full rectangle (`packRound` in `lib/canvas.ts`), so rounds stack with a
+  straight seam; a round that leaves the top is dropped and a new one joins below (2–3 in the DOM).
+  Photos on either side of a seam never repeat. The motion is one `requestAnimationFrame` loop that
+  writes the transform directly (no React render per frame), eases to a stop while a frame is
+  hovered or focused, stops under a dialog, and is off under reduced motion. Drag or the wheel move
+  it too. Frame sizes come from a hash of the id; each frame keeps its plate number (001–100, the
+  position in date order). Hover or focus marks a frame with orange brackets and a note beside it.
   The search dock sits at the bottom.
 - **Results** (`/search/:id`, `frontend/src/pages/SearchResultsPage.tsx`). The same photos reflow by
   rank: rank 1 is the biggest frame, and frames shrink as the rank drops. Each frame has a rank
@@ -560,7 +568,7 @@ command runs as `volta run --node 22 npx vitest run`.
 | Places decided ahead of time, hand-reviewed | Correct and explainable. Provenance is shown. | Does not scale to new images without a review step. |
 | One `Points` cloud for pins, HTML labels | A handful of draw calls. Crisp text, real fonts. | Custom picking and projection code instead of drei helpers. |
 | Vite instead of CRA | CRA is deprecated. `react-scripts 5` blocks TypeScript 5, which current three.js types need. | One migration step at the start. |
-| A Cloudflare Worker in front of one VM | HTTPS and a rate limit with no certificates on the VM. | The VM's port 80 is still open, so the Worker can be skipped by calling the origin directly. |
+| A Cloudflare Worker in front of one VM | HTTPS and a rate limit with no certificates on the VM. | One more moving part. The Worker sends a shared secret (`X-Origin-Secret`) and nginx on the VM returns 403 without it, so calling port 80 directly cannot skip the rate limit. |
 | Global history, no auth | The assignment does not need users. | Anyone can see or delete any search in the public demo. |
 
 ## 13. At scale I would…

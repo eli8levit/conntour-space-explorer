@@ -305,7 +305,7 @@ The GIN and HNSW indexes are already there.
 
 **46. What are the security concerns of the public demo?**
 - There is no auth, so anyone can read or delete any search.
-- The Worker limits `POST` and `DELETE` on `/api/searches` to 10 per minute per IP (`deploy/worker/src/index.ts`). But the VM's port 80 is open, so a client can skip the Worker. A Cloudflare Tunnel or a firewall that allows only Cloudflare would close this.
+- The Worker limits `POST` and `DELETE` on `/api/searches` to 10 per minute per IP (`deploy/worker/src/index.ts`). The Worker adds a shared secret header (`X-Origin-Secret`), and nginx on the VM answers 403 without it (`deploy/nginx/origin-guard.conf.template`), so a client cannot skip the Worker by calling port 80 directly.
 - CORS allows only the local dev origins in `CORS_ORIGINS` (`backend/config.py`), without credentials. The app itself is same-origin, so it does not need CORS.
 - Ids in URL paths are bounded to the int32 column range, so `/api/searches/9999999999` is a 422, not a 500.
 - nginx hides its version and sends `nosniff`, `X-Frame-Options: DENY` and a strict `Referrer-Policy` (`frontend/nginx.conf`).

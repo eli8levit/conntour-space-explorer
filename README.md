@@ -1,12 +1,32 @@
-<h1><img src="docs/media/logo-lockup-on-dark@2x.png" width="234" alt="Space Explorer" /></h1>
+<p align="center">
+  <img src="docs/media/logo-lockup-on-dark@2x.png" width="234" alt="Space Explorer" />
+</p>
 
-Browse and search 100 NASA images in plain English. Each result has a confidence score.
-Search is hybrid: Postgres full-text search for exact words, plus a small local text-embedding model for meaning.
-Every search is saved with its results, and a 3D "Where in space" view shows where each photo was taken.
+<p align="center">
+  <b>Search NASA's image archive in plain words.</b><br />
+  Every result ranked by confidence, a history you can revisit, and a 3D view of where each photo was taken.
+</p>
 
-![Space Explorer: search results for "mars rover"](docs/media/a2-results.png)
+<p align="center">
+  <a href="https://homework.nightcoding.dev"><b>Live demo</b></a> ·
+  <a href="docs/ARCHITECTURE.md">Architecture</a> ·
+  <a href="docs/search-eval.md">Search eval</a> ·
+  <a href="docs/QA.md">Q&amp;A</a>
+</p>
 
-**Live demo:** https://homework.nightcoding.dev
+![Space Explorer: "storms seen from space", ranked NASA photos](docs/media/og.jpg)
+
+A full-stack take on the [Conntour home assignment](#the-assignment): browse 100 NASA images, search
+them in natural language with a confidence score, keep a search history, and one special feature.
+FastAPI + PostgreSQL (pgvector) + React, in Docker Compose.
+
+## Contents
+
+- [Quick start](#quick-start)
+- [What it does](#what-it-does)
+- [Special features](#special-features): Where in space · Meaning search with a small local model · A living archive
+- [Infra highlights](#infra-highlights)
+- [Tests](#tests) · [Project structure](#project-structure) · [Deploy](#deploy) · [Docs](#docs)
 
 ## Quick start
 
@@ -16,134 +36,174 @@ You need Docker with Docker Compose.
 docker compose up --build
 ```
 
-Then open http://localhost:3001.
+Open http://localhost:3001.
 
-- The first build takes a few minutes. It downloads the embedding model (about 90 MB) into the backend image.
-- The backend API is on http://localhost:5001, and its docs are at http://localhost:5001/docs.
-- Postgres is on port 5433. The seed runs on every start and never deletes data, so the search history survives restarts.
+- The first build takes a few minutes: it bakes the embedding model (about 90 MB) into the backend image.
+- API on http://localhost:5001, interactive docs at http://localhost:5001/docs. Postgres on port 5433.
+- The seed runs on every start and only fills what is missing, so the search history survives restarts.
+- Hot reload (Vite + `uvicorn --reload`): `docker compose -f docker-compose.dev.yml up --build`.
 
-For development with hot reload (Vite dev server and uvicorn `--reload`):
-
-```bash
-docker compose -f docker-compose.dev.yml up --build
-```
-
-After a schema change, the old database volume needs a reset once: `docker compose down -v`.
-
-## Features
+## What it does
 
 | Requirement | How it works |
 |---|---|
-| 1. Browse images | The whole archive on one dark canvas: all 100 photos at once, oldest first, each with a plate number. The canvas drifts slowly, and you can drag it. Click a photo for the details: the full image, the NASA description, date, center, keywords, photographer, location, and where in space it was taken. The details open with `?image=<id>`, so they can be linked, and Back closes them. ←/→ move to the previous or next image. |
-| 2. Natural-language search | Hybrid search: full-text (exact words, IDs like "STS-135") plus vector search (meaning: "animals" finds the manatees and the heron, as faint matches). Each result has a confidence score, with a breakdown of meaning and words, and a "why it matched" line. When the query names an ID, the breakdown also says if the ID rule raised or halved the score ("halved: “STS-135” is not in this image"). The canvas reflows by rank: rank 1 is the biggest frame, and images that did not match are set aside in grey. Results at 50% or more are "strong" (orange). The search box has a Combined / Keywords toggle (`POST /api/searches` takes an optional `"mode"`: `"hybrid"`, the default, or `"keyword"`). On a results page, switching re-runs the same words. History rows say "keywords only". |
-| 3. Search history | Each search is stored with a snapshot of its results. The History drawer (left edge, `?history=1`) lists past searches, newest first, grouped by day, with "N images, K strong, best X%" and the top 3 thumbnails. Reopen a search and you see exactly what you saw. Delete one entry, with 6 seconds to undo. The list uses keyset (cursor) pagination, 10 at a time ("Show 10 older searches"). |
-| 4. Special feature | "Where in space", a 3D map of where every photo was taken. See below. |
+| **1. Browse images** | All 100 photos on one canvas that fills the window and scrolls upward on its own. Click a photo for the details: the full image, NASA's caption, date, center, keywords, photographer, credit, and where in space it was taken. The details live in the URL (`?image=<id>`), so they can be linked, and Back or Esc closes them. ←/→ step through. |
+| **2. Natural-language search** | Hybrid search: Postgres full-text for exact words and IDs ("STS-135") plus vector search for meaning ("animals" finds the heron and the manatees, though no caption says "animals"). Every result has a **confidence score**, a meaning/words breakdown and a "why it matched" line. The canvas reflows by rank: rank 1 is the biggest frame, strong matches (50%+) are orange, and the rest are set aside in grey. A **Combined / Keywords** toggle runs the same words both ways. |
+| **3. Search history** | Every search is saved with a snapshot of its results, so reopening one shows exactly what you saw. The drawer groups searches by day with "N images, K strong, best X%" and the top 3 thumbnails, finds a past search by text, **deletes** one with 6 seconds to undo, and **paginates** with a keyset cursor (10 at a time). |
+| **4. Special feature** | "Where in space": a 3D line-art map of where every photo was taken. [Below](#1-where-in-space). |
 
-Bonus items:
+**Bonus:** filtering (a year timeline with two handles, `?from=&to=`; the scene filters by year too),
+pagination (keyset for history, offset for sources), a keyword-only fallback if the model cannot load,
+and keyboard control (`/` focuses search, ↑/↓ through results, ←/→ in the details, Esc closes).
 
-- **Filtering:** on a results page, a year timeline with two handles narrows the results by year
-  (`?from=&to=`). The scene filters by year too. The history drawer can find a past search by text.
-  The sources API also filters by NASA center and place (`/api/sources?center=&body=`).
-- **Pagination:** keyset pages for history, offset pages in the sources API.
-- **Fallback:** if the model cannot load, search continues keyword-only.
-- **Keyboard:** `/` focuses search, Enter runs it, ↑/↓ step through results, ←/→ in the details, Esc closes the top layer.
+<table>
+  <tr>
+    <td width="50%"><img src="docs/media/results.jpg" alt="Results for space shuttle launch: frames sized by rank, a ranked rail, a year timeline" /></td>
+    <td width="50%"><img src="docs/media/details.jpg" alt="Image details: Gale Crater, a Mars locator, the match and its place in time" /></td>
+  </tr>
+  <tr>
+    <td>Results: size says rank, orange says strong, the timeline says when.</td>
+    <td>Details: the match explained, where and when it was taken.</td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/media/history.jpg" alt="The history drawer: searches by day with counts, thumbnails, open and delete" /></td>
+  </tr>
+  <tr>
+    <td colspan="2">History: every search with its snapshot, grouped by day, found by text, deleted with undo.</td>
+  </tr>
+</table>
 
-Display titles are short, hand-written titles (`backend/data/titles.json`), because many NASA
-titles are raw IDs. The details also show an image credit.
+## Special features
 
-## Special feature
+### 1. Where in space
 
-### Feature name
+> The special feature the assignment asks for.
 
-**Where in space**: a 3D line-art map that puts every image where it was taken. The places are
-Earth (launch pads, NASA centers, Star City, Baikonur), Earth orbit (the ISS and Shuttle orbits),
-Mars (at the coordinates from the caption) and deep space (Saturn, the asteroid belt).
+#### Feature name
 
-### Why this feature
+**Where in space**: a 3D line-art map that puts every image where it was taken: on Earth (launch
+pads, NASA centers, Star City, Baikonur), in Earth orbit (the ISS and Shuttle orbits), on Mars (at
+the coordinates in the caption) and in deep space (Saturn, the asteroid belt).
 
-- The images have a lot of place information, but it is hidden in captions and metadata: Mars
-  coordinates, launch pads, "taken from the ISS".
-- A map answers questions a grid cannot: "What was photographed on Mars?", "How much of this
-  archive is Kennedy Space Center?", "Which photos were taken in orbit?"
-- It also connects to search. On a results page, "See these in space →" opens the scene
-  (`/scene?search=<id>`): the strong results light up orange, the faint ones white, and the rest are
-  dimmed. You see *where* your results are. From the image details, "Fly there in Space view →"
-  flies to that one photo.
-- Conntour's product searches camera footage. "Where and when was this seen" is the same kind of
-  question, in a different domain.
+#### Why this feature
 
-### Implementation details
+- The archive is full of place information, hidden in captions and metadata: Mars coordinates,
+  launch pads, "taken from the ISS". A map answers what a grid cannot: what was photographed on
+  Mars, how much of the archive is Kennedy, which photos were taken in orbit.
+- It connects to search. "See these in space →" opens your results on the map: strong matches
+  orange, faint ones white, the rest dimmed. "Fly there in Space view →" in the details flies to
+  one photo.
+- Conntour searches camera footage. "Where and when was this seen" is the same question in a
+  different domain.
 
-- **Places are data, not guesses.** `backend/scripts/build_places.py` drafts a place for each
-  image from rules: Mars coordinates in the caption, ISS and Shuttle photo-ID patterns, the
-  location field, and named sites. Then I reviewed all 100 by hand against the captions. 27
-  entries changed. The result is `backend/data/places.json`, and tests check it.
-- **Honest provenance.** Each place says how we know it: from the caption, from the location
-  field, set by hand, or "approx.: NASA center". The card shows this, so an approximate pin never
-  looks exact.
-- **Fast rendering.** It is built with react-three-fiber. All pins are one `THREE.Points` cloud, and
-  each body's line art (coastlines, grids, orbit rings) is one `LineSegments`. The canvas draws
-  only when something changes (`frameloop="demand"`).
-- **Sharp labels.** The labels are HTML over the canvas, projected from 3D every frame, with no
-  React re-render per frame. The labels, the click picking and the drawing use the same projection,
-  so they always agree.
-- **Clusters.** Nearby pins (within 2.5°) become one cluster marker with a count. Kennedy Space
-  Center alone has about 40 photos. A click fans the cluster out on a sunflower spiral, with thin
-  lines back to the true spots.
-- **Camera flights** between levels and pins. The camera swings around a planet, not through it.
-  Reduced motion is respected.
-- **Not to scale on purpose.** Planet sizes keep their real ratio, and the orbit rings keep their
-  real inclinations (ISS 51.6°, Shuttle 28.5°). The distances are shortened, otherwise Mars would
-  be a dot.
-- **Year rail.** One square per image, one row per year (1950–2024). Drag to filter.
-- **Lazy-loaded.** The scene is its own chunk (three.js). The rest of the app never downloads it.
-- **Challenges:** orbit photos have no ground position, so they are spaced along their ring and
-  drift slowly. 40 photos at one site needed clusters. Labels on the far side of a planet must hide.
+#### Implementation details
 
-More detail: [docs/ARCHITECTURE.md, section 9](docs/ARCHITECTURE.md#9-the-scene-where-in-space).
+- **Places are data, not guesses.** `backend/scripts/build_places.py` drafts a place per image from
+  rules (Mars lat/lon in the caption, ISS and Shuttle photo-ID patterns, the location field, named
+  sites). I reviewed all 100 by hand against the captions; 27 changed. The result,
+  `backend/data/places.json`, is seeded and tested.
+- **Honest provenance.** Each place says how we know it: from the caption (58), the location field
+  (30), set by hand (8), or approximately the NASA center (4). The UI says it in words.
+- **A handful of draw calls.** react-three-fiber. All pins are one `THREE.Points` cloud; each body's
+  line art (coastlines, graticule, orbit rings) is one `LineSegments`. It renders on demand only.
+- **Sharp labels.** HTML labels over the canvas, placed by projecting 3D anchors every frame without
+  a React render. Labels, click picking and pins share one projection, so they always agree.
+- **Clusters.** Pins within 2.5° merge into a count. Kennedy alone has about 40 photos; a click fans
+  them out on a sunflower spiral with leader lines to the true spots.
+- **Not to scale, on purpose.** Planet size ratios and orbit inclinations (ISS 51.6°, Shuttle 28.5°)
+  are real; distances are shortened, or Mars would be a dot.
+- **A detailed locator in the details** (an orthographic SVG globe with real coastlines, rotated to
+  the place, animated in on open), so the place is visible before you open the 3D view.
+- **Lazy-loaded.** three.js is its own chunk (230 kB gzip). The archive, results and history never
+  download it. No WebGL: a fallback message, and the rest of the app works.
 
-### Demo
+#### Demo
 
-![Demo: search "mars rover", open a result, fly to Mars, then fan out the Kennedy cluster](docs/media/demo.gif)
+![Open Gale Crater, fly to it on Mars, then to Earth, and fan out the Kennedy cluster](docs/media/scene.webp)
 
-Open it at http://localhost:3001/scene (or "Space view →" in the header). Try
-`/scene?focus=<image id>` to fly to one image, or `/scene?search=<search id>` to open a stored search on the level with most strong matches.
+Open http://localhost:3001/scene, or try `/scene?focus=<image id>` (fly to one photo) and
+`/scene?search=<search id>` (a stored search, on the level with the most strong matches).
 
-## Search quality
+### 2. Meaning search with a small local model
 
-The search was measured, not guessed. `backend/scripts/eval_search.py` has 15 queries with
-hand-labeled relevant images, 3 off-topic queries and 3 gibberish queries.
+Real ML was not required. I added a small local model anyway, because "animals" should find the
+manatees even though no caption says "animals".
 
-| Mode | P@5 | Recall |
-|---|---|---|
-| Keyword only | 0.62 | 0.82 |
-| Meaning only | 0.75 | 0.97 |
-| **Hybrid (used)** | **0.83** | **0.97** |
+- **One SQL round trip.** Full-text (a weighted generated `tsvector` with a GIN index) and vectors
+  (pgvector, HNSW) run in one query and merge their candidates. A row found by one side still gets
+  the other side's score. No separate search service.
+- **A tiny model, in process.** `all-MiniLM-L6-v2` through fastembed (ONNX, no PyTorch): 87 MB,
+  about 0.7 ms per query on CPU, run in a threadpool so the event loop never blocks. Nine models
+  were compared; this one had the best top-5.
+- **One number.** Confidence = 80% meaning + 20% matching words, with two guard rules: gibberish
+  ("zzqx") returns nothing, and an ID in the query ("STS-135") decides which results can be strong.
+- **Measured, not guessed.** `backend/scripts/eval_search.py` scores 15 hand-labeled queries plus
+  off-topic and gibberish ones:
 
-- Confidence = 80% meaning + 20% matching words. The meaning score runs from cosine 0.20 to 0.70. Five formulas and nine embedding models were
-  compared. all-MiniLM-L6-v2 won.
-- Two guard rules: gibberish ("zzqx") returns nothing, and an ID in the query ("STS-135") decides
-  which results can be strong. A bare year ("launch in 2011") is not an ID.
-- The orange results are measured too: of the strong results, 55% are relevant ("relevant among
-  strong"). Until 2026-11-09 it was 30%, because the meaning score saturated at cosine 0.50. Moving
-  the ceiling from 0.50 to 0.70 raised it and kept P@5 and recall.
-- Known limits: "red planet" finds only faint matches (none strong, best 25%). A small text model
-  reads "mars rover" as mostly "Mars", so some orbital Mars photos are still strong (3 of 7 strong).
+  | Mode | Top-5 precision | Recall |
+  |---|---|---|
+  | Keywords only | 0.62 | 0.82 |
+  | Meaning only | 0.75 | 0.97 |
+  | **Hybrid (used)** | **0.83** | **0.97** |
 
-Details: [docs/search-eval.md](docs/search-eval.md).
+  The eval also checks the orange label: 55% of strong results are relevant. It was 30% until one
+  constant changed (the meaning score saturated too early); top-5 and recall stayed the same.
+  Details in [docs/search-eval.md](docs/search-eval.md).
+- **Known limits.** It reads captions, not pixels: "rocket launch" ranks press events that mention
+  rockets above actual launch photos, and "mars rover" still marks some orbital Mars photos strong.
+  No typo tolerance. Next steps: an image model (CLIP) as a third signal, a re-ranker on the top 20,
+  and `pg_trgm` to correct typos.
+
+### 3. A living archive: endless canvas, search reflow, timeline
+
+![Type a query on the moving archive: the matches glide into a ranked layout](docs/media/search.webp)
+
+- **An endless canvas.** The archive scrolls upward forever. Each round is all 100 photos in a new
+  order, packed into a full rectangle so rounds stack with a straight seam; rounds that leave the
+  top are dropped (2–3 in the DOM). One `requestAnimationFrame` loop writes the transform directly,
+  eases to a stop while you hover a photo, and is off under reduced motion.
+- **Search as a reflow.** View Transitions: each photo has the same `view-transition-name` on both
+  pages, so the matches glide from the canvas into their ranked places, rank 1 first, and the rest
+  fade aside. Bars fill and percentages count up. No animation library.
+- **The timeline.** One square per image, one column per year (1950–2024). Results light up
+  strongest first; drag the handles to filter by year, and the URL keeps it.
+
+## Infra highlights
+
+- **Our servers never touch an image file.** The database stores URLs; the browser loads the photos
+  from NASA.
+- **One POST does everything:** embed, retrieve, score, store the snapshot, read it back. The
+  results page renders from the cache with no second request.
+- **Layered backend:** controllers (HTTP) → services (logic, pure scoring) → repositories (all SQL)
+  → db. Repositories return Pydantic models, never ORM rows, so async lazy-loading cannot bite.
+- **Snapshots and keyset pages.** Reopening a search is a primary-key read; history pages cost the
+  same at any depth, and a delete never shifts the next page. Row stats come from one LATERAL query
+  per page (no N+1).
+- **Startup cannot fail on a download.** The model is baked into the image at build time and
+  `HF_HUB_OFFLINE=1` is set. If it still cannot load, search falls back to keywords and
+  `/api/health` reports `degraded` but stays up.
+- **Safe on every start.** An idempotent seed and schema (`create_all` plus `ADD COLUMN IF NOT
+  EXISTS`); `uv sync --frozen` from `uv.lock` for reproducible builds.
+- **Frontend:** server state in React Query, everything else in the URL (every view can be linked,
+  survives a reload, and Back works). Only one file calls `fetch`. Main bundle 93 kB gzip.
+- **Three compose files:** local, hot-reload dev, and production with no host ports for the db or the
+  backend.
+- **Production edge:** a Cloudflare Worker gives HTTPS and limits writes to 10 per minute per IP. It
+  sends a shared secret, and nginx on the VM answers 403 without it, so nobody can skip the limit.
+  nginx adds long-cache hashed assets and security headers.
 
 ## Tests
 
 ```bash
-# Backend: 84 tests. Needs the compose db on port 5433 (uses a separate test database).
+# Backend: 84 tests, API tests through httpx on a real Postgres (a separate test database)
+# with a fake embedder, plus pure tests for scoring, cursors, places and titles.
 cd backend && uv run pytest
 
-# Frontend: 142 unit tests for the pure helpers (matching, titles, timeline, history, scene math).
+# Frontend: 142 unit tests for the pure helpers (matching, titles, canvas packing, timeline, scene math).
 cd frontend && npm install && npx vitest run
 
-# Search quality table (inside the running backend container, which has the model).
+# Search quality (inside the running backend container, which has the model).
 docker compose exec backend python scripts/eval_search.py
-docker compose exec backend python scripts/eval_search.py --tune
 ```
 
 ## Project structure
@@ -152,56 +212,50 @@ docker compose exec backend python scripts/eval_search.py --tune
 backend/
   app.py              app setup; lifespan creates the schema and loads the model once
   config.py           settings and all search constants
-  models.py           Pydantic API schemas
   controllers/        HTTP routes: sources, searches, places, health
   services/           search use case, scoring, embedding, history cursors
   repositories/       all SQL: sources, hybrid retrieval, history
   db/                 SQLAlchemy models, session, schema setup
   scripts/            seed_db.py, eval_search.py, build_places.py
-  data/               mock_data.json (100 NASA items), places.json (reviewed places)
+  data/               mock_data.json (100 NASA items), places.json, titles.json
   tests/              pytest
 frontend/
   src/api/            typed fetch client and API types
   src/hooks/          React Query hooks (the only code that calls the API) and URL state
-  src/lib/            pure helpers with tests
-  src/pages/          BrowsePage (archive canvas), SearchResultsPage, ScenePage
-  src/components/     UI: canvas frames, search dock, rank rail, timeline, modal, history drawer
+  src/lib/            pure helpers, with tests
+  src/pages/          archive canvas, search results, scene
+  src/components/     canvas, search dock, rank rail, timeline, modal, history drawer
   src/scene/          the 3D "Where in space" view
-  nginx.conf          serves the build, proxies /api
-deploy/
-  worker/             Cloudflare Worker (HTTPS, rate limit) for the live demo
-docs/                 architecture, Q&A, search eval, design handoff, plan
-docker-compose.yml        local stack (frontend on 3001)
-docker-compose.dev.yml    hot reload
-docker-compose.prod.yml   production stack (port 80, password from .env)
+deploy/               Cloudflare Worker and the nginx origin guard
+docs/                 architecture, Q&A, search eval, demo script, design handoff
 ```
 
 ## Deploy
 
-One VM runs `docker-compose.prod.yml`, and a Cloudflare Worker gives HTTPS and a rate limit on
-`homework.nightcoding.dev`. Runbook: [deploy/README.md](deploy/README.md).
+One VM runs `docker-compose.prod.yml`; a Cloudflare Worker on `homework.nightcoding.dev` gives HTTPS
+and the rate limit. Runbook: [deploy/README.md](deploy/README.md).
 
-## Further docs
+## Docs
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): diagrams, data model, search, history, scene, decisions, scale.
-- [docs/QA.md](docs/QA.md): short answers to likely questions.
-- [docs/DEMO.md](docs/DEMO.md): the presentation script, with live numbers, risky queries and hard questions.
 - [docs/search-eval.md](docs/search-eval.md): how the search was measured and tuned.
-- [docs/PLAN.md](docs/PLAN.md): the original plan (some parts changed; the code is the source of truth).
+- [docs/QA.md](docs/QA.md): short answers to likely questions.
+- [docs/DEMO.md](docs/DEMO.md): the presentation script.
 - [docs/design-handoff/HANDOFF.md](docs/design-handoff/HANDOFF.md): the visual design spec.
 
 ## The assignment
 
-The original task from Conntour, in short:
+The task from Conntour, in short:
 
 1. **Browse images** from the `/sources` API, with a clear, friendly view and image metadata.
 2. **Search using natural language** (for example "images of Mars rovers", "solar flares"), with a
    **confidence score** per result.
 3. **Search history**: keep past searches and their results, revisit them, **delete individual
-   searches**, and **support pagination** (or another way to handle large result sets).
-4. **Special feature**: one creative feature that shows full-stack skills, documented in the README
-   with: feature name, why this feature, implementation details, demo.
+   searches**, and **support pagination**.
+4. **Special feature**: one creative feature that shows full-stack skills, documented with its name,
+   why, implementation details and a demo.
 
-Notes from the assignment: real ML or NLP is not required. Bonus points for filtering, pagination
-or authentication. The given stack is FastAPI + async SQLAlchemy + PostgreSQL, React + TypeScript +
-Tailwind, Docker Compose, nginx and uv.
+Real ML or NLP was not required. Bonus points for filtering, pagination or authentication. The given
+stack: FastAPI, async SQLAlchemy, PostgreSQL, React, TypeScript, Tailwind, Docker Compose, nginx, uv.
+
+Images: [NASA Image and Video Library](https://images.nasa.gov).

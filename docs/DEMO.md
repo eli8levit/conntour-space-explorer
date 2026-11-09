@@ -63,8 +63,8 @@ The dataset is fixed at 100 images. A rules script drafted the titles and places
 **4. "Why an in-process text model and pgvector? Why not CLIP or a vector database?"**
 One process, no network call, 0.7 ms per query. A thread pool keeps the event loop free. pgvector keeps search and the history snapshot in one store and one transaction. CLIP would add an image signal. Today "helicopter" misses for that reason.
 
-**5. "History is global, anyone can delete, and the rate limit can be bypassed."**
-The brief has no users. Next steps: an `owner_id` on searches, a firewall that allows only Cloudflare (or a tunnel), and `limit_req` in nginx.
+**5. "History is global and anyone can delete."**
+The brief has no users. Next step: an `owner_id` on searches, and filter every history query and delete by it. The rate limit cannot be skipped: the Worker sends a shared secret and the VM's nginx answers 403 without it.
 
 ## Do not claim
 
