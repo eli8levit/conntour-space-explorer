@@ -53,6 +53,11 @@ function ImageDialog({ id, onClose: closeUrl }: { id: number; onClose: () => voi
   // Closing goes Back in history. It must run once: Esc pressed twice (or × clicked twice)
   // before the URL changed used to go back two entries and leave the results page.
   const closing = useRef(false);
+  // On phones the whole dialog scrolls as one; prev/next must start at the top again.
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: 0 });
+  }, [id]);
   const onClose = () => {
     if (closing.current) return;
     closing.current = true;
@@ -130,11 +135,16 @@ function ImageDialog({ id, onClose: closeUrl }: { id: number; onClose: () => voi
         if (event.target === event.currentTarget) onClose();
       }}
       onKeyDown={onKeyDown}
-      // Sized from the viewport, not a fixed 1280×788: the margin grows with the window (24–64px),
-      // the image pane takes what is left after the details column, and very large screens stop at 1880×1240.
-      className="m-auto h-[calc(100dvh-32px)] focus-visible:outline-none max-h-none w-[calc(100vw-32px)] max-w-none overflow-hidden border border-line-strong bg-[#0D0D0F] p-0 text-fg shadow-modal backdrop:bg-[var(--scrim)] min-[900px]:h-[min(1240px,calc(100dvh-2*clamp(24px,3vw,64px)))] min-[900px]:w-[min(1880px,calc(100vw-2*clamp(24px,3vw,64px)))]"
+      // Phones: full screen, one scroll for the image and the details (a framed box left the
+      // details a sliver). From 900px: a framed dialog sized from the viewport: the margin grows
+      // with the window (24–64px), the image pane takes what the details column leaves, and very
+      // large screens stop at 1880×1240.
+      className="m-0 h-dvh max-h-none w-screen max-w-none overflow-hidden bg-[#0D0D0F] p-0 text-fg backdrop:bg-[var(--scrim)] focus-visible:outline-none min-[900px]:m-auto min-[900px]:h-[min(1240px,calc(100dvh-2*clamp(24px,3vw,64px)))] min-[900px]:w-[min(1880px,calc(100vw-2*clamp(24px,3vw,64px)))] min-[900px]:border min-[900px]:border-line-strong min-[900px]:shadow-modal"
     >
-      <div className="grid h-full grid-rows-[42vh_minmax(0,1fr)] min-[900px]:grid-cols-[minmax(0,1fr)_clamp(460px,36vw,680px)] min-[900px]:grid-rows-1">
+      <div
+        ref={scroller}
+        className="h-full overflow-y-auto overscroll-contain min-[900px]:grid min-[900px]:grid-cols-[minmax(0,1fr)_clamp(460px,36vw,680px)] min-[900px]:grid-rows-1 min-[900px]:overflow-hidden"
+      >
         <ImagePane
           source={data}
           hit={context.hit}
@@ -143,7 +153,7 @@ function ImageDialog({ id, onClose: closeUrl }: { id: number; onClose: () => voi
           onNext={context.nextId !== null ? () => go(context.nextId) : undefined}
         />
         {/* Keyed by image: prev/next start the column scrolled to the top, with "Show more" closed again. */}
-        <div key={id} className="min-h-0 overflow-y-auto">
+        <div key={id} className="min-h-0 min-[900px]:overflow-y-auto">
           {source.isError && (
             <div className="p-8">
               <ErrorState title="Could not load this image." error={source.error} onRetry={() => void source.refetch()} />
@@ -181,7 +191,8 @@ function ImagePane({ source, hit, position, onPrev, onNext }: ImagePaneProps) {
   const arrow =
     "absolute top-1/2 flex h-14 w-11 -translate-y-1/2 items-center justify-center border border-line-strong bg-bg/75 text-fg transition-colors hover:border-faint disabled:invisible";
   return (
-    <div className="relative flex min-h-0 items-center justify-center overflow-hidden bg-[#050506]">
+    // Phones: a fixed share of the screen above the details; from 900px: the full height.
+    <div className="relative flex h-[46dvh] min-h-0 items-center justify-center overflow-hidden bg-[#050506] min-[900px]:h-auto">
       {source && (
         <>
           {/* The small thumbnail, blurred, holds the space until the medium image has loaded. */}

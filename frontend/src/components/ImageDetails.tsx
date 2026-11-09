@@ -34,7 +34,8 @@ export function ImageDetails({ source, hit, query, semanticOn, archive, extent, 
   const condensed = useScrolledPast(heading);
 
   return (
-    <div className="flex min-h-full flex-col gap-5 px-5 pb-6 sm:px-[30px]">
+    // Extra room at the bottom on phones, where the browser's toolbar floats over the page.
+    <div className="flex min-h-full flex-col gap-5 px-5 pb-20 sm:px-[30px] min-[900px]:pb-6">
       {/*
         The sticky bar. Zero height, so it never pushes the content: it only paints over it.
         Once the big title has scrolled under it, the bar gets a background and the title in
