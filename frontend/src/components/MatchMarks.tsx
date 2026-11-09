@@ -1,12 +1,15 @@
 // The two marks that carry a match score everywhere: the rank badge and the
 // confidence bar. Two tiers only: strong (orange) and faint (off-white).
 import { isStrong } from "../lib/match";
+import { FILL_MS, enterStyle } from "../lib/motion";
 
 interface ConfidenceBarProps {
   confidence: number;
   /** "rail" bars are 2px with a grey faint fill; "frame" bars are 3px with an off-white faint fill. */
   variant?: "frame" | "rail" | "detail";
   className?: string;
+  /** Set while the results page enters: the fill grows from 0 after this many ms. */
+  enterDelay?: number;
 }
 
 const BAR_STYLE = {
@@ -16,14 +19,15 @@ const BAR_STYLE = {
 } as const;
 
 /** A track the width of its container, filled to `confidence × 100%`. */
-export function ConfidenceBar({ confidence, variant = "frame", className = "" }: ConfidenceBarProps) {
+export function ConfidenceBar({ confidence, variant = "frame", className = "", enterDelay }: ConfidenceBarProps) {
   const style = BAR_STYLE[variant];
   const width = `${Math.round(Math.min(1, Math.max(0, confidence)) * 100)}%`;
+  const entering = enterDelay !== undefined;
   return (
     <span aria-hidden="true" className={`relative block ${style.height} ${style.track} ${className}`}>
       <span
-        className={`absolute inset-y-0 left-0 ${isStrong(confidence) ? "bg-accent" : style.faint}`}
-        style={{ width }}
+        className={`absolute inset-y-0 left-0 ${isStrong(confidence) ? "bg-accent" : style.faint} ${entering ? "enter-bar" : ""}`}
+        style={{ width, ...(entering ? enterStyle(enterDelay, FILL_MS) : {}) }}
       />
     </span>
   );

@@ -41,7 +41,11 @@ export function useRunSearch() {
       void queryClient.invalidateQueries({ queryKey: historyKey });
       // A new search starts with the full year range: no ?from=&to= carried over.
       // The frames glide from the archive layout into the ranked one (where the browser supports it).
-      withViewTransition(() => navigate(`/search/${search.id}`));
+      // The results grid marks itself with its search id once it has rendered the results.
+      withViewTransition(
+        () => navigate(`/search/${search.id}`),
+        () => document.querySelector(`[data-search-id="${search.id}"]`) !== null,
+      );
     },
   });
 }

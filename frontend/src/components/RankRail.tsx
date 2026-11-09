@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 import type { SearchHit } from "../api/types";
 import { OPENED_IN_APP } from "../hooks/useImageParam";
 import { displayTitle, titleForMatching } from "../lib/displayTitle";
-import { formatPercent, idRuleNote, scoreBreakdown } from "../lib/format";
+import { idRuleNote, scoreBreakdown } from "../lib/format";
 import { formatRank, isStrong, matchedTerms, SCORING_NOTE, whyLine } from "../lib/match";
+import { FILL_AFTER_MS, RISE_MS, enterStyle, rankDelay } from "../lib/motion";
+import { CountUp } from "./CountUp";
 import { ChevronIcon } from "./Icons";
 import { ConfidenceBar } from "./MatchMarks";
 import type { HotProps } from "./ResultFrame";
@@ -20,6 +22,10 @@ interface RankRailProps {
   empty?: ReactNode;
   onCollapse?: () => void;
   className?: string;
+  /** True while the page enters: rows rise one by one in rank order. */
+  entering?: boolean;
+  /** True while the search loads: the title must not say "No results" yet. */
+  loading?: boolean;
 }
 
 /**
@@ -27,7 +33,7 @@ interface RankRailProps {
  * faint rows sit under a divider. It is an <ol>, so a screen reader hears the
  * ranking as a ranking.
  */
-export function RankRail({ hits, query, semanticOn, hotId, onHot, linkFor, empty, onCollapse, className = "" }: RankRailProps) {
+export function RankRail({ hits, query, semanticOn, hotId, onHot, linkFor, empty, onCollapse, className = "", entering = false, loading = false }: RankRailProps) {
   const firstFaint = hits.findIndex((hit) => !isStrong(hit.confidence));
   const [scrolled, setScrolled] = useState(false);
 
@@ -35,7 +41,9 @@ export function RankRail({ hits, query, semanticOn, hotId, onHot, linkFor, empty
     <aside aria-labelledby="rail-title" className={`flex flex-col gap-1.5 bg-surface px-6 pb-[18px] pt-5 ${className}`}>
       <div className="flex items-center justify-between pb-1.5">
         <h2 id="rail-title" className="text-[15px] font-medium">
-          {hits.length === 0
+          {loading
+            ? "Results"
+            : hits.length === 0
             ? "No results"
             : hits.length === 1
               ? "1 result, ranked by match"
@@ -65,7 +73,11 @@ export function RankRail({ hits, query, semanticOn, hotId, onHot, linkFor, empty
             <Fragment key={hit.source.id}>
               {index === firstFaint && (
                 // With only faint results there is nothing above to divide from: it becomes the rail's first line.
-                <li aria-hidden="true" className={`pb-1.5 text-xs text-muted ${index === 0 ? "pt-0.5" : "pt-3"}`}>
+                <li
+                  aria-hidden="true"
+                  className={`pb-1.5 text-xs text-muted ${index === 0 ? "pt-0.5" : "pt-3"} ${entering ? "enter-rise" : ""}`}
+                  style={entering ? enterStyle(rankDelay(index), RISE_MS) : undefined}
+                >
                   Faint matches, under 50%.
                 </li>
               )}
@@ -76,6 +88,7 @@ export function RankRail({ hits, query, semanticOn, hotId, onHot, linkFor, empty
                 hot={hotId === hit.source.id}
                 onHot={onHot}
                 to={linkFor(hit.source.id)}
+                enterDelay={entering ? rankDelay(index) : undefined}
               />
             </Fragment>
           ))}
@@ -92,9 +105,11 @@ interface RailRowProps extends HotProps {
   query: string;
   semanticOn: boolean;
   to: string;
+  /** Set while the page enters: the row rises after this many ms. */
+  enterDelay?: number;
 }
 
-function RailRow({ hit, query, semanticOn, hot, onHot, to }: RailRowProps) {
+function RailRow({ hit, query, semanticOn, hot, onHot, to, enterDelay }: RailRowProps) {
   const { source, rank, confidence } = hit;
   const strong = isStrong(confidence);
   const title = displayTitle(source);
@@ -112,8 +127,13 @@ function RailRow({ hit, query, semanticOn, hot, onHot, to }: RailRowProps) {
     setAnchor({ top: rect.top + rect.height / 2, left: rect.left - 34 });
   };
 
+  const entering = enterDelay !== undefined;
+  const fillDelay = entering ? enterDelay + FILL_AFTER_MS : undefined;
   return (
-    <li className="relative">
+    <li
+      className={`relative ${entering ? "enter-rise" : ""}`}
+      style={entering ? enterStyle(enterDelay, RISE_MS) : undefined}
+    >
       <Link
         to={to}
         state={OPENED_IN_APP}
@@ -138,10 +158,10 @@ function RailRow({ hit, query, semanticOn, hot, onHot, to }: RailRowProps) {
           <span className="flex items-baseline justify-between gap-2.5">
             <span className="truncate text-[13px]">{title}</span>
             <span className={`shrink-0 text-[13px] ${strong ? "text-accent-text" : "text-fg"}`}>
-              {formatPercent(confidence)}
+              <CountUp value={confidence} delay={fillDelay} />
             </span>
           </span>
-          <ConfidenceBar confidence={confidence} variant="rail" />
+          <ConfidenceBar confidence={confidence} variant="rail" enterDelay={fillDelay} />
           <span className="text-[11px] text-faint">{why}</span>
           <span className="sr-only">{scoreBreakdown(hit, semanticOn, query)}</span>
         </span>
