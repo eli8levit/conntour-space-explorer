@@ -145,7 +145,7 @@ export function SearchDock({ variant, query = "", engine, children }: SearchDock
             type="submit"
             disabled={!canSubmit}
             // Disabled while empty (the backend would answer 422), but it keeps its look: the design shows it lit.
-            className="shrink-0 bg-accent px-4 py-3 text-xs font-medium text-bg disabled:cursor-default"
+            className="h-10 shrink-0 bg-accent px-4 text-xs font-medium text-bg disabled:cursor-default"
           >
             {running ? "Searching…" : "Search ⏎"}
           </button>
@@ -153,7 +153,8 @@ export function SearchDock({ variant, query = "", engine, children }: SearchDock
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="shrink-0 border border-[#2E2E33] px-3.5 py-2.5 text-[13px] text-muted transition-colors hover:border-faint hover:text-fg"
+            // Orange so it is easy to find; the same 40px height as the toggle and the Search button.
+            className="h-10 shrink-0 border border-accent px-3.5 text-[13px] text-accent-text transition-colors hover:bg-accent hover:text-bg"
           >
             Clear ×
           </button>
@@ -174,7 +175,7 @@ const MODES: { value: SearchEngine; label: string; short: string; hint: string }
  */
 function ModeToggle({ mode, disabled, onChange }: { mode: SearchEngine; disabled: boolean; onChange: (mode: SearchEngine) => void }) {
   return (
-    <div role="radiogroup" aria-label="How to search" className="flex shrink-0 border border-[#2E2E33] p-0.5">
+    <div role="radiogroup" aria-label="How to search" className="flex h-10 shrink-0 border border-[#2E2E33] p-0.5">
       {MODES.map((option) => {
         const active = option.value === mode;
         return (
@@ -186,7 +187,7 @@ function ModeToggle({ mode, disabled, onChange }: { mode: SearchEngine; disabled
             title={option.hint}
             disabled={disabled}
             onClick={() => onChange(option.value)}
-            className={`px-2 py-1.5 text-[11px] leading-none transition-colors sm:px-2.5 sm:text-xs ${
+            className={`px-2 text-[11px] leading-none transition-colors sm:px-3 sm:text-[13px] ${
               active ? "bg-fg/[0.14] text-fg" : "text-faint hover:text-fg"
             }`}
           >
