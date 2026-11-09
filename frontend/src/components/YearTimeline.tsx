@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from
 import type { Source } from "../api/types";
 import { displayTitle } from "../lib/displayTitle";
 import { formatPercent } from "../lib/format";
+import { SQUARE_MS, enterStyle, timelineDelay } from "../lib/motion";
 import { inRange, isFullRange, layoutSquares, type Square, type YearRange } from "../lib/timeline";
 
 interface YearTimelineProps {
@@ -15,6 +16,8 @@ interface YearTimelineProps {
   /** The frame or rail row under the pointer: its square gets an outline. */
   hotId: number | null;
   onOpen: (id: number) => void;
+  /** True while the results page enters: the result squares light up one by one, strongest first. */
+  entering?: boolean;
 }
 
 const SQUARE_HEIGHT = 5;
@@ -29,13 +32,18 @@ const SQUARE_COLOR = { strong: "bg-accent", faint: "bg-fg/75", none: "bg-line-st
  * squares are positioned in % of the width, so the strip needs no measuring
  * to lay out; only dragging reads the pixel width.
  */
-export function YearTimeline({ sources, confidenceById, extent, range, onRangeChange, hotId, onOpen }: YearTimelineProps) {
+export function YearTimeline({ sources, confidenceById, extent, range, onRangeChange, hotId, onOpen, entering = false }: YearTimelineProps) {
   const strip = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<Square | null>(null);
   const span = extent.to - extent.from + 1; // columns, one per year
   const squares = useMemo(() => layoutSquares(sources, confidenceById), [sources, confidenceById]);
   const byId = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
   const full = isFullRange(range, extent);
+  // Lighting order: strongest first (ties by id, so the order is stable).
+  const lightOrder = useMemo(() => {
+    const ranked = [...confidenceById].sort(([a, x], [b, y]) => y - x || a - b);
+    return new Map(ranked.map(([id], index) => [id, index]));
+  }, [confidenceById]);
 
   const left = (year: number) => `${((year - extent.from) / span) * 100}%`;
 
@@ -103,6 +111,7 @@ export function YearTimeline({ sources, confidenceById, extent, range, onRangeCh
         <div role="img" aria-label={summary} className="absolute inset-0">
           {squares.map((square) => {
             const isLit = square.kind !== "none";
+            const order = isLit && entering ? lightOrder.get(square.sourceId) : undefined;
             return (
               <span
                 key={square.sourceId}
@@ -111,8 +120,11 @@ export function YearTimeline({ sources, confidenceById, extent, range, onRangeCh
                 onClick={isLit ? () => onOpen(square.sourceId) : undefined}
                 className={`absolute ${SQUARE_COLOR[square.kind]} ${isLit ? "cursor-pointer" : ""} ${
                   inRange(square.year, range) ? "" : "opacity-30"
-                } ${hotId === square.sourceId ? "outline outline-1 outline-offset-1 outline-fg" : ""}`}
+                } ${hotId === square.sourceId ? "outline outline-1 outline-offset-1 outline-fg" : ""} ${
+                  order !== undefined ? "enter-square" : ""
+                }`}
                 style={{
+                  ...(order !== undefined ? enterStyle(timelineDelay(order, lightOrder.size), SQUARE_MS) : {}),
                   left: `calc(${left(square.year)} + 1px)`,
                   width: `calc(${100 / span}% - 3px)`,
                   bottom: square.stack * SQUARE_STEP + 1,

@@ -7,7 +7,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { ChevronIcon } from "../components/Icons";
 import { RankRail } from "../components/RankRail";
-import { ResultFrame, SetAsideFrame } from "../components/ResultFrame";
+import { ResultFrame, SetAsideFrame, type FrameEntrance } from "../components/ResultFrame";
 import { SearchDock } from "../components/SearchDock";
 import { YearTimeline } from "../components/YearTimeline";
 import { RUN_SEARCH_KEY } from "../hooks/searches";
@@ -15,6 +15,15 @@ import { OPENED_IN_APP, useImageParam } from "../hooks/useImageParam";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useResultView } from "../hooks/useResultView";
 import { parseId } from "../lib/ids";
+import {
+  ENTRANCE_TOTAL_MS,
+  FILL_AFTER_MS,
+  GLIDE_FILL_AFTER_MS,
+  rankDelay,
+  type EntranceMode,
+} from "../lib/motion";
+import { isReflowing } from "../lib/viewTransition";
+import { useReducedMotion } from "../scene/useReducedMotion";
 
 /**
  * "/search/:id" (A2): the archive reflowed by rank. Rank 1 is the biggest
@@ -62,6 +71,7 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
 
   const data = search.data;
   const loading = !data;
+  const entrance = useEntrance(data?.id ?? null, Boolean(data && archive.data));
   const semanticOn = data?.engine !== "keyword";
   const query = data?.query ?? "";
 
@@ -86,6 +96,7 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
       onRangeChange={setRange}
       hotId={hotId}
       onOpen={openImage}
+      entering={entrance !== null}
     />
   );
 
@@ -106,12 +117,15 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
         style={wide ? { bottom: dockHeight + 24 + 10 } : undefined}
       >
       <ul
+        // Present once this search's results (and the set-aside archive) are on the page:
+        // the reflow waits for it before taking its "after" snapshot (lib/viewTransition.ts).
+        data-search-id={data && archive.data ? data.id : undefined}
         aria-label="Results, largest first"
         className={`mx-4 grid max-w-[1016px] grid-flow-row-dense auto-rows-[84px] grid-cols-4 gap-2 transition-opacity duration-300 sm:ml-12 sm:mr-8 sm:auto-rows-[100px] sm:grid-cols-[repeat(auto-fill,minmax(112px,1fr))] ${
           running || loading ? "opacity-50" : ""
         } ${wide && !showRail ? "sm:max-w-none" : ""}`}
       >
-        {visible.map((hit) => (
+        {visible.map((hit, index) => (
           <ResultFrame
             key={hit.source.id}
             hit={hit}
@@ -120,10 +134,11 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
             query={query}
             hot={hotId === hit.source.id}
             onHot={setHotId}
+            enter={entrance ? frameEntrance(entrance, index) : undefined}
           />
         ))}
         {setAside.map((source) => (
-          <SetAsideFrame key={source.id} source={source} to={imageLink(source.id)} />
+          <SetAsideFrame key={source.id} source={source} to={imageLink(source.id)} enter={entrance ?? undefined} />
         ))}
       </ul>
       </div>
@@ -138,6 +153,8 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
           hotId={hotId}
           onHot={setHotId}
           linkFor={imageLink}
+          entering={entrance !== null}
+          loading={loading}
           onCollapse={wide ? () => setRailOpen(false) : undefined}
           empty={
             <RailEmpty
@@ -185,6 +202,41 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
       </div>
     </main>
   );
+}
+
+/**
+ * How this results page entered, while its entrance runs (null otherwise).
+ * It plays once per search shown: a new search, one opened from history, a
+ * reload. Not again for the same search: closing the image dialog or moving
+ * the year handles re-renders the page, but it is no new entry.
+ */
+function useEntrance(searchId: number | null, ready: boolean): EntranceMode | null {
+  const reduced = useReducedMotion();
+  const [entry, setEntry] = useState<{ id: number; mode: EntranceMode } | null>(null);
+  const played = useRef<number | null>(null);
+
+  // A layout effect: the entrance classes must be on before the first paint (and before the
+  // View Transition takes its "after" snapshot), or the frames would flash in place first.
+  useLayoutEffect(() => {
+    if (!ready || searchId === null || played.current === searchId) return;
+    played.current = searchId;
+    if (!reduced) setEntry({ id: searchId, mode: isReflowing() ? "glide" : "rise" });
+  }, [searchId, ready, reduced]);
+
+  // Then the classes come off, so nothing replays (a frame brought back by the year filter appears plainly).
+  useEffect(() => {
+    if (!entry) return;
+    const timer = window.setTimeout(() => setEntry(null), ENTRANCE_TOTAL_MS);
+    return () => window.clearTimeout(timer);
+  }, [entry]);
+
+  return entry && entry.id === searchId ? entry.mode : null;
+}
+
+/** When the frame at `index` (rank order) appears and when its bar fills. */
+function frameEntrance(mode: EntranceMode, index: number): FrameEntrance {
+  const delay = rankDelay(index);
+  return { mode, delay, fillDelay: delay + (mode === "glide" ? GLIDE_FILL_AFTER_MS : FILL_AFTER_MS) };
 }
 
 /** The height of an element, kept up to date as it resizes (0 while `active` is false). */

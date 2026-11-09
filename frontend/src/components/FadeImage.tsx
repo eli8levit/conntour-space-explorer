@@ -2,6 +2,11 @@ import { useState, type ImgHTMLAttributes } from "react";
 
 type Status = "loading" | "loaded" | "failed";
 
+// Photos this page has already shown once. They are in the browser cache, so a new
+// <img> for the same photo (the canvas -> results reflow mounts new frames) starts
+// visible: no grey flash while a frame glides, and no second fade.
+const seen = new Set<string>();
+
 /**
  * A photo that fades in once loaded (opacity 0 -> 1, 200ms) over the `raised`
  * placeholder, so a loading canvas shows calm grey blocks, not spinners. If
@@ -9,8 +14,11 @@ type Status = "loading" | "loaded" | "failed";
  */
 export function FadeImage({ className = "", src, onLoad, ...props }: ImgHTMLAttributes<HTMLImageElement>) {
   // Remember which src the status belongs to: a new src (A3 prev/next) starts at "loading" again.
-  const [status, setStatus] = useState<{ src?: string; value: Status }>({ src, value: "loading" });
-  const current: Status = status.src === src ? status.value : "loading";
+  const [status, setStatus] = useState<{ src?: string; value: Status }>({
+    src,
+    value: src && seen.has(src) ? "loaded" : "loading",
+  });
+  const current: Status = status.src === src ? status.value : src && seen.has(src) ? "loaded" : "loading";
 
   if (current === "failed") return null;
   return (
@@ -20,6 +28,7 @@ export function FadeImage({ className = "", src, onLoad, ...props }: ImgHTMLAttr
       {...props}
       src={src}
       onLoad={(event) => {
+        if (src) seen.add(src);
         setStatus({ src, value: "loaded" });
         onLoad?.(event);
       }}

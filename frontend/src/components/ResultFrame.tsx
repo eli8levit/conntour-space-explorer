@@ -4,7 +4,9 @@ import { OPENED_IN_APP } from "../hooks/useImageParam";
 import { displayTitle } from "../lib/displayTitle";
 import { formatPercent, scoreBreakdown, yearOf } from "../lib/format";
 import { formatRank, isStrong, rankSpan, rankTier, type FrameTier } from "../lib/match";
+import { ASIDE_DELAY_MS, RISE_MS, enterStyle, type EntranceMode } from "../lib/motion";
 import { frameTransitionName } from "../lib/viewTransition";
+import { CountUp } from "./CountUp";
 import { FadeImage } from "./FadeImage";
 import { HotMarks } from "./HotMarks";
 import { ConfidenceBar, RankBadge } from "./MatchMarks";
@@ -29,24 +31,41 @@ interface ResultFrameProps extends HotProps {
   semanticOn: boolean;
   /** The search text: the breakdown names the ID when the ID rule changed the score. */
   query: string;
+  /** Set while the page enters: how, when this frame starts (ms) and when its bar fills. */
+  enter?: FrameEntrance;
+}
+
+export interface FrameEntrance {
+  mode: EntranceMode;
+  delay: number;
+  fillDelay: number;
 }
 
 /**
  * One result on A2. Its size says its rank (bigger = more confident); the
  * badge, the % and the bar say the same in text, so nothing relies on color.
  */
-export function ResultFrame({ hit, to, semanticOn, query, hot, onHot }: ResultFrameProps) {
+export function ResultFrame({ hit, to, semanticOn, query, hot, onHot, enter }: ResultFrameProps) {
   const { source, rank, confidence } = hit;
   const [cols, rows] = rankSpan(rank);
   const tier = rankTier(rank);
   const strong = isStrong(confidence);
   const title = displayTitle(source);
   const caption = CAPTION[tier];
+  // A View Transition already moves the frame ("glide"); only a plain entrance rises.
+  const rise = enter?.mode === "rise";
 
   return (
     <li
-      className={`relative ${hot ? "z-10" : ""}`}
-      style={{ gridColumn: `span ${cols}`, gridRow: `span ${rows}`, viewTransitionName: frameTransitionName(source.id) }}
+      // The reflow reads the rank from here to stagger the glide (lib/viewTransition.ts).
+      data-vt-rank={rank}
+      className={`relative ${hot ? "z-10" : ""} ${rise ? "enter-rise" : ""}`}
+      style={{
+        gridColumn: `span ${cols}`,
+        gridRow: `span ${rows}`,
+        viewTransitionName: frameTransitionName(source.id),
+        ...(rise ? enterStyle(enter.delay, RISE_MS) : {}),
+      }}
       onPointerEnter={() => onHot(source.id)}
       onPointerLeave={() => onHot(null)}
     >
@@ -82,10 +101,10 @@ export function ResultFrame({ hit, to, semanticOn, query, hot, onHot }: ResultFr
           {/* 1×1 frames are too small for a title: only the % (A2·5). */}
           {tier !== "small" && <span className={`min-w-0 truncate ${caption.title}`}>{title}</span>}
           <span className={`shrink-0 ${caption.pct} ${strong ? "text-accent-text" : "text-fg"}`}>
-            {formatPercent(confidence)}
+            <CountUp value={confidence} delay={enter?.fillDelay} />
           </span>
         </span>
-        <ConfidenceBar confidence={confidence} variant="frame" />
+        <ConfidenceBar confidence={confidence} variant="frame" enterDelay={enter?.fillDelay} />
       </span>
 
       {hot && (
@@ -115,11 +134,14 @@ function Breakdown({ text }: { text: string }) {
  * just set aside. Clickable (opens details without a match block) but not
  * in the tab order, so keyboard users move through the results only.
  */
-export function SetAsideFrame({ source, to }: { source: Source; to: string }) {
+export function SetAsideFrame({ source, to, enter }: { source: Source; to: string; enter?: EntranceMode }) {
+  // On a plain entrance the set-aside frames fade in after the results have started.
+  const fade = enter === "rise";
   return (
     <li
-      className="opacity-[0.16] grayscale transition-opacity hover:opacity-40"
-      style={{ viewTransitionName: frameTransitionName(source.id) }}
+      data-vt-rank="aside"
+      className={`opacity-[0.16] grayscale transition-opacity hover:opacity-40 ${fade ? "enter-fade" : ""}`}
+      style={{ viewTransitionName: frameTransitionName(source.id), ...(fade ? enterStyle(ASIDE_DELAY_MS, RISE_MS) : {}) }}
     >
       <Link
         to={to}
