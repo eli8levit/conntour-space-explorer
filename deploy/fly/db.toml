@@ -1,0 +1,21 @@
+# Postgres 16 + pgvector on Fly. No [services]: it is reachable only on the private
+# network, as nightcoding-homework-db.internal:5432. Secret: POSTGRES_PASSWORD.
+app = "nightcoding-homework-db"
+primary_region = "fra"
+
+[build]
+  image = "pgvector/pgvector:pg16"
+
+[env]
+  POSTGRES_USER = "postgres"
+  POSTGRES_DB = "space_explorer"
+  # A volume root holds lost+found, and initdb needs an empty directory.
+  PGDATA = "/var/lib/postgresql/data/pgdata"
+
+[mounts]
+  source = "pgdata"
+  destination = "/var/lib/postgresql/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

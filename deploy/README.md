@@ -1,5 +1,42 @@
 # Deploy to homework.nightcoding.dev
 
+## Live setup (Fly.io + Cloudflare Worker)
+
+This is what runs today. Three Fly apps in `fra`, talking over Fly's private IPv6 network:
+
+| App | Config | What it is |
+|---|---|---|
+| `nightcoding-homework-db` | `deploy/fly/db.toml` | `pgvector/pgvector:pg16` with a 1 GB volume. No public address. |
+| `nightcoding-homework-api` | `backend/fly.toml` | The backend image; listens on `[::]:5001`, private only. 1 GB RAM (the model). |
+| `nightcoding-homework-web` | `frontend/fly.toml` | nginx with the built frontend, public at `nightcoding-homework-web.fly.dev`. |
+
+The Worker (`deploy/worker`, `ORIGIN = https://nightcoding-homework-web.fly.dev`) serves
+`homework.nightcoding.dev`. nginx answers 403 to any request without the Worker's `X-Origin-Secret`,
+and limits POST/DELETE to 10 per minute per visitor (`limit_req` on the `X-Client-IP` the Worker
+sends; the Workers rate-limit binding returned "allowed" for every request in testing, so the
+origin enforces the limit).
+
+Secrets (values in `~/.nightcoding-homework-secrets.env` on the deploying machine, mode 600):
+`POSTGRES_PASSWORD` (db), `DATABASE_URL` (api), `ORIGIN_SECRET` (web and the Worker).
+
+```bash
+fly apps create nightcoding-homework-db   # and -api, -web
+fly volumes create pgdata --app nightcoding-homework-db --region fra --size 1
+fly secrets set --stage POSTGRES_PASSWORD=… --app nightcoding-homework-db
+fly secrets set --stage DATABASE_URL=postgresql+asyncpg://postgres:…@nightcoding-homework-db.internal:5432/space_explorer --app nightcoding-homework-api
+fly secrets set --stage ORIGIN_SECRET=… --app nightcoding-homework-web
+(cd deploy/fly && fly deploy --config db.toml --ha=false)
+(cd backend && fly deploy --ha=false)
+(cd frontend && fly deploy --ha=false)
+fly ips allocate-v4 --shared --app nightcoding-homework-web && fly ips allocate-v6 --app nightcoding-homework-web
+cd deploy/worker && printf %s "$ORIGIN_SECRET" | npx wrangler secret put ORIGIN_SECRET && npx wrangler deploy
+```
+
+Update: run the matching `fly deploy` again. Delete: `fly apps destroy` for the three apps and
+`npx wrangler delete homework`.
+
+## Alternative: one VM with Docker Compose
+
 Architecture: one Linux VM runs the Docker Compose stack (Postgres with pgvector, FastAPI, nginx).
 A Cloudflare Worker on `homework.nightcoding.dev` gives HTTPS and forwards all requests to the VM.
 

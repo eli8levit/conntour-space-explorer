@@ -1,0 +1,20 @@
+# The FastAPI backend on Fly (deploy from backend/: `fly deploy --ha=false`).
+# No [http_service]: only nginx calls it, at nightcoding-homework-api.internal:5001.
+# Secret: DATABASE_URL (postgresql+asyncpg://postgres:…@nightcoding-homework-db.internal:5432/space_explorer).
+app = "nightcoding-homework-api"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PYTHONUNBUFFERED = "1"
+  PYTHONDONTWRITEBYTECODE = "1"
+
+[processes]
+  # "::" because Fly's private network is IPv6. The seed is idempotent, as in compose.
+  app = "sh -c 'python scripts/seed_db.py && uvicorn app:app --host :: --port 5001'"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

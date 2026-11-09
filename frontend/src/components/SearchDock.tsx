@@ -1,5 +1,5 @@
 import { useIsMutating } from "@tanstack/react-query";
-import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError, describeError } from "../api/client";
 import type { SearchEngine } from "../api/types";
@@ -18,6 +18,20 @@ interface SearchDockProps {
   engine?: SearchEngine;
   /** Rendered above the box inside the dock (the A2 year timeline). */
   children?: ReactNode;
+}
+
+const NARROW = "(max-width: 639px)";
+
+/** True below Tailwind's `sm`, kept in step with the window. */
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW).matches);
+  useEffect(() => {
+    const media = window.matchMedia(NARROW);
+    const onChange = () => setNarrow(media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+  return narrow;
 }
 
 // The viewer's last toggle choice, so A1 starts with it. Per-viewer convenience only:
@@ -46,6 +60,7 @@ function saveMode(mode: SearchEngine) {
 export function SearchDock({ variant, query = "", engine, children }: SearchDockProps) {
   const [text, setText] = useState(query);
   const [mode, setMode] = useState<SearchEngine>(() => engine ?? savedMode());
+  const narrow = useNarrow();
   const runSearch = useRunSearch();
   const navigate = useNavigate();
   // True while any search runs, also one started elsewhere (e.g. "Search again" in history).
@@ -114,7 +129,7 @@ export function SearchDock({ variant, query = "", engine, children }: SearchDock
       <form
         role="search"
         onSubmit={handleSubmit}
-        className={`flex items-center gap-3.5 border bg-[#0B0B0C] pl-5 pr-3 shadow-dock ${border} ${
+        className={`flex items-center gap-2.5 border bg-[#0B0B0C] pl-4 pr-3 shadow-dock sm:gap-3.5 sm:pl-5 ${border} ${
           variant === "browse" ? "h-16" : "h-[62px]"
         }`}
       >
@@ -130,7 +145,8 @@ export function SearchDock({ variant, query = "", engine, children }: SearchDock
           onChange={(event) => setText(event.target.value)}
           onKeyDown={handleKeyDown}
           maxLength={MAX_QUERY_LENGTH}
-          placeholder="Describe what you’re looking for"
+          // The mode toggle shares the row, so a phone gets the short version (it would be cut off).
+          placeholder={narrow ? "Search photos" : "Describe what you’re looking for"}
           autoComplete="off"
           enterKeyHint="search"
           // The box shows focus with its orange border, so the input needs no outline of its own.
@@ -145,9 +161,12 @@ export function SearchDock({ variant, query = "", engine, children }: SearchDock
             type="submit"
             disabled={!canSubmit}
             // Disabled while empty (the backend would answer 422), but it keeps its look: the design shows it lit.
-            className="h-10 shrink-0 bg-accent px-4 text-xs font-medium text-bg disabled:cursor-default"
+            aria-label="Search"
+            className="h-10 shrink-0 bg-accent px-3.5 text-xs font-medium text-bg disabled:cursor-default sm:px-4"
           >
-            {running ? "Searching…" : "Search ⏎"}
+            {/* On a phone the row also holds the toggle, so the button keeps only the ⏎. */}
+            <span aria-hidden="true" className="sm:hidden">{running ? "…" : "⏎"}</span>
+            <span aria-hidden="true" className="hidden sm:inline">{running ? "Searching…" : "Search ⏎"}</span>
           </button>
         ) : (
           <button

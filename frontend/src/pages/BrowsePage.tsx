@@ -20,7 +20,7 @@ export function BrowsePage() {
       <h1 className="sr-only">The archive: every image</h1>
       <BrowseCanvas sources={archive.data?.items ?? NO_SOURCES} imageLink={imageLink} paused={covered} />
 
-      <div className="vt-dock fixed bottom-4 left-1/2 z-20 w-[min(680px,calc(100vw-32px))] -translate-x-1/2 sm:bottom-9">
+      <div className="vt-dock fixed bottom-4 left-1/2 z-20 w-[min(780px,calc(100vw-32px))] -translate-x-1/2 sm:bottom-9">
         {archive.isError && (
           <ErrorState
             className="mb-6"

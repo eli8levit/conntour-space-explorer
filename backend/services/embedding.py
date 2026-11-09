@@ -51,7 +51,10 @@ class FastEmbedEmbedder:
         return vector.tolist()
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
-        return [vector.tolist() for vector in self._model.passage_embed(list(texts))]
+        # Small batches: fastembed's default (256) runs all 100 captions through the model at
+        # once, padded to the longest, which peaked near 900 MB and was OOM-killed on a 1 GB
+        # machine. The vectors are the same; only the memory peak changes.
+        return [vector.tolist() for vector in self._model.passage_embed(list(texts), batch_size=16)]
 
     def knows_any_word(self, text: str) -> bool:
         # A word the model knows is one vocabulary token ("planet"); an unknown one is

@@ -38,6 +38,9 @@ export default {
     // Proves to the origin that this request came through the Worker (and its rate limit).
     // `set` also overwrites any value a client tried to send.
     headers.set("X-Origin-Secret", env.ORIGIN_SECRET);
+    // The visitor's IP, for the origin's own write limit (nginx limit_req). The origin
+    // trusts it only because it trusts the secret above.
+    headers.set("X-Client-IP", request.headers.get("CF-Connecting-IP") ?? "unknown");
 
     // Pass method, headers and body through. Do not follow redirects: the browser does.
     return fetch(new Request(target, request), { headers, redirect: "manual" });

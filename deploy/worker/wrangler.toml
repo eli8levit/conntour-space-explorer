@@ -8,12 +8,13 @@ main = "src/index.ts"
 workers_dev = true
 
 [vars]
-# Replace with the origin hostname. Workers cannot fetch bare IPs, so use sslip.io.
-# Example: ORIGIN = "http://34-123-45-67.sslip.io:80"
-ORIGIN = "http://REPLACE-ME.sslip.io:80"
+# The origin: the nginx app on Fly.io (frontend/fly.toml). HTTPS end to end.
+# For a plain VM use its sslip.io name instead (Workers cannot fetch bare IPs),
+# for example "http://34-123-45-67.sslip.io:80".
+ORIGIN = "https://nightcoding-homework-web.fly.dev"
 
 # ORIGIN_SECRET is a secret, not a var: `npx wrangler secret put ORIGIN_SECRET`
-# (the same value as ORIGIN_SECRET in the VM's .env).
+# (the same value as the origin's ORIGIN_SECRET: a Fly secret, or the VM's .env).
 
 # Per-IP limit for POST/DELETE on /api/searches (Workers Rate Limiting binding).
 # 10 requests per 60 seconds for each client IP. The code skips the check if the binding is missing.
