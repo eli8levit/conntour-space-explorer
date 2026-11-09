@@ -10,7 +10,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { withViewTransition } from "../lib/viewTransition";
-import type { CursorPage, SearchSummary } from "../api/types";
+import type { CursorPage, SearchEngine, SearchSummary } from "../api/types";
 
 const historyKey = ["history"] as const;
 
@@ -34,7 +34,7 @@ export function useRunSearch() {
   const navigate = useNavigate();
   return useMutation({
     mutationKey: RUN_SEARCH_KEY,
-    mutationFn: (query: string) => api.runSearch(query),
+    mutationFn: ({ query, mode }: { query: string; mode: SearchEngine }) => api.runSearch(query, mode),
     onSuccess: (search) => {
       queryClient.setQueryData(searchKey(search.id), search);
       // A new entry exists, so the cached history list is out of date.

@@ -93,6 +93,8 @@ export interface SearchSummary {
   best_confidence: number | null;
   /** Top 3 by rank. */
   previews: SearchPreview[];
+  /** How it was scored: "keyword" = matching words only. */
+  engine: SearchEngine;
 }
 
 /** Keyset page: pass next_cursor back to get the next page; null means the end. */

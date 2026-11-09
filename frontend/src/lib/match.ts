@@ -25,6 +25,8 @@ const WORDS_WEIGHT = 20;
 
 /** The note under the ranking rail that explains the score (A2·10). */
 export const SCORING_NOTE = `Confidence blends meaning (${MEANING_WEIGHT}%) and matching words (${WORDS_WEIGHT}%). Hover a result for the breakdown.`;
+/** The rail's note for a search run with the "Keywords" toggle. */
+export const KEYWORD_SCORING_NOTE = "Keywords only: confidence is how well your words match the title, keywords and caption. Meaning is off.";
 
 export type Span = readonly [cols: number, rows: number];
 
@@ -65,7 +67,7 @@ export function formatRank(rank: number): string {
   return String(rank).padStart(2, "0");
 }
 
-export type MatchField = "title" | "keywords" | "description";
+export type MatchField = "title" | "nasaTitle" | "keywords" | "description";
 
 export interface MatchedTerm {
   term: string;
@@ -73,16 +75,19 @@ export interface MatchedTerm {
 }
 
 /**
- * For each query word, the best field it appears in (title beats keywords
- * beats description). The API does not say which words matched, so we derive
+ * For each query word, the best field it appears in (the title on screen,
+ * then NASA's own title, keywords, description). The NASA title is its own
+ * field: the screen shows our short title ("Perseverance marble countdown"),
+ * so "in the title" for a word only NASA's title has would be untrue. The API does not say which words matched, so we derive
  * it in the browser with the same stemming as the highlights.
  */
 export function matchedTerms(
   query: string,
-  source: Pick<Source, "keywords" | "description"> & { title: string },
+  source: Pick<Source, "keywords" | "description"> & { title: string; nasaTitle?: string | null },
 ): MatchedTerm[] {
   const fields: [MatchField, string][] = [
     ["title", source.title],
+    ["nasaTitle", source.nasaTitle ?? ""],
     ["keywords", source.keywords.join(" ")],
     ["description", source.description],
   ];
@@ -114,6 +119,7 @@ function withParts(term: string): string[] {
 
 const FIELD_PHRASE: Record<MatchField, string> = {
   title: "in the title",
+  nasaTitle: "in the NASA title",
   keywords: "in keywords",
   description: "in the description",
 };
@@ -140,8 +146,8 @@ function whyWords(matches: MatchedTerm[], semanticScore: number): string {
   if (fields.length === 1) {
     return `Matched ${matches.map((match) => match.term).join(", ")} ${FIELD_PHRASE[fields[0]!]}`;
   }
-  // Group the words by field, in title -> keywords -> description order.
-  const groups = (["title", "keywords", "description"] as const)
+  // Group the words by field, in title -> NASA title -> keywords -> description order.
+  const groups = (["title", "nasaTitle", "keywords", "description"] as const)
     .map((field) => ({ field, terms: matches.filter((match) => match.field === field).map((m) => m.term) }))
     .filter((group) => group.terms.length > 0)
     .map((group) => `${group.terms.join(", ")} ${FIELD_PHRASE[group.field]}`);

@@ -33,8 +33,14 @@ async def score_query(
     return engine, score(candidates, mode, params, embedder.knows_any_word(query))
 
 
-async def run_search(session: AsyncSession, embedder: Embedder, query: str) -> SearchDetail:
-    engine, hits = await score_query(session, embedder, query)
+async def run_search(
+    session: AsyncSession, embedder: Embedder, query: str, mode: Engine = "hybrid"
+) -> SearchDetail:
+    """`mode` "keyword" scores by words only. "hybrid" falls back to words only when the
+    model is not loaded; the stored engine says which one actually ran."""
+    engine, hits = await score_query(session, embedder, query, mode)
+    if mode == "keyword":
+        engine = "keyword"
     history = HistoryRepository(session)
     search_id = await history.create(query, engine, hits)
     # Read back through the same path as GET /api/searches/{id}, so a fresh search and

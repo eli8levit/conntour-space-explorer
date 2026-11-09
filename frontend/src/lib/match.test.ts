@@ -122,3 +122,16 @@ describe("SCORING_NOTE", () => {
     );
   });
 });
+
+describe("matchedTerms: the NASA title", () => {
+  it("says NASA title when only NASA's title has the word", () => {
+    const marbles = {
+      title: "Perseverance marble countdown",
+      nasaTitle: "Perseverance Mars Rover Marble Countdown",
+      keywords: [],
+      description: "",
+    };
+    expect(whyLine(matchedTerms("mars rover", marbles), 0.9)).toBe("Matched mars, rover in the NASA title");
+    expect(whyLine(matchedTerms("marble", marbles), 0.9)).toBe("Matched marble in the title");
+  });
+});

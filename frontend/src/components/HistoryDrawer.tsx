@@ -139,7 +139,7 @@ export function HistoryDrawer() {
                 current={search.id === openSearchId}
                 archiveSize={archiveSize}
                 onDelete={requestDelete}
-                onSearchAgain={(query) => runSearch.mutate(query)}
+                onSearchAgain={(query, mode) => runSearch.mutate({ query, mode })}
               />
             ))}
           </section>

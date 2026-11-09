@@ -235,3 +235,22 @@ async def test_keyword_only_fallback(keyword_only):
     assert search["engine"] == "keyword"
     assert search["results"], "keyword search alone still finds Saturn"
     assert all(hit["semantic_score"] == 0 for hit in search["results"])
+
+
+async def test_keyword_mode_scores_by_words_only(client):
+    search = (
+        await client.post("/api/searches", json={"query": "mars rover", "mode": "keyword"})
+    ).json()
+    assert search["engine"] == "keyword"
+    assert search["results"]
+    for hit in search["results"]:
+        # Words only: the confidence is the words score (the ID rule cannot apply here).
+        assert hit["confidence"] == hit["keyword_score"] > 0
+    # History reports the mode too, so the drawer can tag the row.
+    page = (await client.get("/api/searches?limit=1")).json()
+    assert page["items"][0]["engine"] == "keyword"
+
+
+async def test_unknown_mode_is_rejected(client):
+    response = await client.post("/api/searches", json={"query": "mars", "mode": "pixels"})
+    assert response.status_code == 422

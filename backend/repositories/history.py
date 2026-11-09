@@ -134,6 +134,7 @@ class HistoryRepository:
                     strong_count=strong_count,
                     best_confidence=best_confidence,
                     previews=top,
+                    engine=search.engine,
                 )
             )
         last = rows[-1].SearchModel if rows else None

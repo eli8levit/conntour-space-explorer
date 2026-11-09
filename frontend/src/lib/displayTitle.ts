@@ -166,15 +166,3 @@ export function nasaTitleIfDifferent(source: TitleFields): string | null {
   if (!title || title === source.nasa_id || isIdLike(title)) return null;
   return normalize(title) === normalize(displayTitle(source)) ? null : title;
 }
-
-/**
- * The text the "why it matched" line treats as the title: the title on screen
- * plus the NASA title (or its caption-derived stand-in), since the search
- * scored the NASA title. "Matched mars in the title" then holds for
- * "Perseverance marble countdown", whose NASA title has "Mars" in it.
- */
-export function titleForMatching(source: TitleFields): string {
-  const shown = displayTitle(source);
-  const nasa = derivedTitle(source);
-  return shown === nasa ? shown : `${shown} ${nasa}`;
-}

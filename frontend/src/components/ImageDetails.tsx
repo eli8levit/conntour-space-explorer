@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link } from "react-router-dom";
 import type { SearchHit, Source } from "../api/types";
-import { displayTitle, nasaTitleIfDifferent, titleForMatching } from "../lib/displayTitle";
+import { displayTitle, nasaTitleIfDifferent } from "../lib/displayTitle";
 import { eyebrow, parseCaption } from "../lib/details";
 import { bodyLabel, formatDate, formatPercent, idRuleNote, provenanceLabel, scoreBreakdown, yearOf } from "../lib/format";
 import { queryTerms } from "../lib/highlight";
@@ -235,7 +235,7 @@ function Keywords({ keywords, terms }: { keywords: string[]; terms: string[] }) 
 function MatchBlock({ hit, query, semanticOn }: { hit: SearchHit; query: string; semanticOn: boolean }) {
   const strong = isStrong(hit.confidence);
   const why = whyLine(
-    matchedTerms(query, { ...hit.source, title: titleForMatching(hit.source) }),
+    matchedTerms(query, { ...hit.source, title: displayTitle(hit.source), nasaTitle: nasaTitleIfDifferent(hit.source) }),
     hit.semantic_score,
     idRuleNote(hit.id_rule, query),
   );

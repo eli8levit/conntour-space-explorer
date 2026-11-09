@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { SearchSummary } from "../api/types";
+import type { SearchEngine, SearchSummary } from "../api/types";
 import { formatTime } from "../lib/format";
 import { historyMeta } from "../lib/history";
 import { isStrong } from "../lib/match";
@@ -10,7 +10,8 @@ interface HistoryRowProps {
   current: boolean;
   archiveSize: number;
   onDelete: (search: SearchSummary) => void;
-  onSearchAgain: (query: string) => void;
+  /** Runs the same words again, scored the same way as before. */
+  onSearchAgain: (query: string, mode: SearchEngine) => void;
 }
 
 /**
@@ -37,6 +38,7 @@ export function HistoryRow({ search, current, archiveSize, onDelete, onSearchAga
             {formatTime(search.created_at)}
           </time>{" "}
           · <span className={empty ? "text-muted" : "text-soft"}>{historyMeta(search, archiveSize)}</span>
+          {search.engine === "keyword" && <span className="text-faint"> · keywords only</span>}
         </p>
       </div>
 
@@ -67,7 +69,7 @@ export function HistoryRow({ search, current, archiveSize, onDelete, onSearchAga
         {empty ? (
           <button
             type="button"
-            onClick={() => onSearchAgain(search.query)}
+            onClick={() => onSearchAgain(search.query, search.engine)}
             className="text-sm font-medium underline underline-offset-[3px] hover:text-accent-text"
           >
             Search again

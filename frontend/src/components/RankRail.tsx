@@ -2,9 +2,9 @@ import { Fragment, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { SearchHit } from "../api/types";
 import { OPENED_IN_APP } from "../hooks/useImageParam";
-import { displayTitle, titleForMatching } from "../lib/displayTitle";
+import { displayTitle, nasaTitleIfDifferent } from "../lib/displayTitle";
 import { idRuleNote, scoreBreakdown } from "../lib/format";
-import { formatRank, isStrong, matchedTerms, SCORING_NOTE, whyLine } from "../lib/match";
+import { formatRank, isStrong, KEYWORD_SCORING_NOTE, matchedTerms, SCORING_NOTE, whyLine } from "../lib/match";
 import { FILL_AFTER_MS, RISE_MS, enterStyle, rankDelay } from "../lib/motion";
 import { CountUp } from "./CountUp";
 import { ChevronIcon } from "./Icons";
@@ -95,7 +95,7 @@ export function RankRail({ hits, query, semanticOn, hotId, onHot, linkFor, empty
         </ol>
       )}
 
-      <p className="mt-auto border-t border-line pt-3 text-xs leading-normal text-muted">{SCORING_NOTE}</p>
+      <p className="mt-auto border-t border-line pt-3 text-xs leading-normal text-muted">{semanticOn ? SCORING_NOTE : KEYWORD_SCORING_NOTE}</p>
     </aside>
   );
 }
@@ -116,7 +116,7 @@ function RailRow({ hit, query, semanticOn, hot, onHot, to, enterDelay }: RailRow
   // Every row, faint ones too: "red planet" has only faint results, and "Similar in
   // meaning" is the line that shows why they are there at all.
   const why = whyLine(
-    matchedTerms(query, { ...source, title: titleForMatching(source) }),
+    matchedTerms(query, { ...source, title: displayTitle(source), nasaTitle: nasaTitleIfDifferent(source) }),
     hit.semantic_score,
     idRuleNote(hit.id_rule, query),
   );

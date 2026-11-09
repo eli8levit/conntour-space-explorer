@@ -23,7 +23,7 @@ async def create_search(
     embedder: Embedder = Depends(get_embedder),
 ) -> SearchDetail:
     """Run a search and store it in the history."""
-    return await run_search(session, embedder, request.query)
+    return await run_search(session, embedder, request.query, request.mode)
 
 
 @router.get("", response_model=SearchHistoryPage)

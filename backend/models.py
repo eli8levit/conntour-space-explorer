@@ -64,6 +64,9 @@ class SearchRequest(BaseModel):
     query: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_QUERY_LENGTH)
     ]
+    # "hybrid": meaning + words (the default). "keyword": words only, to see what the
+    # meaning half adds. Stored with the search as its `engine`.
+    mode: Engine = "hybrid"
 
 
 class SearchDetail(BaseModel):
@@ -88,6 +91,7 @@ class SearchSummary(BaseModel):
     strong_count: int  # results with confidence >= config.STRONG_MATCH
     best_confidence: float | None  # None when the search found nothing
     previews: list[SearchPreview]  # top 3 by rank
+    engine: Engine  # how it was scored: "hybrid" or "keyword" (words only)
 
 
 class SearchHistoryPage(BaseModel):

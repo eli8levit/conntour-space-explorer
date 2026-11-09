@@ -1,4 +1,4 @@
-import type { Body, CursorPage, PlaceRow, SearchDetail, SearchSummary, Source, SourcePage } from "./types";
+import type { Body, CursorPage, PlaceRow, SearchDetail, SearchEngine, SearchSummary, Source, SourcePage } from "./types";
 
 /** A non-2xx response. `status` lets callers tell "not found" (404) from "invalid input" (422). */
 export class ApiError extends Error {
@@ -66,8 +66,9 @@ export const api = {
 
   getSource: (id: number) => request<Source>(`/sources/${id}`),
 
-  runSearch: (query: string) =>
-    request<SearchDetail>("/searches", { method: "POST", body: JSON.stringify({ query }) }),
+  /** `mode` "keyword" scores by matching words only; "hybrid" (default) adds meaning. */
+  runSearch: (query: string, mode: SearchEngine = "hybrid") =>
+    request<SearchDetail>("/searches", { method: "POST", body: JSON.stringify({ query, mode }) }),
 
   getSearch: (id: number) => request<SearchDetail>(`/searches/${id}`),
 

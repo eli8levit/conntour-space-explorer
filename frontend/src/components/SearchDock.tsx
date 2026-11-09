@@ -2,6 +2,7 @@ import { useIsMutating } from "@tanstack/react-query";
 import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError, describeError } from "../api/client";
+import type { SearchEngine } from "../api/types";
 import { RUN_SEARCH_KEY, useRunSearch } from "../hooks/searches";
 import { SearchIcon } from "./Icons";
 
@@ -13,8 +14,28 @@ interface SearchDockProps {
   variant: "browse" | "results";
   /** The query on screen (A2), so a search opened from history shows what was asked. */
   query?: string;
+  /** How the search on screen was scored (A2): the toggle starts there. */
+  engine?: SearchEngine;
   /** Rendered above the box inside the dock (the A2 year timeline). */
   children?: ReactNode;
+}
+
+// The viewer's last toggle choice, so A1 starts with it. Per-viewer convenience only:
+// storage can be off (private window), so every access is guarded.
+const MODE_KEY = "retrieval-mode";
+function savedMode(): SearchEngine {
+  try {
+    return localStorage.getItem(MODE_KEY) === "keyword" ? "keyword" : "hybrid";
+  } catch {
+    return "hybrid";
+  }
+}
+function saveMode(mode: SearchEngine) {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    // Not saved: the toggle still works for this page.
+  }
 }
 
 /**
@@ -22,8 +43,9 @@ interface SearchDockProps {
  * not on each keystroke: every run is saved as a history entry, so typing
  * "m", "ma", "mar" must not create three of them.
  */
-export function SearchDock({ variant, query = "", children }: SearchDockProps) {
+export function SearchDock({ variant, query = "", engine, children }: SearchDockProps) {
   const [text, setText] = useState(query);
+  const [mode, setMode] = useState<SearchEngine>(() => engine ?? savedMode());
   const runSearch = useRunSearch();
   const navigate = useNavigate();
   // True while any search runs, also one started elsewhere (e.g. "Search again" in history).
@@ -35,12 +57,12 @@ export function SearchDock({ variant, query = "", children }: SearchDockProps) {
 
   const trimmed = text.trim();
   // An empty query is a 422 from the backend, so the button stays off; on A2, Enter on the same query does nothing.
-  const canSubmit = trimmed !== "" && !running && !(variant === "results" && trimmed === query);
+  const canSubmit = trimmed !== "" && !running && !(variant === "results" && trimmed === query && mode === engine);
 
-  function submit() {
+  function submit(withMode: SearchEngine = mode) {
     if (inFlight.current) return;
     inFlight.current = true;
-    runSearch.mutate(trimmed, {
+    runSearch.mutate({ query: trimmed, mode: withMode }, {
       onSettled: () => {
         inFlight.current = false;
       },
@@ -50,6 +72,17 @@ export function SearchDock({ variant, query = "", children }: SearchDockProps) {
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (canSubmit) submit();
+  }
+
+  /**
+   * On A2 a new mode runs the same words again at once, so the two rankings can be
+   * compared side by side in history. On A1 it only sets how the next search runs.
+   */
+  function chooseMode(next: SearchEngine) {
+    if (next === mode) return;
+    setMode(next);
+    saveMode(next);
+    if (variant === "results" && trimmed !== "" && !running) submit(next);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -70,7 +103,7 @@ export function SearchDock({ variant, query = "", children }: SearchDockProps) {
 
   return (
     <div className="flex flex-col">
-      {runSearch.isError && <SearchError error={runSearch.error} onRetry={submit} />}
+      {runSearch.isError && <SearchError error={runSearch.error} onRetry={() => submit()} />}
       {children}
       {variant === "browse" && (
         <div className="mb-2.5 hidden justify-between px-1 text-[11px] text-muted sm:flex">
@@ -106,6 +139,7 @@ export function SearchDock({ variant, query = "", children }: SearchDockProps) {
             variant === "browse" ? "text-[15px] sm:text-[22px]" : "text-xl sm:text-2xl"
           }`}
         />
+        <ModeToggle mode={mode} disabled={running} onChange={chooseMode} />
         {variant === "browse" ? (
           <button
             type="submit"
@@ -125,6 +159,42 @@ export function SearchDock({ variant, query = "", children }: SearchDockProps) {
           </button>
         )}
       </form>
+    </div>
+  );
+}
+
+const MODES: { value: SearchEngine; label: string; short: string; hint: string }[] = [
+  { value: "hybrid", label: "Combined", short: "All", hint: "Meaning and matching words" },
+  { value: "keyword", label: "Keywords", short: "Words", hint: "Matching words only" },
+];
+
+/**
+ * How the next search is scored. A debugging aid: run the same words both ways
+ * to see what the meaning half adds. Neutral colours: orange stays for matches.
+ */
+function ModeToggle({ mode, disabled, onChange }: { mode: SearchEngine; disabled: boolean; onChange: (mode: SearchEngine) => void }) {
+  return (
+    <div role="radiogroup" aria-label="How to search" className="flex shrink-0 border border-[#2E2E33] p-0.5">
+      {MODES.map((option) => {
+        const active = option.value === mode;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            title={option.hint}
+            disabled={disabled}
+            onClick={() => onChange(option.value)}
+            className={`px-2 py-1.5 text-[11px] leading-none transition-colors sm:px-2.5 sm:text-xs ${
+              active ? "bg-fg/[0.14] text-fg" : "text-faint hover:text-fg"
+            }`}
+          >
+            <span className="sm:hidden">{option.short}</span>
+            <span className="hidden sm:inline">{option.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

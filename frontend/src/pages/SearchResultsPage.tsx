@@ -196,7 +196,7 @@ function SearchResults({ view }: { view: ReturnType<typeof useResultView> }) {
         }`}
       >
         {/* Keyed by search: a new search starts with its own query in the box. */}
-        <SearchDock key={data?.id ?? "loading"} variant="results" query={query}>
+        <SearchDock key={data?.id ?? "loading"} variant="results" query={query} engine={data?.engine}>
           {wide && <div className="mb-3.5">{timeline}</div>}
         </SearchDock>
       </div>
