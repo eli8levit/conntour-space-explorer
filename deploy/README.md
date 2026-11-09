@@ -85,8 +85,14 @@ Requirements for the VM:
    ```bash
    cp .env.example .env
    sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 16)/" .env
+   sed -i "s/^ORIGIN_SECRET=.*/ORIGIN_SECRET=$(openssl rand -hex 32)/" .env
+   grep ORIGIN_SECRET .env   # copy this value for the Worker (section C, step 3)
    docker compose -f docker-compose.prod.yml up -d --build
    ```
+
+   Nginx on the VM answers only requests that carry the `X-Origin-Secret` header.
+   The Worker adds it. A request straight to port 80 gets 403, so nobody can skip the
+   Worker and its rate limit.
 
    The first build takes several minutes.
 
@@ -94,7 +100,8 @@ Requirements for the VM:
 
    ```bash
    docker compose -f docker-compose.prod.yml ps
-   curl -s localhost/api/health
+   curl -s -H "X-Origin-Secret: $(grep ^ORIGIN_SECRET .env | cut -d= -f2)" localhost/api/health
+   curl -s -o /dev/null -w '%{http_code}\n' localhost/api/health   # 403: no secret
    ```
 
 ## B. Fly.io (alternative)
@@ -126,7 +133,13 @@ If you prefer, any other VPS with Docker also works. Follow steps 6 to 9 of rout
    volta run --node 22 npm run typecheck
    ```
 
-3. Deploy. Wrangler is already logged in on this machine.
+3. Store the origin secret in the Worker (paste the value from the VM's `.env`).
+
+   ```bash
+   volta run --node 22 npx wrangler secret put ORIGIN_SECRET
+   ```
+
+4. Deploy. Wrangler is already logged in on this machine.
 
    ```bash
    volta run --node 22 npx wrangler deploy
@@ -136,9 +149,10 @@ If you prefer, any other VPS with Docker also works. Follow steps 6 to 9 of rout
 
 The Worker limits `POST /api/searches` and `DELETE /api/searches/*` to 10 requests per minute for each client IP.
 It uses the Workers Rate Limiting binding `SEARCH_LIMITER` in `wrangler.toml`.
-To change the limit, edit `simple = { limit, period }`. The period must be 10 or 60 seconds.
+To change the limit, edit `[ratelimits.simple]`. The period must be 10 or 60 seconds.
+`wrangler deploy --dry-run` accepts this config (checked with wrangler 4.131).
 
-Fallback if wrangler rejects the binding: remove the `[[unsafe.bindings]]` block. The Worker then skips the limit.
+Fallback if Cloudflare rejects the binding: remove the `[[ratelimits]]` block. The Worker then skips the limit.
 Add this to the `http` block of nginx on the origin instead (the frontend image needs a rebuild):
 
 ```nginx

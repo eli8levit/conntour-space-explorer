@@ -1,0 +1,8 @@
+# Rendered at container start with ORIGIN_SECRET from .env (envsubst only replaces
+# defined environment variables, so nginx's own $http_... variables stay as they are).
+# The Cloudflare Worker adds this header to every request it forwards. A request
+# straight to the VM's port 80 does not have it, so it cannot skip the Worker's
+# rate limit.
+if ($http_x_origin_secret != "${ORIGIN_SECRET}") {
+    return 403;
+}

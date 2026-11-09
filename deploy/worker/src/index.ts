@@ -6,6 +6,8 @@ interface RateLimiter {
 
 interface Env {
   ORIGIN: string;
+  /** Shared with the origin's nginx guard (deploy/nginx/origin-guard.conf.template). */
+  ORIGIN_SECRET: string;
   SEARCH_LIMITER?: RateLimiter;
 }
 
@@ -33,6 +35,9 @@ export default {
     const headers = new Headers(request.headers);
     headers.set("X-Forwarded-Proto", url.protocol.replace(":", ""));
     headers.set("X-Forwarded-Host", url.host);
+    // Proves to the origin that this request came through the Worker (and its rate limit).
+    // `set` also overwrites any value a client tried to send.
+    headers.set("X-Origin-Secret", env.ORIGIN_SECRET);
 
     // Pass method, headers and body through. Do not follow redirects: the browser does.
     return fetch(new Request(target, request), { headers, redirect: "manual" });

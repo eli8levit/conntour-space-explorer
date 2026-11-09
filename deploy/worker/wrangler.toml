@@ -12,13 +12,18 @@ workers_dev = true
 # Example: ORIGIN = "http://34-123-45-67.sslip.io:80"
 ORIGIN = "http://REPLACE-ME.sslip.io:80"
 
+# ORIGIN_SECRET is a secret, not a var: `npx wrangler secret put ORIGIN_SECRET`
+# (the same value as ORIGIN_SECRET in the VM's .env).
+
 # Per-IP limit for POST/DELETE on /api/searches (Workers Rate Limiting binding).
 # 10 requests per 60 seconds for each client IP. The code skips the check if the binding is missing.
-[[unsafe.bindings]]
+[[ratelimits]]
 name = "SEARCH_LIMITER"
-type = "ratelimit"
 namespace_id = "1001"
-simple = { limit = 10, period = 60 }
+
+  [ratelimits.simple]
+  limit = 10
+  period = 60
 
 # A custom domain creates its own DNS record in the nightcoding.dev zone.
 [[routes]]
