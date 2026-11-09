@@ -112,9 +112,11 @@ function ImageDialog({ id, onClose }: { id: number; onClose: () => void }) {
         if (event.target === event.currentTarget) onClose();
       }}
       onKeyDown={onKeyDown}
-      className="m-auto h-[calc(100dvh-32px)] focus-visible:outline-none max-h-none w-[calc(100vw-32px)] max-w-none overflow-hidden border border-line-strong bg-[#0D0D0F] p-0 text-fg shadow-modal backdrop:bg-[var(--scrim)] min-[900px]:h-[min(788px,calc(100dvh-64px))] min-[900px]:w-[min(1280px,calc(100vw-64px))]"
+      // Sized from the viewport, not a fixed 1280×788: the margin grows with the window (24–64px),
+      // the image pane takes what is left after the details column, and very large screens stop at 1880×1240.
+      className="m-auto h-[calc(100dvh-32px)] focus-visible:outline-none max-h-none w-[calc(100vw-32px)] max-w-none overflow-hidden border border-line-strong bg-[#0D0D0F] p-0 text-fg shadow-modal backdrop:bg-[var(--scrim)] min-[900px]:h-[min(1240px,calc(100dvh-2*clamp(24px,3vw,64px)))] min-[900px]:w-[min(1880px,calc(100vw-2*clamp(24px,3vw,64px)))]"
     >
-      <div className="grid h-full grid-rows-[55vh_minmax(0,1fr)] min-[900px]:grid-cols-[minmax(0,720px)_minmax(0,1fr)] min-[900px]:grid-rows-1">
+      <div className="grid h-full grid-rows-[42vh_minmax(0,1fr)] min-[900px]:grid-cols-[minmax(0,1fr)_clamp(460px,36vw,680px)] min-[900px]:grid-rows-1">
         <ImagePane
           source={data}
           hit={context.hit}

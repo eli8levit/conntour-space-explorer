@@ -50,16 +50,17 @@ export function ImageDetails({ source, hit, query, semanticOn, archive, extent, 
         </button>
       </div>
 
-      <Description text={caption.text} terms={terms} />
-      <MetaGrid source={source} caption={caption} />
-      <Keywords keywords={source.keywords} terms={terms} />
+      {/* Where first: the place is the special feature, so it is on screen when the modal opens. */}
+      {source.place && <WhereSeen source={source} />}
 
-      <div className={`grid gap-7 border-t border-line pt-4 ${hit && query ? "sm:grid-cols-2" : ""}`}>
+      <div className={`grid gap-7 ${hit && query ? "sm:grid-cols-2" : ""}`}>
         {hit && query && <MatchBlock hit={hit} query={query} semanticOn={semanticOn} />}
         {archive.length > 0 && <PlaceInTime source={source} archive={archive} extent={extent} />}
       </div>
 
-      {source.place && <WhereSeen source={source} />}
+      <Description text={caption.text} terms={terms} />
+      <MetaGrid source={source} caption={caption} />
+      <Keywords keywords={source.keywords} terms={terms} />
     </div>
   );
 }
@@ -207,26 +208,36 @@ function PlaceInTime({ source, archive, extent }: { source: Source; archive: Sou
   );
 }
 
-/** A3·12–13: where it was seen, how we know, and the door into the Space view. */
+/**
+ * A3·12–13: where it was seen. The locator spans the column; under it, the
+ * place in words, how we know it, and the door into the Space view.
+ */
 function WhereSeen({ source }: { source: Source }) {
   const place = source.place!;
   const coordinates = formatCoordinates(place);
   const body = bodyLabel(place.body);
   const label = place.label === body ? body : `${place.label}, ${body}`;
   return (
-    <div className="mt-auto grid items-center gap-[18px] border-t border-line pt-[18px] sm:grid-cols-[220px_minmax(0,1fr)]">
-      <div className="h-[150px] w-[220px] border border-line bg-[#050506]">
-        <LocatorMini place={place} />
+    <section aria-label="Where this was seen" className="flex flex-col gap-3">
+      <div className="border border-line">
+        <LocatorMini place={place} sourceId={source.id} />
       </div>
-      <div className="flex flex-col gap-1.5">
-        <span className="text-xs text-muted">Where this was seen</span>
-        <span className="text-[17px]">{label}</span>
-        {coordinates && <span className="text-xs text-soft">{coordinates}</span>}
-        <span className="text-xs text-faint">{provenanceLabel(place.provenance)}</span>
-        <Link to={`/scene?focus=${source.id}`} className="mt-1 text-[13px] underline underline-offset-2 hover:text-accent-text">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-xs text-muted">Where this was seen</span>
+          <span className="text-[17px] leading-tight">{label}</span>
+          <span className="text-xs text-faint">
+            {coordinates && <span className="text-soft">{coordinates} · </span>}
+            {provenanceLabel(place.provenance)}
+          </span>
+        </div>
+        <Link
+          to={`/scene?focus=${source.id}`}
+          className="shrink-0 text-[13px] underline underline-offset-2 hover:text-accent-text"
+        >
           Fly there in Space view →
         </Link>
       </div>
-    </div>
+    </section>
   );
 }
