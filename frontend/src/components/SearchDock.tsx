@@ -126,6 +126,12 @@ export function SearchDock({ variant, query = "", engine, children }: SearchDock
           <span>Press / to search</span>
         </div>
       )}
+      {/* Phones: the toggle gets its own row, so it keeps its full labels and says what the mode does. */}
+      {/* Joined to the box below and opaque: on A2 it sits over the result frames. */}
+      <div className="flex items-center justify-between gap-3 border-x border-t border-[#2E2E33] bg-[#0B0B0C] py-2 pl-4 pr-3 sm:hidden">
+        <span className="whitespace-nowrap text-[11px] text-muted">{MODES.find((option) => option.value === mode)!.note}</span>
+        <ModeToggle mode={mode} disabled={running} onChange={chooseMode} />
+      </div>
       <form
         role="search"
         onSubmit={handleSubmit}
@@ -145,7 +151,7 @@ export function SearchDock({ variant, query = "", engine, children }: SearchDock
           onChange={(event) => setText(event.target.value)}
           onKeyDown={handleKeyDown}
           maxLength={MAX_QUERY_LENGTH}
-          // The mode toggle shares the row, so a phone gets the short version (it would be cut off).
+          // A phone row is narrow (icon, input, ⏎ button), so it gets the short version.
           placeholder={narrow ? "Search photos" : "Describe what you’re looking for"}
           autoComplete="off"
           enterKeyHint="search"
@@ -155,7 +161,9 @@ export function SearchDock({ variant, query = "", engine, children }: SearchDock
             variant === "browse" ? "text-[15px] sm:text-[22px]" : "text-xl sm:text-2xl"
           }`}
         />
-        <ModeToggle mode={mode} disabled={running} onChange={chooseMode} />
+        <div className="hidden sm:flex">
+          <ModeToggle mode={mode} disabled={running} onChange={chooseMode} />
+        </div>
         {variant === "browse" ? (
           <button
             type="submit"
@@ -164,7 +172,7 @@ export function SearchDock({ variant, query = "", engine, children }: SearchDock
             aria-label="Search"
             className="h-10 shrink-0 bg-accent px-3.5 text-xs font-medium text-bg disabled:cursor-default sm:px-4"
           >
-            {/* On a phone the row also holds the toggle, so the button keeps only the ⏎. */}
+            {/* On a phone the row is narrow, so the button keeps only the ⏎. */}
             <span aria-hidden="true" className="sm:hidden">{running ? "…" : "⏎"}</span>
             <span aria-hidden="true" className="hidden sm:inline">{running ? "Searching…" : "Search ⏎"}</span>
           </button>
@@ -183,9 +191,10 @@ export function SearchDock({ variant, query = "", engine, children }: SearchDock
   );
 }
 
-const MODES: { value: SearchEngine; label: string; short: string; hint: string }[] = [
-  { value: "hybrid", label: "Combined", short: "All", hint: "Meaning and matching words" },
-  { value: "keyword", label: "Keywords", short: "Words", hint: "Matching words only" },
+// `note` is the one-line version of `hint`, shown beside the toggle on phones (no hover there).
+const MODES: { value: SearchEngine; label: string; hint: string; note: string }[] = [
+  { value: "hybrid", label: "Combined", hint: "Meaning and matching words", note: "Meaning + words" },
+  { value: "keyword", label: "Keywords", hint: "Matching words only", note: "Exact words only" },
 ];
 
 /**
@@ -206,12 +215,11 @@ function ModeToggle({ mode, disabled, onChange }: { mode: SearchEngine; disabled
             title={option.hint}
             disabled={disabled}
             onClick={() => onChange(option.value)}
-            className={`px-2 text-[11px] leading-none transition-colors sm:px-3 sm:text-[13px] ${
+            className={`px-3 text-[13px] leading-none transition-colors ${
               active ? "bg-fg/[0.14] text-fg" : "text-faint hover:text-fg"
             }`}
           >
-            <span className="sm:hidden">{option.short}</span>
-            <span className="hidden sm:inline">{option.label}</span>
+            {option.label}
           </button>
         );
       })}

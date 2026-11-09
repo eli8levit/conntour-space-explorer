@@ -1,5 +1,6 @@
 import { Link, useMatch } from "react-router-dom";
 import { HistoryButton } from "./HistoryTab";
+import { InfoIcon } from "./Icons";
 import { Mark } from "./Mark";
 import { useArchive } from "../hooks/sources";
 import { useResultView } from "../hooks/useResultView";
@@ -46,24 +47,32 @@ export function Header() {
 
       {!onScene && <HistoryButton />}
 
-      <div className="hidden shrink-0 items-center gap-6 text-[13px] lg:flex">
-        {/* A static page outside the SPA (public/architecture.html), so a plain link, not a router Link. */}
-        <a href="/architecture.html" className="text-muted hover:text-fg">
-          How it works
+      <div className="flex shrink-0 items-center gap-6 text-[13px]">
+        {/* A static page outside the SPA (public/architecture.html), so a plain link, not a router Link.
+            Below lg the header has no room for the words: a small icon button, like History's. */}
+        <a
+          href="/architecture.html"
+          aria-label="How it works"
+          className="flex h-9 items-center border border-line-strong px-2.5 text-fg lg:h-auto lg:border-0 lg:px-0 lg:text-muted lg:hover:text-fg"
+        >
+          <InfoIcon size={15} className="lg:hidden" />
+          <span className="hidden lg:inline">How it works</span>
         </a>
-        {searchId !== null ? (
-          <Link to={`/scene?search=${searchId}`} className="text-muted hover:text-fg">
-            See these in space →
-          </Link>
-        ) : onScene ? (
-          <Link to="/" className="text-muted hover:text-fg">
-            ← Back to the archive
-          </Link>
-        ) : (
-          <Link to="/scene" className="text-muted hover:text-fg">
-            Space view →
-          </Link>
-        )}
+        <span className="hidden lg:contents">
+          {searchId !== null ? (
+            <Link to={`/scene?search=${searchId}`} className="text-muted hover:text-fg">
+              See these in space →
+            </Link>
+          ) : onScene ? (
+            <Link to="/" className="text-muted hover:text-fg">
+              ← Back to the archive
+            </Link>
+          ) : (
+            <Link to="/scene" className="text-muted hover:text-fg">
+              Space view →
+            </Link>
+          )}
+        </span>
       </div>
     </header>
   );
@@ -84,7 +93,8 @@ function ArchiveStatus() {
   const centers = new Set(items.map((source) => source.center)).size;
   const { from, to } = yearExtent(items);
   return (
-    <p className="flex items-center gap-2.5 whitespace-nowrap text-xs text-faint">
+    // Below sm the header also holds the History and How-it-works buttons: no room for the count.
+    <p className="hidden items-center gap-2.5 whitespace-nowrap text-xs text-faint sm:flex">
       <Dot size={6} />
       <span className="text-fg">{archive.data.total} images</span>
       <span className="hidden sm:inline">·</span>
@@ -102,7 +112,8 @@ function SearchStatus({ id }: { id: number }) {
   const view = useResultView(id);
   if (!view.search.data || !view.archive.data) return null;
   return (
-    <p className="flex min-w-0 items-center gap-2.5 text-sm text-muted">
+    // Below sm there is no room next to the buttons; the ranked list says the same thing.
+    <p className="hidden min-w-0 items-center gap-2.5 text-sm text-muted sm:flex">
       <Dot size={7} />
       <span className="truncate">
         <span className="text-fg">{resultSummary(view.strongCount, view.faintCount)}</span>
