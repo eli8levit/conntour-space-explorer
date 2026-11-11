@@ -1,6 +1,5 @@
 import { Link, useMatch } from "react-router-dom";
 import { HistoryButton } from "./HistoryTab";
-import { InfoIcon } from "./Icons";
 import { Mark } from "./Mark";
 import { useArchive } from "../hooks/sources";
 import { useResultView } from "../hooks/useResultView";
@@ -41,22 +40,21 @@ export function Header() {
       </Link>
 
       {/* Spaced like the design: three groups, equal gaps between them (not a strict centre). */}
-      <div className="min-w-0">
+      {/* Below sm the status is hidden, so the empty slot is dropped too: History then sits next to How it works. */}
+      <div className="hidden min-w-0 sm:block">
         {searchId !== null ? <SearchStatus id={searchId} /> : onScene ? null : <ArchiveStatus />}
       </div>
 
-      {!onScene && <HistoryButton />}
-
-      <div className="flex shrink-0 items-center gap-6 text-[13px]">
+      <div className="flex shrink-0 items-center gap-2 text-[13px] lg:gap-6">
+        {/* Phones only (the button hides itself from sm): beside How it works, not alone in the middle. */}
+        {!onScene && <HistoryButton />}
         {/* A static page outside the SPA (public/architecture.html), so a plain link, not a router Link.
-            Below lg the header has no room for the words: a small icon button, like History's. */}
+            Below lg it is a bordered button, like History's, with the same words as on desktop. */}
         <a
           href="/architecture.html"
-          aria-label="How it works"
-          className="flex h-9 items-center border border-line-strong px-2.5 text-fg lg:h-auto lg:border-0 lg:px-0 lg:text-muted lg:hover:text-fg"
+          className="flex h-9 items-center whitespace-nowrap border border-line-strong px-2.5 text-fg lg:h-auto lg:border-0 lg:px-0 lg:text-muted lg:hover:text-fg"
         >
-          <InfoIcon size={15} className="lg:hidden" />
-          <span className="hidden lg:inline">How it works</span>
+          How it works
         </a>
         <span className="hidden lg:contents">
           {searchId !== null ? (

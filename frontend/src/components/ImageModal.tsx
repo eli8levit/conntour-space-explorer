@@ -128,8 +128,12 @@ function ImageDialog({ id, onClose: closeUrl }: { id: number; onClose: () => voi
       }}
       // Chrome may close a dialog on Esc without a cancel event (when the page has had no user
       // activation since it opened). The URL must follow, or ?image= stays and the same image
-      // cannot be opened again.
-      onClose={onClose}
+      // cannot be opened again. A close event that lands while the dialog is open is stale: in dev,
+      // StrictMode mounts twice, and the first mount's close() fires its event after the second
+      // showModal(). Without this check, that event closed the image right after it opened.
+      onClose={(event) => {
+        if (!event.currentTarget.open) onClose();
+      }}
       onClick={(event) => {
         // A click on the dialog element itself (not its content) is a click on the scrim.
         if (event.target === event.currentTarget) onClose();

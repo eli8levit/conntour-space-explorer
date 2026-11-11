@@ -12,7 +12,7 @@ import {
 import { flushSync } from "react-dom";
 import type { Source } from "../api/types";
 import { useReducedMotion } from "../scene/useReducedMotion";
-import { GAP, PITCH, formatPlate, packRound, shuffle, spanFor, type Round } from "../lib/canvas";
+import { cellsFor, formatPlate, packRound, shuffle, spanFor, type Cells, type Round } from "../lib/canvas";
 import { frameTransitionName } from "../lib/viewTransition";
 import { CanvasFrame } from "./CanvasFrame";
 
@@ -38,16 +38,17 @@ const DRAG_THRESHOLD = 4;
  * cropped at both sides: a window onto a bigger table, not a page.
  */
 export function canvasGeometry(width: number) {
+  const cells = cellsFor(width);
   const crop = Math.round(Math.min(262, Math.max(36, width * 0.18)));
-  const cols = Math.max(3, Math.ceil((width + 2 * crop) / PITCH));
-  return { crop, cols, gridWidth: cols * PITCH - GAP };
+  const cols = Math.max(3, Math.ceil((width + 2 * crop) / cells.pitch));
+  return { cells, crop, cols, gridWidth: cols * cells.pitch - cells.gap };
 }
 
 interface Block {
   key: number;
   round: Round<Source>;
 }
-const heightOf = (block: Block) => block.round.rows * PITCH;
+const heightOf = (block: Block, pitch: number) => block.round.rows * pitch;
 
 interface BrowseCanvasProps {
   /** Empty while the archive loads: the canvas then shows grey blocks at their final sizes. */
@@ -69,7 +70,7 @@ export function BrowseCanvas({ sources, imageLink, paused }: BrowseCanvasProps) 
   const strip = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
   const [width, setWidth] = useState(() => window.innerWidth);
-  const { crop, cols, gridWidth } = canvasGeometry(width);
+  const { cells, crop, cols, gridWidth } = canvasGeometry(width);
 
   const [blocks, setBlocks] = useState<Block[]>([]);
   // The round that holds the middle of the window. Only its frames carry
@@ -88,6 +89,7 @@ export function BrowseCanvas({ sources, imageLink, paused }: BrowseCanvasProps) 
     paused,
     sources,
     cols,
+    pitch: cells.pitch,
   });
   live.current.paused = paused;
 
@@ -124,23 +126,24 @@ export function BrowseCanvas({ sources, imageLink, paused }: BrowseCanvasProps) 
     const state = live.current;
     if (state.sources.length === 0) return;
     const viewHeight = viewport.current?.clientHeight ?? window.innerHeight;
+    const { pitch } = state;
     let list = state.blocks;
     const before = list;
-    while (list.length > 1 && state.offset >= heightOf(list[0]!)) {
-      state.offset -= heightOf(list[0]!);
+    while (list.length > 1 && state.offset >= heightOf(list[0]!, pitch)) {
+      state.offset -= heightOf(list[0]!, pitch);
       list = list.slice(1);
     }
     while (state.offset < 0) {
       // Dragged down past the first round: a new one joins at the top.
       const block = makeBlock(list[0] && { block: list[0], side: "above" });
       list = [block, ...list];
-      state.offset += heightOf(block);
+      state.offset += heightOf(block, pitch);
     }
-    let total = list.reduce((sum, block) => sum + heightOf(block), 0);
-    while (total - state.offset < viewHeight + 2 * PITCH) {
+    let total = list.reduce((sum, block) => sum + heightOf(block, pitch), 0);
+    while (total - state.offset < viewHeight + 2 * pitch) {
       const block = makeBlock(list.at(-1) && { block: list.at(-1)!, side: "below" });
       list = [...list, block];
-      total += heightOf(block);
+      total += heightOf(block, pitch);
     }
     if (list !== before) {
       state.blocks = list;
@@ -153,7 +156,7 @@ export function BrowseCanvas({ sources, imageLink, paused }: BrowseCanvasProps) 
     let top = -state.offset;
     const middle = viewHeight / 2;
     const primary = list.find((block) => {
-      top += heightOf(block);
+      top += heightOf(block, pitch);
       return top > middle;
     });
     setPrimaryKey(primary?.key ?? null);
@@ -183,11 +186,12 @@ export function BrowseCanvas({ sources, imageLink, paused }: BrowseCanvasProps) 
     };
   }, []);
 
-  // New data or a new column count: build the rounds again from the top.
+  // New data, a new column count or a new cell size: build the rounds again from the top.
   useLayoutEffect(() => {
     const state = live.current;
     state.sources = sources;
     state.cols = cols;
+    state.pitch = cells.pitch;
     state.blocks = [];
     state.offset = START_OFFSET;
     state.x = -crop;
@@ -195,7 +199,7 @@ export function BrowseCanvas({ sources, imageLink, paused }: BrowseCanvasProps) 
     apply();
     // settle/apply only read refs and stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sources, cols, crop]);
+  }, [sources, cols, crop, cells.pitch]);
 
   // The transform must follow every committed change of rounds.
   useLayoutEffect(apply, [blocks]);
@@ -301,7 +305,7 @@ export function BrowseCanvas({ sources, imageLink, paused }: BrowseCanvasProps) 
     >
       <div ref={strip} className="absolute left-0 top-0 will-change-transform" style={{ width: gridWidth }}>
         {placeholder ? (
-          <PlaceholderRound cols={cols} />
+          <PlaceholderRound cols={cols} cells={cells} />
         ) : (
           blocks.map((block) => (
             <RoundView
@@ -310,6 +314,7 @@ export function BrowseCanvas({ sources, imageLink, paused }: BrowseCanvasProps) 
               primary={block.key === primaryKey}
               plates={plates}
               imageLink={imageLink}
+              cells={cells}
             />
           ))
         )}
@@ -320,11 +325,11 @@ export function BrowseCanvas({ sources, imageLink, paused }: BrowseCanvasProps) 
   );
 }
 
-const box = (x: number, y: number, [cols, rows]: readonly [number, number]) => ({
-  left: x * PITCH,
-  top: y * PITCH,
-  width: cols * PITCH - GAP,
-  height: rows * PITCH - GAP,
+const box = (x: number, y: number, [cols, rows]: readonly [number, number], { pitch, gap }: Cells) => ({
+  left: x * pitch,
+  top: y * pitch,
+  width: cols * pitch - gap,
+  height: rows * pitch - gap,
 });
 
 interface RoundViewProps {
@@ -332,6 +337,7 @@ interface RoundViewProps {
   primary: boolean;
   plates: Map<number, string>;
   imageLink: (id: number) => string;
+  cells: Cells;
 }
 
 /**
@@ -339,15 +345,15 @@ interface RoundViewProps {
  * Only the primary round is in the accessibility tree and the tab order;
  * the others are visual copies.
  */
-const RoundView = memo(function RoundView({ round, primary, plates, imageLink }: RoundViewProps) {
+const RoundView = memo(function RoundView({ round, primary, plates, imageLink, cells }: RoundViewProps) {
   return (
-    <ul aria-hidden={primary ? undefined : true} className="relative" style={{ height: round.rows * PITCH }}>
+    <ul aria-hidden={primary ? undefined : true} className="relative" style={{ height: round.rows * cells.pitch }}>
       {round.slots.map((slot, index) => (
         <CanvasFrame
           key={slot.filler ? `f${index}` : slot.item.id}
           source={slot.item}
           span={slot.span}
-          box={box(slot.x, slot.y, slot.span)}
+          box={box(slot.x, slot.y, slot.span, cells)}
           plate={plates.get(slot.item.id) ?? ""}
           to={imageLink(slot.item.id)}
           transitionName={primary && !slot.filler ? frameTransitionName(slot.item.id) : undefined}
@@ -361,12 +367,12 @@ const RoundView = memo(function RoundView({ round, primary, plates, imageLink }:
 // While loading: one round of grey blocks at the frames' final sizes (no spinners).
 const PLACEHOLDER_IDS = Array.from({ length: 100 }, (_, index) => index + 1);
 
-function PlaceholderRound({ cols }: { cols: number }) {
+function PlaceholderRound({ cols, cells }: { cols: number; cells: Cells }) {
   const round = packRound(PLACEHOLDER_IDS, spanFor, cols);
   return (
-    <ul aria-hidden="true" className="relative" style={{ height: round.rows * PITCH }}>
+    <ul aria-hidden="true" className="relative" style={{ height: round.rows * cells.pitch }}>
       {round.slots.map((slot, index) => (
-        <li key={index} className="absolute bg-raised" style={box(slot.x, slot.y, slot.span)} />
+        <li key={index} className="absolute bg-raised" style={box(slot.x, slot.y, slot.span, cells)} />
       ))}
     </ul>
   );

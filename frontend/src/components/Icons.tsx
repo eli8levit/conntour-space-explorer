@@ -59,13 +59,3 @@ export function PinIcon({ size = 16, className }: IconProps) {
     </svg>
   );
 }
-
-/** An "i" in a circle: the phone header's way to the How-it-works page. */
-export function InfoIcon({ size = 16, className }: IconProps) {
-  return (
-    <svg {...base(size)} strokeWidth={1.6} className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v6M12 7.5v.01" />
-    </svg>
-  );
-}

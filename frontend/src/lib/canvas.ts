@@ -35,10 +35,21 @@ export function formatPlate(position: number): string {
 
 // ---- The endless canvas: one "round" of the archive, packed into a grid. ----
 
-/** One cell is 116px with an 8px gap, so cells repeat every 124px. */
-export const CELL = 116;
-export const GAP = 8;
-export const PITCH = CELL + GAP;
+/** Cell size and gap in px. `pitch` is the distance from one cell to the next. */
+export interface Cells {
+  cell: number;
+  gap: number;
+  pitch: number;
+}
+
+/**
+ * The cell follows the window width. On a phone a desktop-size cell makes a
+ * 3×2 frame almost as wide as the screen, so phones and tablets get smaller cells.
+ */
+export function cellsFor(width: number): Cells {
+  const [cell, gap] = width < 640 ? [76, 6] : width < 1024 ? [96, 8] : [116, 8];
+  return { cell, gap, pitch: cell + gap };
+}
 
 export interface Slot<T> {
   item: T;
